@@ -56,6 +56,43 @@ in `AGENTS.md`.
 | `pabloossandon88` | Pablo Ossandón |
 | `cristiannieto82` | Cristian Nieto |
 
+## Deploy: the operator's PC
+
+The app runs on Felipe's desktop, which stays on through the delivery, as a
+systemd user service. It needs an always-on process because it polls Gmail,
+runs the night scheduler and answers the Meta webhook even when every laptop
+at the venue is closed. Agents never deploy by hand (see `AGENTS.md`).
+
+- `pulso.service` runs `bun src/main.ts` from `~/pulso-live`, a checkout kept
+  on `origin/main`, on `127.0.0.1:3010`, with secrets from Doppler `prd`.
+- `pulso-update.timer` runs `deploy/update.sh` every minute: when `main`
+  moved, it checks it out, installs and restarts the app. Merging deploys.
+- Patricia's SQLite file is `~/.local/share/pulso/pulso.db`, outside the
+  checkout, so deploys keep her state.
+- Tailscale Funnel publishes the app at `https://desktop.taild8ed7e.ts.net`.
+  That URL is the Meta webhook base.
+- Fallback if the PC fails: `doppler run -- bun run start` on a laptop plus
+  a tunnel, then point the Meta webhook at it.
+
+Operator setup, once:
+
+```bash
+deploy/install.sh                                         # checkout, units, start
+tailscale funnel --bg --https=443 http://127.0.0.1:3010   # publish the port
+curl -s https://desktop.taild8ed7e.ts.net/health          # {"status":"ok"}
+```
+
+Day to day:
+
+```bash
+systemctl --user status pulso.service
+journalctl --user -u pulso.service -u pulso-update.service -f
+tailscale funnel status
+```
+
+Units changed in `deploy/` take effect only after re-running `deploy/install.sh`.
+Keep the PC from suspending until the pitches end.
+
 ## Secrets: Doppler `pulso-hackathon-2026`
 
 Every secret the team or the app needs lives in the Doppler project
@@ -92,7 +129,10 @@ Rules:
 
 ### Required variables
 
-None yet. Add one row per variable when the app first needs it.
+Add one row per variable when the app first needs it. `HOST`, `PORT` and
+`DATABASE_PATH` for the live app are set in `deploy/pulso.service`, not Doppler.
 
 | Variable | Configs | What it is for |
 | --- | --- | --- |
+| `DATABASE_PATH` | none (unit) | SQLite file; defaults to `data/pulso.db` locally |
+| `HOST` | none (unit) | listen address; unset means all interfaces |
