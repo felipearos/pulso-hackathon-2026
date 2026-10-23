@@ -117,6 +117,12 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
       intentosS2.delete(mail.id);
     }
   };
+  // One mail's whole way in, the same whether Gmail brought it or /sala injected it.
+  const ingestMail = async (mail: IncomingMail) => {
+    const senal = await receive(mail);
+    if (senal?.tipo === "S1" || senal?.tipo === "S2") await extractOrKeep(mail);
+    return senal;
+  };
   // How many polls in a row failed. The poll keeps trying every tick, but only
   // the first failure of a run is logged and recorded, so a Gmail outage left
   // alone all night writes two lines, not one per minute.
@@ -164,8 +170,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     }
     for (const mail of mails) {
       try {
-        const tipo = (await receive(mail))?.tipo;
-        if (tipo === "S1" || tipo === "S2") await extractOrKeep(mail);
+        await ingestMail(mail);
       } catch (error) {
         // One mail that fails must not cost the rest of the batch.
         console.error(`mail: ${mail.id} failed: ${errorMessage(error)}`);
@@ -222,6 +227,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     canal,
     simulador,
     inject: (inbound) => webhook.inject(inbound),
+    injectMail: ingestMail,
   });
   return {
     handle: async (request) => (await demo(request)) ?? permitir.handle(request) ?? routes(request),

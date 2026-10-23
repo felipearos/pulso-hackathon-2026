@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { santiagoParts } from "../clock/santiago";
 import { PATRICIA_START } from "../patricia/fixtures";
 import type { App } from "../app";
+import type { TipoSenal } from "../patricia/entities";
 import { createTestApp } from "../testing";
 
 const TOKEN = "operador-secreto-de-prueba";
@@ -39,6 +40,7 @@ describe("/sala without the operator token", () => {
     ["GET", "/sala/simulador/media/sim-out-1"],
     ["POST", "/sala/simulador"],
     ["POST", "/sala/simulador/mensaje"],
+    ["POST", "/sala/correos/banco"],
   ];
 
   test("every endpoint answers 404 when no token is configured, whatever is sent", async () => {
@@ -92,6 +94,7 @@ describe("/sala with the operator token", () => {
       "/sala/conversacion",
       "/sala/simulador",
       "/sala/simulador/mensaje",
+      "/sala/correos/",
       "x-demo-token",
     ]) {
       expect(page).toContain(reference);
@@ -162,5 +165,77 @@ describe("/sala with the operator token", () => {
     const response = await get(app, "/demo");
     expect(response.status).toBe(200);
     expect(await response.text()).not.toContain("x-demo-token");
+  });
+});
+
+/** What Claude answers for the sample bank mail's estado de cuenta; fictional figures. */
+const BANCO_REPLY = {
+  pagoMinimo: 41900,
+  totalFacturado: 650000,
+  cupo: 800000,
+  tasaMensualPorcentaje: 3.1,
+  fechaVencimiento: "2026-11-05",
+  fechaCierre: "2026-10-15",
+  mora: 0,
+  pagosAnteriores: [],
+  comprasEnCuotas: [],
+};
+
+type Correo = { at: string; tipo: string; subject: string; from: string; etiqueta: string };
+
+describe("/sala sample mails", () => {
+  const createMailApp = () => {
+    const testApp = createTestApp({ demoToken: TOKEN, llm: [["Estado de cuenta:", JSON.stringify(BANCO_REPLY)]] });
+    // Gmail is not allowed: the sample mails do not depend on her «Permitir».
+    expect(testApp.app.store.getPatricia().gmailPermitido).toBe(false);
+    return testApp;
+  };
+
+  test("each sample mail becomes its señal through the app's mail flow", async () => {
+    const { app } = createMailApp();
+    const expected: [string, TipoSenal][] = [
+      ["banco", "S1"],
+      ["tienda", "S2"],
+      ["pedido", "S3"],
+      ["cuotas", "S4"],
+      ["pago", "S5"],
+      ["falso", "S7"],
+      ["publicidad", "ignorado"],
+    ];
+    for (const [kind, tipo] of expected) {
+      const response = await post(app, `/sala/correos/${kind}`);
+      expect([kind, response.status]).toEqual([kind, 200]);
+      const { correos } = (await response.json()) as { correos: Correo[] };
+      expect([kind, correos.at(-1)?.tipo]).toEqual([kind, tipo]);
+      expect(correos.at(-1)?.at).toBe(app.clock.now().toISOString());
+    }
+    expect(app.store.senales().map((senal) => senal.tipo)).toEqual(expected.map(([, tipo]) => tipo));
+  });
+
+  test("the falso is labelled sospechoso and the publicidad ignorado", async () => {
+    const { app } = createMailApp();
+    await post(app, "/sala/correos/falso");
+    const { correos } = (await (await post(app, "/sala/correos/publicidad")).json()) as { correos: Correo[] };
+    expect(correos.map(({ tipo, etiqueta }) => [tipo, etiqueta])).toEqual([
+      ["S7", "sospechoso"],
+      ["ignorado", "ignorado"],
+    ]);
+  });
+
+  test("the bank sample's estado de cuenta is read as tick reads it", async () => {
+    const { app, llm } = createMailApp();
+    await post(app, "/sala/correos/banco");
+    expect(llm.calls.some((call) => call.prompt.includes("Estado de cuenta:"))).toBe(true);
+    expect(app.store.extraccionForMail("muestra-banco-estado")).not.toBeNull();
+    expect(app.store.estadosDeCuenta()).toHaveLength(1);
+  });
+
+  test("an unknown kind or an inherited property name is refused", async () => {
+    const { app } = createMailApp();
+    for (const kind of ["otro", "toString", "__proto__", "%E0%A4%A"]) {
+      const response = await post(app, `/sala/correos/${kind}`);
+      expect([kind, response.status]).toEqual([kind, 400]);
+    }
+    expect(app.store.senales()).toEqual([]);
   });
 });
