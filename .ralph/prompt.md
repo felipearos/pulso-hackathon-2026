@@ -49,6 +49,25 @@ early queueing and `hold` opts out, matching the reference project's policy.
 Post `@mergifyio requeue` only after diagnosing the failed queue build and
 confirming the retry is justified. Do not loop blindly or override red CI.
 
+<!-- ralph:section CODEX -->
+5. **Codex reviews every push on its own; answer it, never wait for it.**
+   The Codex connector reviews each PR head without being asked, usually
+   within the hour, and leaves its findings as inline review threads with a
+   P1–P3 badge. Do not comment `@codex review` and do not wait or poll for
+   a review that has not arrived: §5 step 6's review-thread check judges
+   whatever is there when you check it. Mergify's thirty-minute settling
+   rule is what gives Codex its window, so leave it alone.
+
+   Every Codex thread the check lists gets the treatment step 6 describes:
+   fix real P1/P2s with a test (P3s by judgment), and reply on every thread
+   in Spanish, `Corregido en <sha>.` or why the finding does not hold. There
+   is no mandatory confirming review after a fix; the next green CI and an
+   empty review-thread check are the gate.
+
+<!-- ralph:section CODEX_REBASE -->
+A rebase marks open Codex threads outdated, but they still count:
+     answer each one (the finding may still hold), as §5 step 6 says.
+
 <!-- ralph:section CI_DOCTOR -->
 The authoritative CI is Buildkite `buildkite/pulso-hackathon-2026`. Mergify owns the merge
 queue. Use only this repository's cases. Infrastructure, credentials,
