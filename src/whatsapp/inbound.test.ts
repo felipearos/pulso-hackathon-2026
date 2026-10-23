@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Database } from "bun:sqlite";
 import type { App } from "../app";
 import { FakeLlm, FakeVoice, FakeWhatsApp } from "../fakes";
+import { parseSantiago } from "../clock/santiago";
 import { createTestApp, TEST_START, type TestApp } from "../testing";
 import {
   FOTO_NO_LEIDA,
@@ -319,5 +320,52 @@ describe("receiveInbound", () => {
     ]);
     // The foto Luna could not read adds her calm answer to its own line.
     expect(app.store.decisions()).toHaveLength(4);
+  });
+});
+
+describe("receiveInbound in the madrugada", () => {
+  const NIGHT = parseSantiago("2026-10-20T02:30");
+
+  function madrugadaNotes(t: TestApp) {
+    return t.app.store.decisions().filter((d) => (d.datos as { madrugada?: boolean } | null)?.madrugada === true);
+  }
+
+  test("a nota de voz Luna cannot hear gets the madrugada note, not the request for an emoji", async () => {
+    const t = createTestApp({ now: NIGHT, voice: { transcribeFailures: 1 } });
+    t.whatsapp.media.set("media-audio-1", VOICE_NOTE);
+
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType: "audio/ogg" }));
+
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
+    expect(madrugadaNotes(t)).toHaveLength(1);
+    expect(t.app.store.pendientes().map((p) => p.tipo)).toEqual(["preocupacion"]);
+  });
+
+  test("a foto Luna cannot read gets the madrugada note, not the request for the mínimo", async () => {
+    const t = createTestApp({ now: NIGHT });
+
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "image", mediaId: "media-image-1", mimeType: null }));
+
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
+    expect(madrugadaNotes(t)).toHaveLength(1);
+  });
+
+  test("an unknown kind gets the madrugada note", async () => {
+    const t = createTestApp({ now: NIGHT });
+
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "other", type: "sticker" }));
+
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
+    expect(madrugadaNotes(t)).toHaveLength(1);
+  });
+
+  test("during a pausa, an unread message at night gets no answer", async () => {
+    const t = createTestApp({ now: NIGHT });
+    t.app.store.updatePatricia({ enPausa: true });
+
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "other", type: "sticker" }));
+
+    expect(t.whatsapp.outbox).toEqual([]);
+    expect(t.app.store.pendientes()).toEqual([]);
   });
 });

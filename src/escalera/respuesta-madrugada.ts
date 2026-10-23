@@ -36,7 +36,7 @@ function answeredThisMadrugada(store: Store, now: Date): boolean {
  * fixed. A failure is logged and never thrown: her message is already stored.
  */
 export async function answerMadrugada(
-  deps: { store: Store; voice: Voice; whatsapp: WhatsApp },
+  deps: { store: Store; voice?: Voice; whatsapp: WhatsApp },
   input: { text: string; whatsappId: string | null; now: Date },
 ): Promise<void> {
   const { store, voice, whatsapp } = deps;
@@ -49,6 +49,7 @@ export async function answerMadrugada(
   const { nombre, voz } = store.getPatricia();
   const text = answeredThisMadrugada(store, input.now) ? madrugadaTextOtraVez(nombre) : madrugadaText(nombre);
   try {
+    if (!voice) throw new Error("no voice port to speak the madrugada answer");
     const audio = await voice.synthesize(text, vozDe(voz));
     // No retry: the WhatsApp adapter does not retry in the madrugada either.
     const { id: whatsappId } = await whatsapp.send({
@@ -64,7 +65,7 @@ export async function answerMadrugada(
     });
   } catch (cause) {
     const error = cause instanceof Error ? cause.message : String(cause);
-    console.error(`madrugada: send failed: ${error}`);
+    console.error(`madrugada: answer failed: ${error}`);
     store.recordDecision({
       tipo: "mensaje",
       motivo: "no se pudo enviar la nota de madrugada",

@@ -17,8 +17,11 @@ import { answerPregunta, lastAnswerAt } from "./preguntas";
 import { answerMadrugada } from "./respuesta-madrugada";
 import { decideEtapa, type Angustia, type Etapa, type EtapaInput, type EtapaMove, type Intencion } from "./policy";
 
-/** `db` lets a pausa or a return land with its decision in one transaction. */
-export type RespuestaDeps = { store: Store; llm: Llm; whatsapp: WhatsApp; voice: Voice; db: Database };
+/**
+ * `db` lets a pausa or a return land with its decision in one transaction.
+ * `voice` speaks the madrugada answer; without it that answer is logged as not sent.
+ */
+export type RespuestaDeps = { store: Store; llm: Llm; whatsapp: WhatsApp; voice?: Voice; db: Database };
 
 export type MensajeInput = {
   text: string;
@@ -245,7 +248,7 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
   });
 
   if (madrugada) {
-    // Stored at any hour; only the answer waits out the madrugada.
+    // A foto is stored at any hour; its answer is replaced by the madrugada note.
     if (input.foto) await answerFoto(deps, mensaje, input.foto.cifras, etapa === 4 ? "tienda" : "banco", false);
     await answerAtNight();
     return move;
