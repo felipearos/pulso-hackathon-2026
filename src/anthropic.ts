@@ -14,8 +14,8 @@ export function anthropicLlm(options: {
   return {
     async complete(request: LlmRequest): Promise<string> {
       const body = {
-        model: options.model ?? HAIKU_MODEL,
-        max_tokens: 256,
+        model: request.model ?? options.model ?? HAIKU_MODEL,
+        max_tokens: request.maxTokens ?? 256,
         ...(request.system === undefined ? {} : { system: request.system }),
         messages: [{ role: "user", content: request.prompt }],
       };
@@ -27,7 +27,7 @@ export function anthropicLlm(options: {
           "content-type": "application/json",
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
+        signal: AbortSignal.timeout(request.timeoutMs ?? options.timeoutMs ?? 10_000),
       });
 
       if (!response.ok) {
