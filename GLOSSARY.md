@@ -96,6 +96,23 @@ qué, qué leíste, crisis, otra). The LLM only classifies into it; the code
 policy turns intenciones into etapa moves (ADR 0001).
 _Avoid:_ "intent", "command".
 
+## Señal
+
+A mail from Patricia's inbox, classified by rules into S1 estado de cuenta
+del banco, S2 estado de cuenta de la tienda, S3 pago de un pedido del
+catálogo, S4 compra en cuotas, S5 «recibimos tu pago», S6 aviso de
+vencimiento, S7 correo sospechoso, or «ignorado». In `src/escalera/policy.ts`
+the type `Senal` is a different thing: an intención answering a cita.
+_Avoid:_ "event", "notification".
+
+## Registro de decisiones
+
+The append-only log of everything Luna decided (move the etapa, stay quiet,
+defer a cita, propose plata apartada, read a señal), each with the demo
+clock's time, its tipo, a motivo in Spanish and the input it was taken on.
+Nothing in it is ever edited or deleted; the control room shows it.
+_Avoid:_ "audit log", "history".
+
 ## Angustia
 
 How distressed Patricia says she feels, from 1 to 5. At 4 or more Luna
