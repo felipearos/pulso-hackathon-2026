@@ -6,7 +6,7 @@
  */
 
 import { ANGUSTIA_EMOJIS } from "../escalera/policy";
-import { buenaNoticia, PAGO_RECIBIDO, type BuenaNoticia } from "../figures/buena-noticia";
+import { buenaNoticia, PAGO_RECIBIDO, type BuenaNoticia, type CompraEnCuotas } from "../figures/buena-noticia";
 import { payoff } from "../figures/payoff";
 import type { Cita, Etapa, EstadoDeCuenta, TipoCita } from "../patricia/entities";
 import type { Llm } from "../ports";
@@ -62,14 +62,16 @@ function salida(cifras: NonNullable<EstadoDeCuenta["cifras"]>, fecha: string): C
  * What tonight's cita says, decided from the cita and her latest estado de
  * cuenta. The domingo cita carries the same cifra as any other, asks the
  * angustia and celebrates when a «recibimos tu pago» arrived this week
- * (`pagoRecibido`).
+ * (`pagoRecibido`). Her registered compras en cuotas (`comprasEnCuotas`) can
+ * give the buena noticia when one is about to end.
  */
 export function decisionDeCita(input: {
   cita: Cita;
   estadoDeCuenta: EstadoDeCuenta | null;
   pagoRecibido?: boolean;
+  comprasEnCuotas?: CompraEnCuotas[];
 }): DecisionDeCita {
-  const { cita, estadoDeCuenta, pagoRecibido = false } = input;
+  const { cita, estadoDeCuenta, pagoRecibido = false, comprasEnCuotas = null } = input;
   const cifras = estadoDeCuenta?.cifras ?? null;
   const bienvenida = cita.tipo === "bienvenida" || cita.tipo === "bienvenida-de-vuelta";
   const domingo = cita.tipo === "domingo";
@@ -88,7 +90,7 @@ export function decisionDeCita(input: {
     buenaNoticia:
       domingo && pagoRecibido
         ? PAGO_RECIBIDO
-        : buenaNoticia({ mora: cifras?.overdue ?? null, pagosAnteriores: null, comprasEnCuotas: null }),
+        : buenaNoticia({ mora: cifras?.overdue ?? null, pagosAnteriores: null, comprasEnCuotas }),
     cifra,
     pregunta: domingo ? PREGUNTA_ANGUSTIA : bienvenida ? PREGUNTA_BIENVENIDA : PREGUNTA,
     motivo: cita.motivo,
