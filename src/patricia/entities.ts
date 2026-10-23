@@ -127,6 +127,10 @@ export type TipoDecision =
   | "diferir"
   /** Luna proposed setting plata apartada. */
   | "proponer-plata-apartada"
+  /** Luna proposed seeing a compra en cuotas tomorrow night. */
+  | "proponer-verlo-manana"
+  /** Luna sent a warm reply about cuotas for a remedy or her mother. */
+  | "acompanar-compra"
   /** A mail was classified into a señal. */
   | "senal"
   /** A message was sent or received. */

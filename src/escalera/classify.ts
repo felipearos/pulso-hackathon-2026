@@ -30,7 +30,7 @@ Los tipos permitidos son:
 - hello: saluda sin otra intención clara.
 - askWhy: pregunta por qué Luna le dice o propone algo.
 - askWhatRead: pregunta qué leyó Luna de su estado de cuenta.
-- installmentPurchase: cuenta que compró algo en cuotas.
+- installmentPurchase: cuenta que compró o va a comprar algo en cuotas.
 - crisis: cualquier indicio de autolesión, suicidio, desesperanza o de no querer seguir viviendo.
 - other: el mensaje no corresponde claramente a los otros tipos.
 Si hay cualquier indicio de autolesión o desesperanza, responde crisis. No agregues explicaciones, formato Markdown ni texto fuera del JSON.`;
