@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { santiagoDate, santiagoParts } from "../clock/santiago";
-import { estadoDeCuenta8Pdf } from "../figures/fixtures/estado-de-cuenta-8-pdf";
+import { estadoDeCuenta8Pdf } from "../figures/fixtures/pdf";
 import { imagenDifuminada, type ImagenDifuminada } from "../figures/imagen-difuminada";
 import type { Cita } from "../patricia/entities";
 import { pagoRecibidoEstaSemana, pagoSobreElMinimoEstaSemana } from "../plata/apartado";

@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { addMonths, minimumPayment, payoff, type Payoff, type Statement } from "./payoff";
 
 /**
- * Estado de cuenta 8 from the case. These figures were chosen so the engine
- * reproduces the figures in issue #29, «unos 59 meses y $451.000» and «unos
- * 17 meses y $162.700», until the real fixtures exist.
+ * Estado de cuenta 8 from the case, as `fixtures/estado-de-cuenta-8.ts` prints
+ * it. These figures were chosen so the engine reproduces the figures in issue
+ * #29, «unos 59 meses y $451.000» and «unos 17 meses y $162.700».
  */
 const statementEight: Statement = {
   totalBilled: 650_000,

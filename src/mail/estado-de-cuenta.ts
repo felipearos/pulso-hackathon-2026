@@ -9,10 +9,10 @@ import { allowedLink } from "../web/link";
 import { allowedSender } from "./senders";
 
 /**
- * How Banco Andino computes the pago mínimo. The rule is not printed on the
+ * How Banco Ficticio computes the pago mínimo. The rule is not printed on the
  * estado de cuenta, so it is configured per issuer instead of extracted.
  */
-export const BANCO_ANDINO_MINIMUM_RULE: MinimumRule = { percent: 0.0645, floor: 10_500, roundTo: 100 };
+export const BANCO_FICTICIO_MINIMUM_RULE: MinimumRule = { percent: 0.0645, floor: 10_500, roundTo: 100 };
 
 /**
  * How Tienda Plaza computes the pago mínimo. The rule is not printed on the
@@ -65,7 +65,7 @@ export function storeEstadoDeCuenta(
     ciclo,
     fechaCierre: cifras.fechaCierre,
     fechaVencimiento: cifras.fechaVencimiento,
-    cifras: statementFrom(cifras, origen === "banco" ? BANCO_ANDINO_MINIMUM_RULE : TIENDA_PLAZA_MINIMUM_RULE),
+    cifras: statementFrom(cifras, origen === "banco" ? BANCO_FICTICIO_MINIMUM_RULE : TIENDA_PLAZA_MINIMUM_RULE),
     pagoMinimo: cifras.pagoMinimo,
   });
   const extraccion = store.addExtraccion({ estadoDeCuentaId: estado.id, mailId, cifras });

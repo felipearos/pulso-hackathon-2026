@@ -4,16 +4,16 @@ import { isAllowedLinkHost, suspiciousReason } from "./suspicious";
 describe("suspiciousReason", () => {
   test.each([
     ["off-list host", ["https://cupones.example/oferta"]],
-    ["a domain that imitates the bank", ["https://bancoandino-seguro.example/verificar"]],
-    ["an allowed domain followed by a fraudulent domain", ["https://bancoandino.example.fraude.example/verificar"]],
-    ["a one-character look-alike", ["https://bancoandin0.example/verificar"]],
+    ["a domain that imitates the bank", ["https://bancoficticio-seguro.example/verificar"]],
+    ["an allowed domain followed by a fraudulent domain", ["https://bancoficticio.example.fraude.example/verificar"]],
+    ["a one-character look-alike", ["https://bancofictici0.example/verificar"]],
     ["an unparseable link", ["no es una URL"]],
   ])("flags %s", (_name, links) => {
     expect(suspiciousReason({ subject: "Aviso", text: "Información de tu cuenta", links })).not.toBeNull();
   });
 
   test("says when an off-list host imitates an allowed sender", () => {
-    expect(suspiciousReason({ subject: "Aviso", text: "", links: ["https://bancoandino-seguro.example"] })).toContain(
+    expect(suspiciousReason({ subject: "Aviso", text: "", links: ["https://bancoficticio-seguro.example"] })).toContain(
       "imita al banco",
     );
   });
@@ -46,9 +46,9 @@ describe("suspiciousReason", () => {
   });
 
   test.each([
-    "bancoandino.example.fraude.example",
-    "bancoandino-seguro.example",
-    "bancoandin0.example",
+    "bancoficticio.example.fraude.example",
+    "bancoficticio-seguro.example",
+    "bancofictici0.example",
   ])("does not allow the look-alike host %s", (host) => {
     expect(isAllowedLinkHost(host)).toBe(false);
   });
@@ -71,7 +71,7 @@ describe("suspiciousReason", () => {
   });
 
   test.each([
-    "Banco Andino nunca te pedirá tu clave ni códigos por correo.",
+    "Banco Ficticio nunca te pedirá tu clave ni códigos por correo.",
     "No compartas tu clave con nadie.",
     "Protege tu clave y tu PIN.",
   ])("does not flag a security footer: %p", (text) => {

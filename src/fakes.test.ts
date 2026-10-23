@@ -57,10 +57,10 @@ describe("FakeMail", () => {
 
   test("fetchNew returns only mails from the given sender domains and drops the rest", async () => {
     const mail = new FakeMail();
-    mail.inject({ from: "Banco <aviso@BancoAndino.example>", subject: "uno", receivedAt });
+    mail.inject({ from: "Banco <aviso@BancoFicticio.example>", subject: "uno", receivedAt });
     mail.inject({ from: "amiga@correo.example", subject: "dos", receivedAt });
-    mail.inject({ from: "aviso@bancoandino.example.otro", subject: "tres", receivedAt });
-    expect((await mail.fetchNew(["bancoandino.example"])).map((m) => m.subject)).toEqual(["uno"]);
+    mail.inject({ from: "aviso@bancoficticio.example.otro", subject: "tres", receivedAt });
+    expect((await mail.fetchNew(["bancoficticio.example"])).map((m) => m.subject)).toEqual(["uno"]);
     expect(await mail.fetchNew(["correo.example"])).toEqual([]);
   });
 });

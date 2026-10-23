@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { IncomingMail } from "../ports";
 import { createTestApp } from "../testing";
 
-const CATALOGO = "pedidos@catalogoaurora.example";
+const CATALOGO = "pedidos@catalogoejemplo.example";
 const TIENDA = "avisos@tiendaplaza.example";
 
 let nextId = 1;
@@ -53,7 +53,7 @@ describe("plata apartada through the app", () => {
     const { app } = createTestApp();
     await app.receiveMail(mail(CATALOGO, "Pagamos tu pedido #6 por $10.000"));
     await app.receiveMail(mail(TIENDA, "¡Recibimos tu pago!"));
-    await app.receiveMail(mail("avisos@bancoandino.example", "Tu estado de cuenta de octubre"));
+    await app.receiveMail(mail("avisos@bancoficticio.example", "Tu estado de cuenta de octubre"));
 
     const [s3, ...others] = app.store.decisions();
     expect(s3!.datos).toMatchObject({ tipo: "S3", monto: 10000, aporte: 1000 });

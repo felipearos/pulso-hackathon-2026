@@ -2,15 +2,15 @@ import { describe, expect, test } from "bun:test";
 import type { TipoSenal } from "../patricia/entities";
 import { classifyByRules } from "./rules";
 
-const BANCO = "Banco Andino <avisos@bancoandino.example>";
+const BANCO = "Banco Ficticio <avisos@bancoficticio.example>";
 const TIENDA = "Tienda Plaza <cuenta@tiendaplaza.example>";
-const CATALOGO = "Catálogo Aurora <hola@catalogoaurora.example>";
+const CATALOGO = "Catálogo Ejemplo <hola@catalogoejemplo.example>";
 
 const cases: [string, string, TipoSenal, string][] = [
   [BANCO, "Recibimos tu pago", "S5", "Remitente del banco y el asunto dice «recibimos tu pago»."],
   [TIENDA, "¡RECIBIMOS TU PAGO!", "S5", "Remitente de la tienda y el asunto dice «recibimos tu pago»."],
   [BANCO, "Tu estado de cuenta de octubre está disponible", "S1", "Remitente del banco y el asunto dice «estado de cuenta»."],
-  [BANCO, "ESTADO DE CUENTA Tarjeta Andino", "S1", "Remitente del banco y el asunto dice «estado de cuenta»."],
+  [BANCO, "ESTADO DE CUENTA Tarjeta Ficticia", "S1", "Remitente del banco y el asunto dice «estado de cuenta»."],
   [TIENDA, "Tu Estado de Cuenta Tienda Plaza ya está listo", "S2", "Remitente de la tienda y el asunto dice «estado de cuenta»."],
   [CATALOGO, "Pagamos tu pedido N° 4521", "S3", "Remitente del catálogo y el asunto dice «pagamos tu pedido»."],
   [CATALOGO, "Confirmación de pago de tu pedido", "S3", "Remitente del catálogo y el asunto dice «pago de tu pedido»."],
@@ -45,10 +45,10 @@ describe("classifyByRules", () => {
   });
 
   test.each([
-    "avisos@bancoandino.example.com",
-    "avisos@banco-andino.example",
-    "avisos@x.bancoandino.example",
-    "avisos@bancoandin0.example",
+    "avisos@bancoficticio.example.com",
+    "avisos@banco-ficticio.example",
+    "avisos@x.bancoficticio.example",
+    "avisos@bancofictici0.example",
   ])("does not classify mail from the look-alike %p", (from) => {
     expect(classifyByRules({ from, subject: "Tu estado de cuenta" })).toBeNull();
   });
