@@ -77,7 +77,8 @@ The operations runbook (Spanish, for the team) is `docs/deploy.md`.
 - Tailscale Funnel publishes the app at `https://desktop.taild8ed7e.ts.net`.
   That URL is the Meta webhook base.
 - Fallback if the PC fails: `doppler run -- bun run start` on a laptop plus
-  a tunnel, then point the Meta webhook at it.
+  a tunnel, then point the Meta webhook at it. The laptop needs `claude`
+  logged in, since Claude runs through it.
 
 Operator setup, once:
 
@@ -157,7 +158,9 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `WHATSAPP_SMOKE_TO` | dev | whatsapp port: Meta test number the smoke test writes to |
 | `WHATSAPP_SMOKE` | none (command line) | set it for one run to let the smoke test send a real message; unset everywhere else, so `bun run test` never does |
 | `DEMO_OPERATOR_KEY` | dev, prd | control room: the key that lets `/demo` move the clock and send the test audio; the operator opens `/demo?clave=<key>` once. Unset, `/demo` is view-only |
-| `ANTHROPIC_API_KEY` | dev, prd | llm port: Claude API |
+| `ANTHROPIC_API_KEY` | none (optional) | llm port: Claude API; unset means Claude runs through the Claude Code CLI logged in on the machine (`claude -p`), which is how the live app runs |
+| `CLAUDE_BIN` | none (optional) | llm port: path of the `claude` binary used when there is no API key; defaults to `claude` on `PATH` |
+| `CLAUDE_CLI_SMOKE` | none (command line) | set it for one run to let the claude CLI smoke test spend the logged-in account |
 | `ELEVENLABS_API_KEY` | dev, prd | voice port: ElevenLabs API |
 | `ELEVENLABS_VOICE_ID` | dev, prd | voice port: the voice Patricia hears |
 | `ELEVENLABS_VOICE_ID_OTRA` | dev, prd | voice port: the other voice Patricia can choose in the bienvenida; falls back to ELEVENLABS_VOICE_ID |
