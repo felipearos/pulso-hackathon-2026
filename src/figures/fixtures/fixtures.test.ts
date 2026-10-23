@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { BANCO_ANDINO_MINIMUM_RULE, TIENDA_PLAZA_MINIMUM_RULE } from "../../mail/estado-de-cuenta";
+import { BANCO_FICTICIO_MINIMUM_RULE, TIENDA_PLAZA_MINIMUM_RULE } from "../../mail/estado-de-cuenta";
 import { documentText } from "../../web/documento";
 import type { CifrasExtraidas } from "../extractor";
 import { minimumPayment, payoff, type MinimumRule, type Payoff, type Statement } from "../payoff";
@@ -9,8 +9,8 @@ import { ESTADO_DE_CUENTA_TIENDA_CIFRAS, ESTADO_DE_CUENTA_TIENDA_TEXTO } from ".
 import { estadoDeCuenta8Pdf, estadoDeCuenta9Pdf, estadoDeCuentaTiendaPdf } from "./pdf";
 
 const FIXTURES = [
-  ["estado de cuenta 8", ESTADO_DE_CUENTA_8_TEXTO, ESTADO_DE_CUENTA_8_CIFRAS, BANCO_ANDINO_MINIMUM_RULE, estadoDeCuenta8Pdf],
-  ["estado de cuenta 9", ESTADO_DE_CUENTA_9_TEXTO, ESTADO_DE_CUENTA_9_CIFRAS, BANCO_ANDINO_MINIMUM_RULE, estadoDeCuenta9Pdf],
+  ["estado de cuenta 8", ESTADO_DE_CUENTA_8_TEXTO, ESTADO_DE_CUENTA_8_CIFRAS, BANCO_FICTICIO_MINIMUM_RULE, estadoDeCuenta8Pdf],
+  ["estado de cuenta 9", ESTADO_DE_CUENTA_9_TEXTO, ESTADO_DE_CUENTA_9_CIFRAS, BANCO_FICTICIO_MINIMUM_RULE, estadoDeCuenta9Pdf],
   [
     "the tienda's estado de cuenta",
     ESTADO_DE_CUENTA_TIENDA_TEXTO,
@@ -45,6 +45,21 @@ describe.each(FIXTURES)("%s", (_name, texto, cifras, rule, pdf) => {
     }
   });
 
+  test("bills this month's cuotas within its pago mínimo, and counts the cuotas still to bill in the cupo utilizado", () => {
+    const cuotas = [...texto.matchAll(/(\d+) de (\d+)\D+\$([\d.]+)$/gm)].map(([, actual, totales, valor]) => ({
+      valor: Number(valor!.replace(/\./g, "")),
+      porFacturar: Number(totales) - Number(actual),
+    }));
+    expect(cuotas).toHaveLength(cifras.comprasEnCuotas!.length);
+    expect(cuotas.reduce((sum, c) => sum + c.valor, 0)).toBeLessThanOrEqual(cifras.pagoMinimo!);
+
+    const utilizado = /Cupo utilizado\s+(\$[\d.]+)/.exec(texto)?.[1];
+    if (utilizado === undefined) return; // the tienda does not print it
+    const porFacturar = cuotas.reduce((sum, c) => sum + c.porFacturar * c.valor, 0);
+    expect(utilizado).toBe(printed(cifras.totalFacturado! + porFacturar));
+    expect(texto).toContain(`Cupo disponible               ${printed(cifras.cupo! - cifras.totalFacturado! - porFacturar)}`);
+  });
+
   test("its PDF reads back as its text", async () => {
     const read = await documentText({ contentType: "application/pdf", body: pdf() });
     const squash = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -60,7 +75,7 @@ describe.each(FIXTURES)("%s", (_name, texto, cifras, rule, pdf) => {
 
 describe("the case's figures", () => {
   test("estado de cuenta 8: pago mínimo 41.900, about 59 months on the minimum and 17 paying 50.000", () => {
-    const figures = payoff(statement(ESTADO_DE_CUENTA_8_CIFRAS, BANCO_ANDINO_MINIMUM_RULE), 50_000, "2026-10-24");
+    const figures = payoff(statement(ESTADO_DE_CUENTA_8_CIFRAS, BANCO_FICTICIO_MINIMUM_RULE), 50_000, "2026-10-24");
 
     expect(ESTADO_DE_CUENTA_8_CIFRAS.pagoMinimo).toBe(41_900);
     expect(figures.firstMinimum).toBe(41_900);
@@ -71,8 +86,8 @@ describe("the case's figures", () => {
   test("estado de cuenta 9 follows the 8th after paying 50.000: the rest, a month of interest and the new cuotas", () => {
     const eight = ESTADO_DE_CUENTA_8_CIFRAS;
     const nine = ESTADO_DE_CUENTA_9_CIFRAS;
-    // First cuota of the story's compras: 45.000 in 3 and 38.000 in 6, the odd peso on the first.
-    const newCuotas = 15_000 + 6_334;
+    // First cuota of the story's compras: 45.000 in 3 and 36.000 in 6.
+    const newCuotas = 15_000 + 6_000;
 
     expect(nine.totalFacturado).toBe(Math.round((eight.totalFacturado! - 50_000) * (1 + eight.tasaMensual!)) + newCuotas);
     expect(nine.pagosAnteriores!.at(-1)).toEqual({ monto: 50_000, aTiempo: true });

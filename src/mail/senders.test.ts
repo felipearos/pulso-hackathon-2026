@@ -3,31 +3,31 @@ import { allowedSenderDomains, allowedSender, type SenderKind } from "./senders"
 
 describe("allowedSender", () => {
   test.each<[string, SenderKind]>([
-    ["avisos@bancoandino.example", "banco"],
-    ["Banco Andino <avisos@bancoandino.example>", "banco"],
-    ["AVISOS@BancoAndino.EXAMPLE", "banco"],
+    ["avisos@bancoficticio.example", "banco"],
+    ["Banco Ficticio <avisos@bancoficticio.example>", "banco"],
+    ["AVISOS@BancoFicticio.EXAMPLE", "banco"],
     ["Tienda Plaza <cuenta@tiendaplaza.example>", "tienda"],
     ["pedidos@catalogoaurora.example", "catalogo"],
     ["  Catálogo Aurora <hola@catalogoaurora.example>  ", "catalogo"],
-    ['"Andino, Banco" <avisos@bancoandino.example>', "banco"],
-    ['"Fraude <evil@fraude.example>" <avisos@bancoandino.example>', "banco"],
+    ['"Ficticio, Banco" <avisos@bancoficticio.example>', "banco"],
+    ['"Fraude <evil@fraude.example>" <avisos@bancoficticio.example>', "banco"],
   ])("allows %p as %p", (from, kind) => {
     expect(allowedSender(from)?.kind).toBe(kind);
   });
 
   test.each([
-    "avisos@bancoandino.example.com",
-    "avisos@banco-andino.example",
-    "avisos@x.bancoandino.example",
-    "avisos@bancoandin0.example",
-    "Banco Andino <avisos@bancoandino.example.com>",
-    "bancoandino.example <avisos@otro.example>",
-    '"Banco <avisos@bancoandino.example>" <evil@fraude.example>',
-    "Banco <avisos@bancoandino.example> <evil@fraude.example>",
-    "avisos@bancoandino.example, evil@fraude.example",
+    "avisos@bancoficticio.example.com",
+    "avisos@banco-ficticio.example",
+    "avisos@x.bancoficticio.example",
+    "avisos@bancofictici0.example",
+    "Banco Ficticio <avisos@bancoficticio.example.com>",
+    "bancoficticio.example <avisos@otro.example>",
+    '"Banco <avisos@bancoficticio.example>" <evil@fraude.example>',
+    "Banco <avisos@bancoficticio.example> <evil@fraude.example>",
+    "avisos@bancoficticio.example, evil@fraude.example",
     "evil@fraude.example <",
-    "evil@fraude.example@bancoandino.example",
-    '"sin cerrar <avisos@bancoandino.example>',
+    "evil@fraude.example@bancoficticio.example",
+    '"sin cerrar <avisos@bancoficticio.example>',
     "amiga@correo.example",
     "sin arroba",
     "",
@@ -38,7 +38,7 @@ describe("allowedSender", () => {
 
 test("allowedSenderDomains lists the three allowed domains", () => {
   expect(allowedSenderDomains()).toEqual([
-    "bancoandino.example",
+    "bancoficticio.example",
     "tiendaplaza.example",
     "catalogoaurora.example",
   ]);

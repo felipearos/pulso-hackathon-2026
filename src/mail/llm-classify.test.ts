@@ -65,16 +65,16 @@ describe("classifyByLlm", () => {
 
     await classifyByLlm(
       {
-        from: "Banco Andino <avisos@bancoandino.example>",
+        from: "Banco Ficticio <avisos@bancoficticio.example>",
         subject: "Revisa esto",
         text: longText,
-        links: ["https://bancoandino.example/private/estado?token=secreto"],
+        links: ["https://bancoficticio.example/private/estado?token=secreto"],
       },
       llm,
     );
 
     const prompt = llm.calls[0]?.prompt ?? "";
-    expect(prompt).toContain("bancoandino.example");
+    expect(prompt).toContain("bancoficticio.example");
     expect(prompt).not.toContain("/private/estado");
     expect(prompt).not.toContain("token=secreto");
     expect(prompt).toContain("x".repeat(2000));
@@ -82,7 +82,7 @@ describe("classifyByLlm", () => {
   });
 
   test("redacts URLs embedded in the text", async () => {
-    const mail = { ...SAMPLE_MAILS.banco, text: "Abre https://bancoandino.example/secreto para seguir." };
+    const mail = { ...SAMPLE_MAILS.banco, text: "Abre https://bancoficticio.example/secreto para seguir." };
     const llm = new FakeLlm([[mail.subject, '{"tipo":"S1","confianza":0.8}']]);
 
     await classifyByLlm(mail, llm);

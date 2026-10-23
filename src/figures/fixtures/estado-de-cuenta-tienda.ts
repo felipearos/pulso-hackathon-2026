@@ -28,8 +28,8 @@ TUS ÚLTIMOS PAGOS (todos antes de su fecha límite)
 08/10/2026   $18.200
 
 TUS COMPRAS EN CUOTAS
-Colchón 2 plazas ........ cuota 8 de 12 ... $21.000
-Juguera ................. cuota 4 de 6 .... $6.500
+Colchón 2 plazas ........ cuota 8 de 12 ... $9.000
+Juguera ................. cuota 4 de 6 .... $4.500
 
 Tienda Plaza. Documento de ejemplo sin valor comercial.
 `;

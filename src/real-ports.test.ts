@@ -60,7 +60,7 @@ describe("realPorts", () => {
     const urls: string[] = [];
     const ports = realPorts(memory, { fetch: async (input) => (urls.push(String(input)), new Response("{}")) });
     migrate(ports.db);
-    expect(await ports.mail.fetchNew(["bancoandino.example"])).toEqual([]);
+    expect(await ports.mail.fetchNew(["bancoficticio.example"])).toEqual([]);
     expect(urls).toEqual([]);
   });
 

@@ -1,9 +1,9 @@
 import type { CifrasExtraidas } from "../extractor";
 
 /** Plain text of a fictional bank estado de cuenta, as a PDF-to-text dump reads. */
-export const ESTADO_DE_CUENTA_8_TEXTO = `BANCO ANDINO
+export const ESTADO_DE_CUENTA_8_TEXTO = `BANCO FICTICIO
 ESTADO DE CUENTA TARJETA DE CRÉDITO
-Tarjeta Andina Visa                         N° de tarjeta: XXXX XXXX XXXX 0000
+Tarjeta Ficticia Visa                         N° de tarjeta: XXXX XXXX XXXX 0000
 
 Titular: Patricia
 
@@ -11,8 +11,8 @@ INFORMACIÓN GENERAL
 Fecha de facturación          15/10/2026
 Pagar hasta                   05/11/2026
 Cupo total                    $800.000
-Cupo utilizado                $650.000
-Cupo disponible               $150.000
+Cupo utilizado                $686.000
+Cupo disponible               $114.000
 
 Tasa de interés mensual       3,10 %
 Monto en mora                 $0
@@ -32,11 +32,11 @@ Fecha de pago    Vencimiento    Monto pagado    Estado
 
 DETALLE DE COMPRAS EN CUOTAS
 Descripción          Cuota        Valor cuota
-Refrigerador         10 de 12     $45.000
+Refrigerador         10 de 12     $18.000
 Zapatillas           03 de 03     $20.000
 
 Pague a tiempo y evite intereses de mora.
-Banco Andino. Documento de ejemplo sin valor comercial.
+Banco Ficticio. Documento de ejemplo sin valor comercial.
 `;
 
 /** What the extractor must read from `ESTADO_DE_CUENTA_8_TEXTO`. */

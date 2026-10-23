@@ -6,7 +6,7 @@ import type { IncomingMail } from "../ports";
 import { createTestApp, type TestApp } from "../testing";
 import { ANGUSTIA_EMOJIS, SUENO_EMOJIS } from "./policy";
 
-const BANCO = "avisos@bancoandino.example";
+const BANCO = "avisos@bancoficticio.example";
 const DRAFT = "Hola, Patricia. Aquí estoy contigo, con calma, para mirar juntas cómo va todo.";
 
 const CIFRAS = {
@@ -63,7 +63,7 @@ describe("the domingo cita and her angustia through the app", () => {
   test("a «recibimos tu pago» this week is celebrated and the cita asks the angustia", async () => {
     const t = setup();
     t.clock.set(parseSantiago("2026-10-22T10:00"));
-    await t.app.receiveMail(mail("Banco Andino: recibimos tu pago", t.clock.now()));
+    await t.app.receiveMail(mail("Banco Ficticio: recibimos tu pago", t.clock.now()));
 
     const decision = await domingo(t);
     expect(decision.buenaNoticia.regla).toBe("pago-recibido");
@@ -95,7 +95,7 @@ describe("the domingo cita and her angustia through the app", () => {
     });
     addEstadoDeCuenta(t);
     t.clock.set(parseSantiago("2026-10-22T10:00"));
-    await t.app.receiveMail(mail("Banco Andino: recibimos tu pago de $50.000", t.clock.now()));
+    await t.app.receiveMail(mail("Banco Ficticio: recibimos tu pago de $50.000", t.clock.now()));
 
     const { decision, source } = await domingoEnviado(t);
     expect(decision.cifra).toEqual(cifra);
@@ -107,7 +107,7 @@ describe("the domingo cita and her angustia through the app", () => {
     const t = setup();
     addEstadoDeCuenta(t);
     t.clock.set(parseSantiago("2026-10-22T10:00"));
-    await t.app.receiveMail(mail("Banco Andino: recibimos tu pago de $41.900", t.clock.now()));
+    await t.app.receiveMail(mail("Banco Ficticio: recibimos tu pago de $41.900", t.clock.now()));
 
     const { decision } = await domingoEnviado(t);
     expect(decision.cifra?.kind).not.toBe("fecha-libre");

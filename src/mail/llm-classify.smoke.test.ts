@@ -13,7 +13,7 @@ test.skipIf(!apiKey)(
 
     expect(await classifyByLlm(
       {
-        from: "Banco Andino <avisos@bancoandino.example>",
+        from: "Banco Ficticio <avisos@bancoficticio.example>",
         subject: "Resumen mensual de tu tarjeta",
         text: "El monto facturado para octubre es $89.000 y el pago mínimo es $12.000. Revisa los movimientos del mes.",
         links: [],

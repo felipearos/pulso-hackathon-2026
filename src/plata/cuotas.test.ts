@@ -17,7 +17,7 @@ describe("compraEnCuotas", () => {
   test.each([
     ["Confirmamos tu compra en 6 cuotas", { cuotas: 6, comercio: null }],
     [
-      "Banco Andino: compra de $45.000 en 3 cuotas en Farmacia Ejemplo",
+      "Banco Ficticio: compra de $45.000 en 3 cuotas en Farmacia Ejemplo",
       { cuotas: 3, comercio: "Farmacia Ejemplo" },
     ],
     ["tu compra en seis cuotas", { cuotas: 6, comercio: null }],
@@ -75,7 +75,7 @@ describe("esPlataDeCarino", () => {
 });
 
 describe("comprasEnCuotas", () => {
-  const farmacia = senal(7, "S4", "Banco Andino: compra en 3 cuotas en Farmacia Ejemplo", "2026-10-22T10:00:00-03:00");
+  const farmacia = senal(7, "S4", "Banco Ficticio: compra en 3 cuotas en Farmacia Ejemplo", "2026-10-22T10:00:00-03:00");
 
   test.each([
     ["2026-10-30T10:00:00-03:00", 3],

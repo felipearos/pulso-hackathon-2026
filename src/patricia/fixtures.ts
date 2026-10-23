@@ -145,7 +145,7 @@ const S4: StoryEvent<SenalInput>[] = [
       origen: {
         mailId: "mail-banco-cuotas-ropa",
         from: BANK_NOTICES_FROM,
-        subject: `${BANK}: compra de ${montoEnPantalla(38_000)} en 6 cuotas en Tienda Ejemplo`,
+        subject: `${BANK}: compra de ${montoEnPantalla(36_000)} en 6 cuotas en Tienda Ejemplo`,
       },
     },
   },

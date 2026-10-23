@@ -5,7 +5,7 @@ export type Sender = { domain: string; kind: SenderKind };
 
 /** The senders Luna may read; every other mail stays unread. */
 export const SENDERS: readonly Sender[] = [
-  { domain: "bancoandino.example", kind: "banco" },
+  { domain: "bancoficticio.example", kind: "banco" },
   { domain: "tiendaplaza.example", kind: "tienda" },
   { domain: "catalogoaurora.example", kind: "catalogo" },
 ];

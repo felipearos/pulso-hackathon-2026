@@ -8,12 +8,12 @@ import type { IncomingMail } from "../ports";
 
 export const SAMPLE_BANCO: IncomingMail = {
   id: "muestra-banco-estado",
-  from: "Banco Andino <avisos@bancoandino.example>",
+  from: "Banco Ficticio <avisos@bancoficticio.example>",
   subject: "Tu estado de cuenta de octubre está disponible",
   // The bank sends the estado de cuenta in the mail itself: this is the 8th.
   text: ESTADO_DE_CUENTA_8_TEXTO,
   receivedAt: new Date("2026-10-23T20:00:00.000-03:00"),
-  links: ["https://bancoandino.example/estado/octubre"],
+  links: ["https://bancoficticio.example/estado/octubre"],
 };
 
 export const SAMPLE_TIENDA: IncomingMail = {
@@ -37,11 +37,11 @@ export const SAMPLE_PEDIDO: IncomingMail = {
 
 export const SAMPLE_CUOTAS: IncomingMail = {
   id: "muestra-compra-en-cuotas",
-  from: "Banco Andino <avisos@bancoandino.example>",
+  from: "Banco Ficticio <avisos@bancoficticio.example>",
   subject: "Confirmamos tu compra en 6 cuotas",
-  text: "Compra en Tienda Ejemplo por $38.000 con tu Tarjeta Andina Visa terminada en 0000, en 6 cuotas de $6.334.",
+  text: "Compra en Tienda Ejemplo por $36.000 con tu Tarjeta Ficticia Visa terminada en 0000, en 6 cuotas de $6.000.",
   receivedAt: new Date("2026-10-23T20:00:00.000-03:00"),
-  links: ["https://bancoandino.example/movimientos/compra"],
+  links: ["https://bancoficticio.example/movimientos/compra"],
 };
 
 export const SAMPLE_PAGO: IncomingMail = {
@@ -64,11 +64,11 @@ export const SAMPLE_PUBLICIDAD: IncomingMail = {
 
 export const SAMPLE_FALSO: IncomingMail = {
   id: "muestra-banco-falso",
-  from: "Banco Andino <avisos@bancoandino.example>",
+  from: "Banco Ficticio <avisos@bancoficticio.example>",
   subject: "Urgente: tu tarjeta será bloqueada",
   text: "Ingresa tu clave y el código que te enviamos por SMS para evitar el bloqueo.",
   receivedAt: new Date("2026-10-23T20:00:00.000-03:00"),
-  links: ["https://bancoandino-seguro.example/verificar"],
+  links: ["https://bancoficticio-seguro.example/verificar"],
 };
 
 export type SampleMailKind = "banco" | "tienda" | "pedido" | "cuotas" | "pago" | "publicidad" | "falso";
