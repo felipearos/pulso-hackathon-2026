@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { parseSantiago } from "../clock/santiago";
 import type { TipoSenal } from "../patricia/entities";
-import { aporteDePedido, inicioDeSemana, montoDePedido, plataApartada, type SenalApartable } from "./apartado";
+import {
+  aporteDePedido,
+  inicioDeSemana,
+  montoDePedido,
+  pagoRecibidoEstaSemana,
+  plataApartada,
+  type SenalApartable,
+} from "./apartado";
 
 function senal(id: number, tipo: TipoSenal, monto: number | null, at: string): SenalApartable {
   return { id, tipo, monto, receivedAt: parseSantiago(at) };
@@ -118,5 +125,21 @@ describe("plataApartada", () => {
     const senales = [senal(1, "S3", 30000, "2026-10-25T23:50")];
     expect(plataApartada(senales, parseSantiago("2026-10-25T23:59")).total).toBe(3000);
     expect(plataApartada(senales, parseSantiago("2026-10-26T00:00")).total).toBe(0);
+  });
+});
+
+describe("pagoRecibidoEstaSemana", () => {
+  const domingo = parseSantiago("2026-10-25T21:30");
+
+  test("an S5 since Monday 00:00 counts", () => {
+    expect(pagoRecibidoEstaSemana([senal(1, "S5", null, "2026-10-19T00:00")], domingo)).toBe(true);
+    expect(pagoRecibidoEstaSemana([senal(1, "S5", null, "2026-10-22T10:00")], domingo)).toBe(true);
+  });
+
+  test("an S5 from last week, from the future or another señal does not", () => {
+    expect(pagoRecibidoEstaSemana([senal(1, "S5", null, "2026-10-18T23:59")], domingo)).toBe(false);
+    expect(pagoRecibidoEstaSemana([senal(1, "S5", null, "2026-10-25T21:31")], domingo)).toBe(false);
+    expect(pagoRecibidoEstaSemana([senal(1, "S3", 30000, "2026-10-22T10:00")], domingo)).toBe(false);
+    expect(pagoRecibidoEstaSemana([], domingo)).toBe(false);
   });
 });
