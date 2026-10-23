@@ -5,13 +5,14 @@
  */
 import { isOnlyEmoji } from "../escalera/classify";
 import type { Intencion } from "../escalera/policy";
-import { santiagoDate, santiagoParts } from "../clock/santiago";
+import { santiagoDate } from "../clock/santiago";
 import type { Cita, MensajeEntrante } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { Llm, WhatsApp } from "../ports";
 import { SAFE_TEMPLATE, validateText } from "../validator/validator";
 import { montoEnPantalla } from "../voz/montos";
 import { inicioDeSemana } from "./apartado";
+import { isMadrugada, preguntarBolsillo } from "./bolsillo";
 import {
   propuestaDelJueves,
   respuestaAEleccion,
@@ -40,17 +41,17 @@ export function proponerEnCita(store: Store, cita: Cita): void {
   store.recordDecision({
     tipo: "proponer-plata-apartada",
     motivo: `propone pagar ${montoEnPantalla(monto)}: mínimo ${montoEnPantalla(pagoMinimo)} + ${montoEnPantalla(apartado)} apartado`,
-    datos: { citaId: cita.id, apartado, aportes, pagoMinimo, monto, texto: textoPropuesta(propuesta) },
+    datos: {
+      citaId: cita.id,
+      apartado,
+      aportes,
+      pagoMinimo,
+      monto,
+      texto: textoPropuesta(propuesta, store.getPatricia().bolsillo),
+    },
   });
 }
 
-/** The madrugada ends at 05:30, exclusive. */
-const MADRUGADA_END = 5 * 60 + 30;
-
-function isMadrugada(at: Date): boolean {
-  const { hour, minute } = santiagoParts(at);
-  return hour * 60 + minute < MADRUGADA_END;
-}
 
 /**
  * The propuesta of the latest programada cita, while Patricia has not answered
@@ -117,7 +118,8 @@ async function reply(
   eleccion: EleccionDePago,
 ): Promise<void> {
   const { store, llm, whatsapp } = deps;
-  const draft = respuestaAEleccion(eleccion, propuesta);
+  const bolsillo = store.getPatricia().bolsillo;
+  const draft = respuestaAEleccion(eleccion, propuesta, bolsillo);
   const validated = await validateText({
     draft,
     allowedFigures: [propuesta.monto],
@@ -148,4 +150,6 @@ async function reply(
       whatsappId,
     },
   });
+
+  await preguntarBolsillo(deps, propuesta.citaId);
 }

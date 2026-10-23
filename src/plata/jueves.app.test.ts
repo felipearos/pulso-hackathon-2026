@@ -37,6 +37,17 @@ async function jueves(t: ReturnType<typeof createTestApp>) {
   await t.app.tick();
   const cita = t.app.store.citaOn("2026-10-22");
   expect(cita).toMatchObject({ tipo: "jueves", estado: "programada" });
+  // Keep this suite focused on the propuesta, after the one-time bolsillo exchange is complete.
+  t.app.store.recordDecision({
+    tipo: "preguntar-bolsillo",
+    motivo: "preguntó si su banco le deja tener un bolsillo",
+    datos: { citaId: cita!.id, text: "pregunta de prueba", source: "draft", whatsappId: "wamid-test" },
+  });
+  t.app.store.recordDecision({
+    tipo: "respuesta-bolsillo",
+    motivo: "no tiene bolsillo",
+    datos: { citaId: cita!.id, respuesta: "no", text: "👎" },
+  });
   // The cita's own audio is not under test here; only the replies to her emoji are.
   t.whatsapp.outbox.length = 0;
   return cita!;

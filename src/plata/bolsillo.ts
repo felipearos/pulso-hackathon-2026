@@ -1,4 +1,11 @@
-/** Pure bolsillo parsing and texts. Luna never moves money or asks whether Patricia moved it. */
+/** Bolsillo replies and texts. Luna never moves money or asks whether Patricia moved it. */
+
+import { santiagoParts } from "../clock/santiago";
+import type { Intencion } from "../escalera/policy";
+import type { MensajeEntrante } from "../patricia/entities";
+import type { Store } from "../patricia/store";
+import type { Llm, WhatsApp } from "../ports";
+import { SAFE_TEMPLATE, validateText } from "../validator/validator";
 
 export type RespuestaBolsillo = "si" | "no" | "no-sabe";
 
@@ -62,4 +69,161 @@ export const SIN_BOLSILLO = "Gracias por contarme. No te vuelvo a preguntar.";
 /** Confirms the name Luna will use for Patricia's plata apartada. */
 export function bolsilloNombrado(nombre: string): string {
   return `Listo: desde ahora lo que apartas se llama «${nombre}».`;
+}
+
+type BolsilloDeps = { store: Store; llm: Llm; whatsapp: WhatsApp };
+type RespuestaDatos = { citaId?: unknown; respuesta?: unknown };
+
+/** The madrugada ends at 05:30, exclusive. */
+const MADRUGADA_END = 5 * 60 + 30;
+
+export function isMadrugada(at: Date): boolean {
+  const { hour, minute } = santiagoParts(at);
+  return hour * 60 + minute < MADRUGADA_END;
+}
+
+function citaProgramadaMasReciente(store: Store) {
+  return store.citas().filter((cita) => cita.estado === "programada").at(-1);
+}
+
+function citaIdDe(decision: { datos: unknown }): number | null {
+  const citaId = (decision.datos as RespuestaDatos | null)?.citaId;
+  return typeof citaId === "number" ? citaId : null;
+}
+
+/** Citas whose bolsillo reply is being processed, so concurrent messages cannot handle it twice. */
+const answeringBolsillo = new WeakMap<Store, Set<number>>();
+
+function reserveBolsillo(store: Store, citaId: number): (() => void) | null {
+  const reserved = answeringBolsillo.get(store) ?? new Set<number>();
+  answeringBolsillo.set(store, reserved);
+  if (reserved.has(citaId)) return null;
+  reserved.add(citaId);
+  return () => reserved.delete(citaId);
+}
+
+async function sendBolsilloText(
+  deps: BolsilloDeps,
+  draft: string,
+  errorMessage: string,
+): Promise<{ text: string; source: "draft" | "redraft" | "safe-template"; whatsappId: string } | null> {
+  const { store, llm, whatsapp } = deps;
+  const validated = await validateText({
+    draft,
+    allowedFigures: [],
+    llm,
+    redraft: async () => draft,
+    safeTemplate: SAFE_TEMPLATE,
+    recordDecision: (decision) =>
+      store.recordDecision({ tipo: "mensaje", motivo: decision.reason, datos: decision.input }),
+  });
+
+  try {
+    const { id: whatsappId } = await whatsapp.send({ kind: "text", text: validated.text });
+    return { ...validated, whatsappId };
+  } catch (error) {
+    console.error(errorMessage, error);
+    return null;
+  }
+}
+
+/**
+ * Asks the bolsillo question after Luna answered a propuesta, unless it was
+ * ever asked. A failed send records nothing, so a later propuesta asks again.
+ */
+export async function preguntarBolsillo(deps: BolsilloDeps, citaId: number): Promise<void> {
+  const { store } = deps;
+  if (store.decisions().some((decision) => decision.tipo === "preguntar-bolsillo")) return;
+  const sent = await sendBolsilloText(deps, PREGUNTA_BOLSILLO, "could not send the bolsillo question");
+  if (sent === null) return;
+  store.recordDecision({
+    tipo: "preguntar-bolsillo",
+    motivo: "preguntó si su banco le deja tener un bolsillo",
+    datos: { citaId, text: sent.text, source: sent.source, whatsappId: sent.whatsappId },
+  });
+}
+
+function nombreNoPermitido(intencion: Intencion): boolean {
+  return (
+    intencion.kind === "crisis" ||
+    intencion.kind === "pause" ||
+    intencion.kind === "doesNotWantToSee" ||
+    intencion.kind === "askWhy" ||
+    intencion.kind === "askWhatRead" ||
+    intencion.kind === "angustia"
+  );
+}
+
+/** Reads the one open bolsillo question or its name, without starting a cita. */
+export async function answerBolsillo(
+  deps: BolsilloDeps,
+  mensaje: MensajeEntrante,
+  intencion: Intencion,
+): Promise<boolean> {
+  const { store } = deps;
+  if (isMadrugada(mensaje.receivedAt)) return false;
+  if (store.getPatricia().enPausa) return false;
+
+  const decisions = store.decisions();
+  const pregunta = decisions.filter((decision) => decision.tipo === "preguntar-bolsillo").at(-1);
+  if (pregunta === undefined) return false;
+  const citaId = citaIdDe(pregunta);
+  if (citaId === null || citaProgramadaMasReciente(store)?.id !== citaId) return false;
+
+  const respuesta = decisions
+    .filter((decision) => decision.tipo === "respuesta-bolsillo" && citaIdDe(decision) === citaId)
+    .at(-1);
+  if (respuesta === undefined) {
+    const eleccion = respuestaBolsilloDe(mensaje.text);
+    if (eleccion === null) return false;
+    const release = reserveBolsillo(store, citaId);
+    if (release === null) return false;
+    try {
+      const motivo =
+        eleccion === "si" ? "tiene bolsillo" : eleccion === "no" ? "no tiene bolsillo" : "no sabe si tiene bolsillo";
+      store.recordDecision({
+        tipo: "respuesta-bolsillo",
+        motivo,
+        datos: { citaId, respuesta: eleccion, text: mensaje.text },
+      });
+      await sendBolsilloText(
+        deps,
+        eleccion === "si" ? PEDIR_NOMBRE : SIN_BOLSILLO,
+        "could not send the reply to the bolsillo question",
+      );
+      return true;
+    } finally {
+      release();
+    }
+  }
+
+  if (
+    (respuesta.datos as RespuestaDatos | null)?.respuesta !== "si" ||
+    store.getPatricia().bolsillo !== null ||
+    decisions.some((decision) => decision.tipo === "nombrar-bolsillo") ||
+    nombreNoPermitido(intencion)
+  ) {
+    return false;
+  }
+
+  const nombre = nombreDeBolsillo(mensaje.text);
+  if (nombre === null) return false;
+  const release = reserveBolsillo(store, citaId);
+  if (release === null) return false;
+  try {
+    store.updatePatricia({ bolsillo: nombre });
+    store.recordDecision({
+      tipo: "nombrar-bolsillo",
+      motivo: `le puso «${nombre}» a su bolsillo`,
+      datos: { citaId, nombre },
+    });
+    await sendBolsilloText(
+      deps,
+      bolsilloNombrado(nombre),
+      "could not send the bolsillo name confirmation",
+    );
+    return true;
+  } finally {
+    release();
+  }
 }
