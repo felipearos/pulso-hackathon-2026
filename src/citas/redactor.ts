@@ -43,7 +43,7 @@ export type DecisionDeCita = {
 
 const PREGUNTA_BIENVENIDA = "¿Te parece si seguimos conversando así? Respóndeme con un 💛 o un 🤔";
 const PREGUNTA = "¿Cómo te cayó escuchar esto? Respóndeme con un 💛 o un 🤔";
-/** Sunday asks how the plata feels, in words only: every digit would count as a figure. */
+/** Sunday asks how the plata feels, in words only: a digit would spend the cita's one figure. */
 const PREGUNTA_ANGUSTIA = `¿Cómo te sientes con la plata esta semana, del uno al cinco? Respóndeme con un emoji, de tranquila a muy angustiada: ${ANGUSTIA_EMOJIS.join(" ")}`;
 
 /** La salida: the smallest round cuota above the pago mínimo that ends the balance. */
@@ -60,8 +60,9 @@ function salida(cifras: NonNullable<EstadoDeCuenta["cifras"]>, fecha: string): C
 
 /**
  * What tonight's cita says, decided from the cita and her latest estado de
- * cuenta. The domingo cita carries no cifra, asks the angustia and celebrates
- * when a «recibimos tu pago» arrived this week (`pagoRecibido`).
+ * cuenta. The domingo cita carries the same cifra as any other, asks the
+ * angustia and celebrates when a «recibimos tu pago» arrived this week
+ * (`pagoRecibido`).
  */
 export function decisionDeCita(input: {
   cita: Cita;
@@ -74,7 +75,7 @@ export function decisionDeCita(input: {
   const domingo = cita.tipo === "domingo";
 
   let cifra: CifraPermitida | null = null;
-  if (cifras !== null && !bienvenida && !domingo) {
+  if (cifras !== null && !bienvenida) {
     cifra =
       cita.etapa === 2
         ? salida(cifras, cita.fecha)

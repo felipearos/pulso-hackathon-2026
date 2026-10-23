@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { FakeLlm } from "../fakes";
-import { angustiaDeEmoji, classifyIntencion } from "./classify";
+import { angustiaDeRespuesta, classifyIntencion } from "./classify";
 import type { Intencion } from "./policy";
 
 describe("classifyIntencion", () => {
@@ -125,7 +125,7 @@ describe("classifyIntencion", () => {
   });
 });
 
-describe("angustiaDeEmoji", () => {
+describe("angustiaDeRespuesta", () => {
   test.each([
     ["😌", 1],
     ["🙂", 2],
@@ -138,24 +138,34 @@ describe("angustiaDeEmoji", () => {
     ["2", 2],
     [" 4\n", 4],
   ] as const)("reads %p as angustia %p", (message, value) => {
-    expect(angustiaDeEmoji(message)).toBe(value);
+    expect(angustiaDeRespuesta(message)).toBe(value);
   });
 
   test.each(["6", "0", "6️⃣", "😌😰", "3 o 4", "un 3", "😟 la verdad", "", "👍"])("reads %p as no answer", (message) => {
-    expect(angustiaDeEmoji(message)).toBeNull();
+    expect(angustiaDeRespuesta(message)).toBeNull();
   });
 
-  test.each(["😟", "4️⃣", "4"])("classifies %p as angustia 4 without calling the LLM", async (message) => {
-    const llm = new FakeLlm([]);
+  test.each(["😟", "4️⃣", "4"])(
+    "classifies %p as angustia 4 without calling the LLM when the angustia is expected",
+    async (message) => {
+      const llm = new FakeLlm([]);
 
-    expect(await classifyIntencion(message, llm)).toEqual({ kind: "angustia", value: 4 });
-    expect(llm.calls).toHaveLength(0);
+      expect(await classifyIntencion(message, llm, { angustiaEsperada: true })).toEqual({ kind: "angustia", value: 4 });
+      expect(llm.calls).toHaveLength(0);
+    },
+  );
+
+  test("asks the LLM about a 😟 when the angustia is not expected", async () => {
+    const llm = new FakeLlm([["😟", '{"intencion":"other"}']]);
+
+    expect(await classifyIntencion("😟", llm)).toEqual({ kind: "other" });
+    expect(llm.calls).toHaveLength(1);
   });
 
   test("sends a mixed answer like «3 o 4» to the LLM", async () => {
     const llm = new FakeLlm([["3 o 4", '{"intencion":"angustia","valor":3}']]);
 
-    expect(await classifyIntencion("3 o 4", llm)).toEqual({ kind: "angustia", value: 3 });
+    expect(await classifyIntencion("3 o 4", llm, { angustiaEsperada: true })).toEqual({ kind: "angustia", value: 3 });
     expect(llm.calls).toHaveLength(1);
   });
 });

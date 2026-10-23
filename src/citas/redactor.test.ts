@@ -80,20 +80,20 @@ describe("decisionDeCita", () => {
 });
 
 describe("decisionDeCita on domingo", () => {
-  test("with a pago recibido this week it celebrates, carries no cifra and asks the angustia", () => {
+  test("with a pago recibido this week it celebrates, keeps the cifra and asks the angustia", () => {
     const decision = decisionDeCita({ cita: cita(1, "domingo"), estadoDeCuenta: estadoOcho, pagoRecibido: true });
     expect(decision.buenaNoticia.regla).toBe("pago-recibido");
     expect(decision.buenaNoticia.texto).not.toMatch(/\d/);
-    expect(decision.cifra).toBeNull();
+    expect(decision.cifra).toEqual(decisionDeCita({ cita: cita(1), estadoDeCuenta: estadoOcho }).cifra);
     expect(decision.pregunta).not.toMatch(/\d/);
     expect(decision.pregunta).not.toContain("💛");
     for (const emoji of ANGUSTIA_EMOJIS) expect(decision.pregunta).toContain(emoji);
   });
 
-  test("without a pago recibido the buena noticia is the usual one, still without cifra", () => {
+  test("without a pago recibido the buena noticia is the usual one and the cifra is a lunes one", () => {
     const decision = decisionDeCita({ cita: cita(2, "domingo"), estadoDeCuenta: estadoOcho, pagoRecibido: false });
     expect(decision.buenaNoticia.regla).toBe("sin-mora");
-    expect(decision.cifra).toBeNull();
+    expect(decision.cifra).toEqual(decisionDeCita({ cita: cita(2), estadoDeCuenta: estadoOcho }).cifra);
     for (const emoji of ANGUSTIA_EMOJIS) expect(decision.pregunta).toContain(emoji);
   });
 

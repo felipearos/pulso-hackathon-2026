@@ -39,6 +39,13 @@ function citaEtapaOf(store: Store): Etapa | null {
   return store.getPatricia().etapa;
 }
 
+/** Whether Luna's latest message is the domingo cita, whose pregunta she answers on the angustia scale. */
+function answersDomingo(store: Store): boolean {
+  const mensaje = store.mensajesSalientes().at(-1);
+  if (mensaje === undefined) return false;
+  return store.citas().find((cita) => cita.mensajeSalienteId === mensaje.id)?.tipo === "domingo";
+}
+
 function buildInput(store: Store, intencion: Intencion): EtapaInput {
   let lastAngustia: Angustia | null = null;
   for (const mensaje of store.mensajesEntrantes()) {
@@ -79,7 +86,7 @@ function isDownOrCrisis(intencion: Intencion): boolean {
  */
 export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): Promise<EtapaMove> {
   const { store, llm, db } = deps;
-  const intencion = await classifyIntencion(input.text, llm);
+  const intencion = await classifyIntencion(input.text, llm, { angustiaEsperada: answersDomingo(store) });
   const atomically = (fn: () => void) => db.transaction(fn)();
 
   const { enPausa, etapa } = store.getPatricia();

@@ -72,3 +72,13 @@ export function plataApartada(senales: readonly SenalApartable[], now: Date): Pl
     .map((s) => ({ senalId: s.id, monto: s.monto!, aporte: aporteDePedido(s.monto!) }));
   return { total: aportes.reduce((sum, a) => sum + a.aporte, 0), aportes };
 }
+
+/** Whether a «Recibimos tu pago» (S5) arrived between Monday 00:00 of this week and `now`. */
+export function pagoRecibidoEstaSemana(
+  senales: readonly Pick<SenalApartable, "tipo" | "receivedAt">[],
+  now: Date,
+): boolean {
+  const desde = inicioDeSemana(now).getTime();
+  const hasta = now.getTime();
+  return senales.some((s) => s.tipo === "S5" && s.receivedAt.getTime() >= desde && s.receivedAt.getTime() <= hasta);
+}

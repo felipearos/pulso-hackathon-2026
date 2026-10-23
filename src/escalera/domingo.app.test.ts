@@ -5,7 +5,7 @@ import { createTestApp, type TestApp } from "../testing";
 import { ANGUSTIA_EMOJIS } from "./policy";
 
 const BANCO = "avisos@bancoandino.example";
-const DRAFT_DOMINGO = "Hola, Patricia. Llegó tu pago esta semana, el banco ya lo recibió.";
+const DRAFT = "Hola, Patricia. Aquí estoy contigo, con calma, para mirar juntas cómo va todo.";
 
 let nextId = 1;
 function mail(subject: string, receivedAt: Date): IncomingMail {
@@ -16,7 +16,7 @@ function setup(): TestApp {
   return createTestApp({
     now: parseSantiago("2026-10-19T09:00"),
     llm: [
-      ["Escribe el guion", DRAFT_DOMINGO],
+      ["Escribe el guion", DRAFT],
       ["", "OK"],
     ],
   });
@@ -27,7 +27,7 @@ async function domingo(t: TestApp) {
   await t.app.tick();
   const sent = t.app.store.decisions().find((d) => d.tipo === "mensaje" && d.motivo.startsWith("salió"));
   expect(sent).toBeDefined();
-  return (sent!.datos as { decision: { buenaNoticia: { regla: string }; cifra: unknown; pregunta: string } })
+  return (sent!.datos as { decision: { buenaNoticia: { regla: string }; pregunta: string } })
     .decision;
 }
 
@@ -39,7 +39,6 @@ describe("the domingo cita and her angustia through the app", () => {
 
     const decision = await domingo(t);
     expect(decision.buenaNoticia.regla).toBe("pago-recibido");
-    expect(decision.cifra).toBeNull();
     for (const emoji of ANGUSTIA_EMOJIS) expect(decision.pregunta).toContain(emoji);
   });
 
@@ -75,5 +74,19 @@ describe("the domingo cita and her angustia through the app", () => {
     const bajar = t.app.store.decisions().filter((d) => d.tipo === "bajar-etapa");
     expect(bajar).toHaveLength(1);
     expect(bajar[0]!.motivo).toBe("bajó: angustia 5");
+  });
+
+  test("after a lunes cita a 😟 is not read as an angustia answer: the LLM classifies it", async () => {
+    const t = setup();
+    t.clock.set(parseSantiago("2026-10-19T22:30"));
+    await t.app.tick();
+    expect(t.app.store.citas().find((c) => c.mensajeSalienteId !== null)?.tipo).toBe("lunes");
+    const llmCalls = t.llm.calls.length;
+
+    t.clock.set(parseSantiago("2026-10-19T22:40"));
+    await t.app.receiveMensaje({ text: "😟", whatsappId: "in-1" });
+
+    expect(t.llm.calls.length).toBeGreaterThan(llmCalls);
+    expect(t.llm.calls.at(-1)?.prompt).toContain("😟");
   });
 });

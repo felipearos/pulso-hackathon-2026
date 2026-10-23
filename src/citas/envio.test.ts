@@ -141,7 +141,7 @@ describe("cita sender", () => {
     await tickAt(t, "2026-10-25T21:30");
 
     expect(sentDecision(t)?.datos).toMatchObject({
-      decision: { tipo: "domingo", buenaNoticia: { regla: "pago-recibido" }, cifra: null },
+      decision: { tipo: "domingo", buenaNoticia: { regla: "pago-recibido" }, cifra: { kind: "pago-minimo", monto: 41_900 } },
     });
   });
 
