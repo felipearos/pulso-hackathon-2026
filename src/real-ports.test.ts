@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { createApp } from "./app";
 import { migrate } from "./db";
 import type { Ports } from "./ports";
@@ -10,7 +13,6 @@ const memory = { DATABASE_PATH: ":memory:" };
 type Call = [port: string, call: (ports: Ports) => Promise<unknown>, names: string[]];
 
 const wired: Call[] = [
-  ["llm", (ports) => ports.llm.complete({ prompt: "Hola" }), ["ANTHROPIC_API_KEY"]],
   [
     "whatsapp",
     (ports) => ports.whatsapp.send({ kind: "text", text: "Hola" }),
@@ -88,6 +90,27 @@ describe("realPorts", () => {
     const env = { ...memory, ELEVENLABS_API_KEY: "key", ELEVENLABS_VOICE_ID: "voice-id", ELEVENLABS_VOICE_ID_OTRA: "otra-id" };
     await rejection(realPorts(env, { fetch, log: () => {} }).voice.synthesize("Hola", "otra"));
     expect(urls).toEqual(["https://api.elevenlabs.io/v1/text-to-speech/otra-id?output_format=opus_48000_64"]);
+  });
+
+  test("llm with no API key asks the claude binary", async () => {
+    const bin = join(mkdtempSync(join(tmpdir(), "claude-cli-")), "claude");
+    // Answers with the model it was given, so the test sees the arguments arrived.
+    writeFileSync(
+      bin,
+      `#!/bin/sh\ncat > /dev/null\nfor last; do :; done\necho '{"type":"result","is_error":false,"result":"'"$last"'"}'\n`,
+    );
+    chmodSync(bin, 0o755);
+    const ports = realPorts({ ...memory, CLAUDE_BIN: bin });
+    await expect(ports.llm.complete({ model: "claude-test-model", prompt: "Hola" })).resolves.toBe("claude-test-model");
+    rmSync(dirname(bin), { recursive: true });
+  });
+
+  test("llm with an API key calls Anthropic, not the CLI", async () => {
+    const urls: string[] = [];
+    const fetch = async (url: string) => (urls.push(url), new Response("no", { status: 401 }));
+    const env = { ...memory, ANTHROPIC_API_KEY: "key", CLAUDE_BIN: "/nonexistent/claude" };
+    const error = await rejection(realPorts(env, { fetch }).llm.complete({ prompt: "Hola" }));
+    expect((error as Error).message).toContain("Anthropic API request failed with status 401");
   });
 
   test("whatsapp with every variable set is the real client", async () => {

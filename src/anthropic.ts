@@ -3,7 +3,7 @@ import type { Llm, LlmImage, LlmRequest } from "./ports";
 export const HAIKU_MODEL = "claude-haiku-5-5";
 
 /** The user message content: the plain prompt, or each image before the prompt. */
-function userContent(prompt: string, images: readonly LlmImage[] | undefined) {
+export function userContent(prompt: string, images: readonly LlmImage[] | undefined) {
   if (!images || images.length === 0) return prompt;
   return [
     ...images.map((image) => ({

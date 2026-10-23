@@ -3,6 +3,7 @@ import { openDatabase } from "./db";
 import { MissingEnvError } from "./missing-env";
 import type { Clock, Ports } from "./ports";
 import { anthropicLlm } from "./anthropic";
+import { claudeCliLlm } from "./claude-cli";
 import { createElevenLabsTranscriber, createElevenLabsVoice, type Fetch } from "./voice/elevenlabs";
 import { voiceIdFor, VOZ_PRINCIPAL } from "./voice/voces";
 import { createHttpWeb } from "./web/http";
@@ -47,9 +48,9 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
     whatsapp: createWhatsAppCloud({ env, clock: systemClock }),
     llm: {
       complete: (request) => {
-        const apiKey = env.ANTHROPIC_API_KEY;
-        if (!apiKey) return Promise.reject(new MissingEnvError("llm", ["ANTHROPIC_API_KEY"]));
-        return anthropicLlm({ apiKey }).complete(request);
+        // With no API key, Claude runs through the Claude Code CLI logged in on this machine.
+        if (!env.ANTHROPIC_API_KEY) return claudeCliLlm({ command: env.CLAUDE_BIN }).complete(request);
+        return anthropicLlm({ apiKey: env.ANTHROPIC_API_KEY, fetch: options.fetch as typeof fetch | undefined }).complete(request);
       },
     },
     voice: {
