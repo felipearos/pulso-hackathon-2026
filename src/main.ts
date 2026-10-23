@@ -7,6 +7,8 @@ const app = createApp(realPorts(), {
   demoToken: process.env.DEMO_TOKEN,
   webhook: webhookConfig(),
   simulador: process.env.WHATSAPP_SIMULADOR === "1",
+  entradaPhone: process.env.WHATSAPP_ENTRADA_PHONE,
+  publicBaseUrl: process.env.PUBLIC_BASE_URL,
 });
 const port = Number(process.env.PORT ?? 3000);
 const server = Bun.serve({ hostname: process.env.HOST, port, fetch: app.handle });

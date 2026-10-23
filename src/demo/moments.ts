@@ -24,6 +24,11 @@ export function isMomentId(value: string): value is MomentId {
 
 export const NIGHT_AUDIO_URL = "/demo/audio/night-audio-test.ogg";
 
+/** The first audio de la noche of the demo week, said to `nombre`; the jurado's own audio is this one too. */
+export function guionNoche1(nombre: string): string {
+  return `Hola, ${nombre}. Soy Luna. Abrí tu estado de cuenta, y tengo una buena noticia: llevas siete meses pagando siempre a tiempo. No estás en DICOM. Una sola cifra para esta semana: el viernes vence tu pago, y el mínimo es cuarenta y un mil novecientos. El jueves en la noche lo vemos juntas, sin apuro. ¿Me mandas un pulgar si lo escuchaste? Que descanses.`;
+}
+
 export interface ChatMessage {
   from: "luna" | "patricia";
   at: string;
@@ -125,7 +130,7 @@ const MOMENTS: Moment[] = [
         kind: "voice",
         duration: "0:24",
         audioUrl: NIGHT_AUDIO_URL,
-        text: "Hola, Patricia. Soy Luna. Abrí tu estado de cuenta, y tengo una buena noticia: llevas siete meses pagando siempre a tiempo. No estás en DICOM. Una sola cifra para esta semana: el viernes vence tu pago, y el mínimo es cuarenta y un mil novecientos. El jueves en la noche lo vemos juntas, sin apuro. ¿Me mandas un pulgar si lo escuchaste? Que descanses.",
+        text: guionNoche1("Patricia"),
       },
       { from: "luna", at: "22:30", kind: "text", text: "Estás al día ✅ · Mínimo de este viernes: $41.900" },
       { from: "patricia", at: "22:33", kind: "text", text: "👍" },

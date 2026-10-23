@@ -69,6 +69,7 @@
   #responder[hidden] { display: none; }
   #responder .fila { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; margin: 16px 0; }
   #responder input { font: inherit; font-size: 28px; }
+  #qr a { color: #8fd3ff; font-size: 24px; margin-right: 24px; }
   #respuesta { flex: 1; min-width: 320px; padding: 16px; border-radius: 12px; border: 3px solid #ffffff; background: #0b0b0d; color: #f5f5f5; }
 </style>
 </head>
@@ -77,6 +78,7 @@
 <div id="reloj">—</div>
 <div id="reloj-tipo"></div>
 <div id="etapa"></div>
+<p id="qr"><a id="qr-entrada" href="/sala/qr/entrada" target="_blank">QR de entrada</a><a id="qr-jurado" href="/sala/qr/jurado" target="_blank">QR del jurado</a></p>
 
 <div class="botones">
   <span id="momentos"></span>
@@ -149,6 +151,7 @@
 <script>
   const token = new URLSearchParams(location.search).get("token") ?? "";
   const $ = (id) => document.getElementById(id);
+  for (const id of ["qr-entrada", "qr-jurado"]) $(id).href += `?token=${encodeURIComponent(token)}`;
   const fullTime = new Intl.DateTimeFormat("es-CL", {
     timeZone: "America/Santiago", weekday: "short", day: "numeric", month: "short",
     hour: "2-digit", minute: "2-digit",
