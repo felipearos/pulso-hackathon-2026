@@ -76,6 +76,9 @@ function eleccionOf(text: string, intencion: Intencion): EleccionDePago | null {
   return null;
 }
 
+/** Citas whose propuesta a reply is being sent for, so a second emoji meanwhile answers nothing. */
+const answering = new WeakMap<Store, Set<number>>();
+
 /**
  * Answers Patricia's choice on the open propuesta, once. The reply is fixed
  * by code, equally warm either way; it is not a cita, so it adds no
@@ -86,14 +89,34 @@ export async function answerEleccion(
   mensaje: MensajeEntrante,
   intencion: Intencion,
 ): Promise<void> {
-  const { store, llm, whatsapp } = deps;
+  const { store } = deps;
   // In the madrugada Luna says no figures and proposes nothing; the propuesta waits for her next answer.
   if (isMadrugada(mensaje.receivedAt)) return;
+  // In pausa Luna does not talk, the same as the scheduler.
+  if (store.getPatricia().enPausa) return;
   const propuesta = openPropuesta(store, mensaje.receivedAt);
   if (propuesta === null) return;
   const eleccion = eleccionOf(mensaje.text, intencion);
   if (eleccion === null) return;
 
+  // Reserve before the first await; a failed send releases it so the next emoji retries.
+  const reserved = answering.get(store) ?? new Set<number>();
+  answering.set(store, reserved);
+  if (reserved.has(propuesta.citaId)) return;
+  reserved.add(propuesta.citaId);
+  try {
+    await reply(deps, propuesta, eleccion);
+  } finally {
+    reserved.delete(propuesta.citaId);
+  }
+}
+
+async function reply(
+  deps: { store: Store; llm: Llm; whatsapp: WhatsApp },
+  propuesta: PropuestaDatos,
+  eleccion: EleccionDePago,
+): Promise<void> {
+  const { store, llm, whatsapp } = deps;
   const draft = respuestaAEleccion(eleccion, propuesta);
   const validated = await validateText({
     draft,

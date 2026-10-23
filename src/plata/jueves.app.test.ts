@@ -132,4 +132,30 @@ describe("the jueves propuesta through the app", () => {
     expect(t.whatsapp.outbox).toEqual([]);
     expect(decisionsOf(t, "respuesta-propuesta")).toEqual([]);
   });
+
+  test("two emoji arriving together get one reply and one decision", async () => {
+    const t = setup();
+    await jueves(t);
+
+    await Promise.all([
+      t.app.receiveMensaje({ text: "👍", whatsappId: "in-1" }),
+      t.app.receiveMensaje({ text: "👌", whatsappId: "in-2" }),
+    ]);
+    expect(t.whatsapp.outbox).toHaveLength(1);
+    expect(decisionsOf(t, "respuesta-propuesta")).toHaveLength(1);
+  });
+
+  test("in pausa a 👍 gets no reply; the propuesta waits until the pausa ends", async () => {
+    const t = setup();
+    await jueves(t);
+
+    t.app.store.updatePatricia({ enPausa: true });
+    await t.app.receiveMensaje({ text: "👍", whatsappId: "in-1" });
+    expect(t.whatsapp.outbox).toEqual([]);
+    expect(decisionsOf(t, "respuesta-propuesta")).toEqual([]);
+
+    t.app.store.updatePatricia({ enPausa: false });
+    await t.app.receiveMensaje({ text: "👍", whatsappId: "in-2" });
+    expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: `Anotado: $50.000 este mes. ${CIERRE}` }]);
+  });
 });
