@@ -1,10 +1,12 @@
 import type { MensajeInput } from "../escalera/respuesta";
 import type { EtapaMove } from "../escalera/policy";
+import { answerMadrugada } from "../escalera/respuesta-madrugada";
 import { type CifrasExtraidas, extractCifrasDeFoto } from "../figures/extractor";
 import type { Store } from "../patricia/store";
 import type { Llm, Voice, WhatsApp } from "../ports";
 import { SAFE_TEMPLATE, validateText } from "../validator/validator";
 import { montoEnPantalla } from "../voz/montos";
+import { isMadrugada } from "../whatsapp-cloud";
 import type { InboundMensaje } from "./webhook";
 
 /**
@@ -20,6 +22,7 @@ import type { InboundMensaje } from "./webhook";
  * It answers nothing, except when a nota de voz cannot be transcribed or a foto
  * cannot be read: then it is kept unread, with no intención but with its line
  * in the registro de decisiones, and Luna answers calmly with an easier way.
+ * In the madrugada any unread message gets the madrugada note instead.
  */
 
 export type InboundDeps = {
@@ -69,12 +72,22 @@ export const MENSAJE_NO_ENTENDIDO = "[mensaje que Luna todavía no entiende]";
 export async function receiveInbound(deps: InboundDeps, mensaje: InboundMensaje): Promise<void> {
   const { whatsappId, from, body } = mensaje;
 
-  /** Keeps an unread entrante and its line in the registro as one unit. */
-  const recordUnread = (text: string, motivo: string, datos: object): void => {
+  /** Keeps an unread entrante and its line in the registro as one unit; returns when it arrived. */
+  const recordUnread = (text: string, motivo: string, datos: object): Date =>
     deps.inTransaction(() => {
-      deps.store.addMensajeEntrante({ text, intencion: null, whatsappId });
+      const entrante = deps.store.addMensajeEntrante({ text, intencion: null, whatsappId });
       deps.store.recordDecision({ tipo: "mensaje", motivo, datos: { whatsappId, from, ...datos } });
+      return entrante.receivedAt;
     });
+
+  /** In the madrugada the madrugada note replaces the daytime answer; nothing during a pausa. */
+  const answerUnread = async (text: string, now: Date, daytime?: () => Promise<void>): Promise<void> => {
+    if (!isMadrugada(now)) {
+      await daytime?.();
+      return;
+    }
+    if (deps.store.getPatricia().enPausa) return;
+    await answerMadrugada(deps, { text, whatsappId, now });
   };
 
   switch (body.kind) {
@@ -102,12 +115,12 @@ export async function receiveInbound(deps: InboundDeps, mensaje: InboundMensaje)
       } catch (cause) {
         const error = cause instanceof Error ? cause.message : String(cause);
         console.error(`whatsapp: nota de voz ${body.mediaId} could not be transcribed: ${error}`);
-        recordUnread(
+        const now = recordUnread(
           NOTA_DE_VOZ_SIN_TRANSCRIBIR,
           `entrante: ${NOTA_DE_VOZ_SIN_TRANSCRIBIR} (no se pudo transcribir: ${error})`,
           { kind: body.kind, mediaId: body.mediaId, mimeType: body.mimeType, error },
         );
-        await answerNotaNoEscuchada(deps);
+        await answerUnread(NOTA_DE_VOZ_SIN_TRANSCRIBIR, now, () => answerNotaNoEscuchada(deps));
         return;
       }
       await deps.mensaje({ text: transcript, whatsappId, arrival: { from, kind: body.kind } });
@@ -125,23 +138,24 @@ export async function receiveInbound(deps: InboundDeps, mensaje: InboundMensaje)
       } catch (cause) {
         const error = cause instanceof Error ? cause.message : String(cause);
         console.error(`whatsapp: foto ${body.mediaId} could not be read: ${error}`);
-        recordUnread(FOTO_SIN_LEER, `entrante: ${FOTO_SIN_LEER} (no se pudo leer: ${error})`, {
+        const now = recordUnread(FOTO_SIN_LEER, `entrante: ${FOTO_SIN_LEER} (no se pudo leer: ${error})`, {
           kind: body.kind,
           mediaId: body.mediaId,
           mimeType: body.mimeType,
           error,
         });
-        await answerFotoNoLeida(deps);
+        await answerUnread(FOTO_SIN_LEER, now, () => answerFotoNoLeida(deps));
         return;
       }
       await deps.mensaje({ text: textoFotoLeida(cifras), whatsappId, arrival: { from, kind: body.kind }, foto: { cifras } });
       return;
     }
     case "other": {
-      recordUnread(MENSAJE_NO_ENTENDIDO, `entrante: ${MENSAJE_NO_ENTENDIDO} (tipo ${body.type})`, {
+      const now = recordUnread(MENSAJE_NO_ENTENDIDO, `entrante: ${MENSAJE_NO_ENTENDIDO} (tipo ${body.type})`, {
         kind: body.kind,
         type: body.type,
       });
+      await answerUnread(MENSAJE_NO_ENTENDIDO, now);
       return;
     }
   }

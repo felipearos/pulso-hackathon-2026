@@ -140,7 +140,7 @@ describe("pausa", () => {
     expect(t.app.store.getPatricia()).toMatchObject({ etapa: 1, enPausa: false });
   });
 
-  test("«hola» at 02:30 after a pausa sends nothing; the next cita is the bienvenida de vuelta", async () => {
+  test("«hola» at 02:30 after a pausa gets only the madrugada note; the next cita is the bienvenida de vuelta", async () => {
     const t = setup();
     await t.app.receiveMensaje({ text: "pausa", whatsappId: null });
     t.clock.set(parseSantiago("2026-10-27T02:30"));
@@ -148,12 +148,12 @@ describe("pausa", () => {
     await t.app.receiveMensaje({ text: "hola", whatsappId: null });
     await t.app.tick();
 
-    expect(t.whatsapp.outbox).toEqual([]);
-    expect(t.app.store.pendientes().map((p) => p.tipo)).toEqual(["bienvenida-de-vuelta"]);
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
+    expect(t.app.store.pendientes().map((p) => p.tipo)).toEqual(["bienvenida-de-vuelta", "preocupacion"]);
     expect(ofTipo(t, "diferir").map((d) => d.motivo)).toEqual(["diferido por madrugada"]);
     await tickUntil(t, "2026-10-29T22:30");
     expect(t.app.store.citaOn("2026-10-29")).toMatchObject({ tipo: "bienvenida-de-vuelta", estado: "programada" });
-    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio", "audio"]);
   });
 
   test("«pausa» while in pausa keeps her paused and logs nothing new", async () => {

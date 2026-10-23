@@ -127,12 +127,13 @@ describe("the jueves propuesta through the app", () => {
 
     t.clock.set(new Date("2026-10-23T01:00:00-03:00"));
     await t.app.receiveMensaje({ text: "👍", whatsappId: "in-1" });
-    expect(t.whatsapp.outbox).toEqual([]);
+    // Only the madrugada nota de voz.
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
     expect(decisionsOf(t, "respuesta-propuesta")).toEqual([]);
 
     t.clock.set(new Date("2026-10-23T08:00:00-03:00"));
     await t.app.receiveMensaje({ text: "👍", whatsappId: "in-2" });
-    expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: `Anotado: $50.000 este mes. ${CIERRE}` }]);
+    expect(t.whatsapp.outbox.slice(1)).toEqual([{ kind: "text", text: `Anotado: $50.000 este mes. ${CIERRE}` }]);
   });
 
   test("a 👍 the next week no longer answers last week's propuesta", async () => {
