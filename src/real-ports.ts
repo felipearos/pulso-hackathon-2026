@@ -42,9 +42,9 @@ async function notWiredYet(env: Env, port: string, names: string[]): Promise<nev
 
 /**
  * The ports `main` runs with: the system clock, the SQLite file and the outside
- * services. `fetch` lets tests keep the HTTP clients off the network.
+ * services. `fetch` and `log` let tests keep the HTTP clients off the network and the console.
  */
-export function realPorts(env: Env = process.env, options: { fetch?: Fetch } = {}): Ports {
+export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?: (line: string) => void } = {}): Ports {
   return {
     clock: systemClock,
     mail: { fetchNew: () => notWiredYet(env, "mail", ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET"]) },
@@ -53,7 +53,7 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch } = {
     voice: {
       synthesize: async (text) => {
         const [apiKey, voiceId] = requireEnv(env, "voice", ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"]);
-        return createElevenLabsVoice({ apiKey: apiKey!, voiceId: voiceId!, fetch: options.fetch }).synthesize(text);
+        return createElevenLabsVoice({ apiKey: apiKey!, voiceId: voiceId!, fetch: options.fetch, log: options.log }).synthesize(text);
       },
     },
     db: openDatabase(databasePath(env)),

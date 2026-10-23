@@ -72,7 +72,7 @@ describe("realPorts", () => {
       return new Response("not audio", { status: 401 });
     };
     const env = { ...memory, ELEVENLABS_API_KEY: "key", ELEVENLABS_VOICE_ID: "voice-id" };
-    const error = await rejection(realPorts(env, { fetch }).voice.synthesize("Hola"));
+    const error = await rejection(realPorts(env, { fetch, log: () => {} }).voice.synthesize("Hola"));
     expect(error).toBeInstanceOf(VoiceError);
     expect(urls).toEqual(["https://api.elevenlabs.io/v1/text-to-speech/voice-id?output_format=opus_48000_64"]);
     expect(headers[0]).toMatchObject({ "xi-api-key": "key" });

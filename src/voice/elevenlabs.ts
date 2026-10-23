@@ -113,7 +113,7 @@ export function createElevenLabsVoice({
       try {
         audio = new Uint8Array(await response.arrayBuffer());
       } catch (error) {
-        return fail(`ElevenLabs audio download failed: ${(error as Error).message}`, response.status, true);
+        return fail(`ElevenLabs audio download failed: ${error instanceof Error ? error.message : String(error)}`, response.status, true);
       }
       let durationSeconds: number;
       try {
