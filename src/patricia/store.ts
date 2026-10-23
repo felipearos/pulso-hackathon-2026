@@ -55,12 +55,14 @@ export type Store = {
    * Returns null, and changes nothing, when that day already has a cita.
    */
   addCita(
-    input: Omit<Cita, "id" | "pendientes" | "programadaAt"> & { pendienteIds: readonly number[] },
+    input: Omit<Cita, "id" | "pendientes" | "programadaAt" | "mensajeSalienteId"> & { pendienteIds: readonly number[] },
   ): Cita | null;
   /** The cita of a Santiago day, or null. */
   citaOn(fecha: string): Cita | null;
   /** Oldest first. */
   citas(): Cita[];
+  /** Stamps the mensaje saliente a cita went out as; false, and nothing changes, if it already had one. */
+  markCitaSent(citaId: number, mensajeSalienteId: number): boolean;
 };
 
 type PatriciaRow = {
@@ -130,6 +132,7 @@ type CitaRow = {
   etapa: string;
   motivo: string;
   programada_at: string;
+  mensaje_saliente_id: number | null;
 };
 
 type DecisionRow = { id: number; at: string; tipo: TipoDecision; motivo: string; datos: string };
@@ -285,6 +288,9 @@ export function createStore(db: Database, clock: Clock): Store {
   );
   const selectCitaDelDia = db.query<CitaRow, Record<string, string>>("SELECT * FROM citas WHERE fecha = $fecha");
   const selectCitas = db.query<CitaRow, []>("SELECT * FROM citas ORDER BY id");
+  const updateCitaSent = db.query(
+    "UPDATE citas SET mensaje_saliente_id = $mensajeSalienteId WHERE id = $id AND mensaje_saliente_id IS NULL",
+  );
 
   const toCita = (row: CitaRow): Cita => ({
     id: row.id,
@@ -295,6 +301,7 @@ export function createStore(db: Database, clock: Clock): Store {
     motivo: row.motivo,
     pendientes: selectPendientesDeCita.all({ citaId: row.id }).map(toPendiente),
     programadaAt: new Date(row.programada_at),
+    mensajeSalienteId: row.mensaje_saliente_id,
   });
 
   const getPatricia = (): Patricia => {
@@ -454,6 +461,10 @@ export function createStore(db: Database, clock: Clock): Store {
 
     citas() {
       return selectCitas.all().map(toCita);
+    },
+
+    markCitaSent(citaId, mensajeSalienteId) {
+      return updateCitaSent.run({ id: citaId, mensajeSalienteId }).changes === 1;
     },
   };
 }
