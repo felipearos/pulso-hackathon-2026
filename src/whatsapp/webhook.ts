@@ -63,6 +63,13 @@ export type Webhook = {
   verify(url: URL): Response;
   /** `POST /webhook/whatsapp`: one delivery. Returns before processing finishes. */
   receive(request: Request): Promise<Response>;
+  /**
+   * Takes in a message that did not come through Meta (the simulador's page):
+   * claimed and processed like a delivered one, but without `recordInbound`,
+   * because only a message Meta saw opens Meta's 24 h window. False means the
+   * id was taken before and nothing is processed.
+   */
+  inject(mensaje: InboundMensaje): boolean;
   /** Resolves once every message taken in so far has been processed. */
   drain(): Promise<void>;
 };
@@ -198,6 +205,14 @@ export function createWebhook(deps: WebhookDeps): Webhook {
     inFlight.add(task);
   }
 
+  /** Claims the id and, when it was free, opens the window if asked and starts processing. */
+  function takeIn(mensaje: InboundMensaje, opensWindow: boolean): boolean {
+    if (!deps.claim(mensaje.whatsappId)) return false;
+    if (opensWindow) deps.recordInbound(mensaje.when);
+    start(mensaje);
+    return true;
+  }
+
   function verify(url: URL): Response {
     const params = url.searchParams;
     const challenge = params.get("hub.challenge");
@@ -228,12 +243,10 @@ export function createWebhook(deps: WebhookDeps): Webhook {
     for (const rawMessage of rawMessages(payload)) {
       const mensaje = toMensaje(rawMessage);
       if (mensaje === null) continue;
-      if (!deps.claim(mensaje.whatsappId)) {
+      if (!takeIn(mensaje, true)) {
         log("whatsapp webhook: already taken, skipping a meta retry", { whatsappId: mensaje.whatsappId });
         continue;
       }
-      deps.recordInbound(mensaje.when);
-      start(mensaje);
       received += 1;
     }
     return Response.json({ received });
@@ -244,5 +257,9 @@ export function createWebhook(deps: WebhookDeps): Webhook {
     while (inFlight.size > 0) await Promise.allSettled(inFlight);
   }
 
-  return { verify, receive, drain };
+  function inject(mensaje: InboundMensaje): boolean {
+    return takeIn(mensaje, false);
+  }
+
+  return { verify, receive, inject, drain };
 }

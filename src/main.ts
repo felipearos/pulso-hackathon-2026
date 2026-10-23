@@ -4,7 +4,9 @@ import { realPorts } from "./real-ports";
 
 const app = createApp(realPorts(), {
   demoOperatorKey: process.env.DEMO_OPERATOR_KEY,
+  demoToken: process.env.DEMO_TOKEN,
   webhook: webhookConfig(),
+  simulador: process.env.WHATSAPP_SIMULADOR === "1",
 });
 const port = Number(process.env.PORT ?? 3000);
 const server = Bun.serve({ hostname: process.env.HOST, port, fetch: app.handle });

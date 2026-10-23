@@ -144,6 +144,23 @@ describe("receiveMail", () => {
     expect(app.store.decisions()).toEqual([]);
   });
 
+  test("a «recibimos tu pago» stores its monto, from the subject or else the body", async () => {
+    const { app } = createAllowedApp();
+    const from = "avisos@bancoandino.example";
+    await app.receiveMail({ id: "p1", from, subject: "Banco Andino: recibimos tu pago de $50.000", text: "", receivedAt, links: [] });
+    await app.receiveMail({ id: "p2", from, subject: "Recibimos tu pago", text: "Abonamos $41.900 a tu tarjeta.", receivedAt, links: [] });
+    await app.receiveMail({ id: "p3", from, subject: "Recibimos tu pago", text: "", receivedAt, links: [] });
+
+    expect(app.store.senales().map((s) => [s.tipo, s.monto])).toEqual([
+      ["S5", 50_000],
+      ["S5", 41_900],
+      ["S5", null],
+    ]);
+    const datos = app.store.decisions().filter((d) => d.tipo === "senal").map((d) => d.datos as { monto?: number; aporte?: number });
+    expect(datos.map((d) => d.monto)).toEqual([50_000, 41_900, undefined]);
+    for (const d of datos) expect(d.aporte).toBeUndefined();
+  });
+
   test("the same mail seen twice gives one señal and one decision", async () => {
     const { app, mail } = createAllowedApp();
     mail.inject({ id: "dup", from: "avisos@bancoandino.example", subject: "Estado de cuenta", receivedAt });

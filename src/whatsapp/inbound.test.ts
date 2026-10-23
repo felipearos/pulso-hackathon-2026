@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import type { Database } from "bun:sqlite";
 import type { App } from "../app";
 import { FakeLlm, FakeVoice, FakeWhatsApp } from "../fakes";
+import { parseSantiago } from "../clock/santiago";
 import { createTestApp, TEST_START, type TestApp } from "../testing";
 import {
+  FOTO_NO_LEIDA,
   FOTO_SIN_LEER,
   MENSAJE_NO_ENTENDIDO,
   NOTA_DE_VOZ_NO_ESCUCHADA,
@@ -235,26 +237,56 @@ describe("receiveInbound", () => {
     expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: NOTA_DE_VOZ_NO_ESCUCHADA }]);
   });
 
-  test("a foto is kept unread with its media id", async () => {
-    const { app, db } = createTestApp();
+  /** A foto Luna could not read: kept unread with its media id, and she asks calmly for the mínimo in writing. */
+  async function expectNotRead(t: TestApp) {
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "image", mediaId: "media-image-1", mimeType: null }));
 
-    await receiveInbound(deps(app, db), mensaje({ kind: "image", mediaId: "media-image-1", mimeType: null }));
-
-    const entrantes = app.store.mensajesEntrantes();
+    const entrantes = t.app.store.mensajesEntrantes();
     expect(entrantes).toHaveLength(1);
     expect(entrantes[0]?.text).toBe(FOTO_SIN_LEER);
     expect(entrantes[0]?.intencion).toBeNull();
 
-    const decisions = app.store.decisions();
-    expect(decisions).toHaveLength(1);
-    expect(decisions[0]?.motivo).toContain(FOTO_SIN_LEER);
-    expect(decisions[0]?.datos).toEqual({
+    const [unread, answer] = t.app.store.decisions();
+    expect(unread?.motivo).toContain(FOTO_SIN_LEER);
+    expect(unread?.motivo).toContain("no se pudo leer");
+    expect(unread?.datos).toEqual({
       whatsappId: "wamid.TEST1",
       from: FROM,
       kind: "image",
       mediaId: "media-image-1",
       mimeType: null,
+      error: expect.any(String),
     });
+
+    expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: FOTO_NO_LEIDA }]);
+    expect(FOTO_NO_LEIDA).not.toMatch(/\d/);
+    expect(answer?.datos).toMatchObject({ text: FOTO_NO_LEIDA, source: "draft" });
+    expect(t.app.store.mensajesSalientes()).toEqual([]);
+  }
+
+  test("a foto that fails to download is kept unread and Luna asks for the mínimo in writing", async () => {
+    const t = createTestApp({ llm: [[FOTO_NO_LEIDA, "OK"]] });
+
+    await expectNotRead(t);
+    expect(t.whatsapp.downloads).toEqual(["media-image-1"]);
+  });
+
+  test("a foto the extractor cannot read is kept unread and Luna asks for the mínimo in writing", async () => {
+    const t = createTestApp({ llm: [["Foto de un estado de cuenta:", "no veo nada"], [FOTO_NO_LEIDA, "OK"]] });
+    t.whatsapp.media.set("media-image-1", { bytes: new Uint8Array([0xff, 0xd8]), mimeType: "image/jpeg" });
+
+    await expectNotRead(t);
+    expect(t.llm.calls[0]?.images).toEqual([{ bytes: new Uint8Array([0xff, 0xd8]), mimeType: "image/jpeg" }]);
+  });
+
+  test("during a pausa, a foto Luna cannot read gets no answer", async () => {
+    const t = createTestApp({ llm: [[FOTO_NO_LEIDA, "OK"]] });
+    t.app.store.updatePatricia({ enPausa: true });
+
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "image", mediaId: "media-image-1", mimeType: null }));
+
+    expect(t.app.store.mensajesEntrantes()[0]?.text).toBe(FOTO_SIN_LEER);
+    expect(t.whatsapp.outbox).toEqual([]);
   });
 
   test("an unknown kind is kept with its raw type", async () => {
@@ -273,8 +305,9 @@ describe("receiveInbound", () => {
   });
 
   test("the registro de decisiones only grows, one entry per message", async () => {
-    const { app, db } = createTestApp();
-    const d = deps(app, db);
+    const t = createTestApp({ llm: [[FOTO_NO_LEIDA, "OK"]] });
+    const { app } = t;
+    const d = deps(app, t.db, t);
 
     await receiveInbound(d, mensaje({ kind: "text", text: "👍" }, "wamid.TEST1"));
     await receiveInbound(d, mensaje({ kind: "image", mediaId: "media-image-1", mimeType: null }, "wamid.TEST2"));
@@ -285,6 +318,54 @@ describe("receiveInbound", () => {
       "wamid.TEST2",
       "wamid.TEST3",
     ]);
-    expect(app.store.decisions()).toHaveLength(3);
+    // The foto Luna could not read adds her calm answer to its own line.
+    expect(app.store.decisions()).toHaveLength(4);
+  });
+});
+
+describe("receiveInbound in the madrugada", () => {
+  const NIGHT = parseSantiago("2026-10-20T02:30");
+
+  function madrugadaNotes(t: TestApp) {
+    return t.app.store.decisions().filter((d) => (d.datos as { madrugada?: boolean } | null)?.madrugada === true);
+  }
+
+  test("a nota de voz Luna cannot hear gets the madrugada note, not the request for an emoji", async () => {
+    const t = createTestApp({ now: NIGHT, voice: { transcribeFailures: 1 } });
+    t.whatsapp.media.set("media-audio-1", VOICE_NOTE);
+
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType: "audio/ogg" }));
+
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
+    expect(madrugadaNotes(t)).toHaveLength(1);
+    expect(t.app.store.pendientes().map((p) => p.tipo)).toEqual(["preocupacion"]);
+  });
+
+  test("a foto Luna cannot read gets the madrugada note, not the request for the mínimo", async () => {
+    const t = createTestApp({ now: NIGHT });
+
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "image", mediaId: "media-image-1", mimeType: null }));
+
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
+    expect(madrugadaNotes(t)).toHaveLength(1);
+  });
+
+  test("an unknown kind gets the madrugada note", async () => {
+    const t = createTestApp({ now: NIGHT });
+
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "other", type: "sticker" }));
+
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
+    expect(madrugadaNotes(t)).toHaveLength(1);
+  });
+
+  test("during a pausa, an unread message at night gets no answer", async () => {
+    const t = createTestApp({ now: NIGHT });
+    t.app.store.updatePatricia({ enPausa: true });
+
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "other", type: "sticker" }));
+
+    expect(t.whatsapp.outbox).toEqual([]);
+    expect(t.app.store.pendientes()).toEqual([]);
   });
 });

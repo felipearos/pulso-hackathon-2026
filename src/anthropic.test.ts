@@ -97,4 +97,43 @@ describe("anthropicLlm", () => {
     expect(error?.message).toContain("invalid key");
     expect(error?.message).not.toContain(apiKey);
   });
+
+  test("sends each image as a base64 block before the prompt", async () => {
+    let capturedBody = "";
+    const llm = anthropicLlm({
+      apiKey: "test-api-key",
+      fetch: mockFetch(async (_input, init) => {
+        capturedBody = init?.body as string;
+        return Response.json({ content: [{ type: "text", text: "Leído" }] });
+      }),
+    });
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
+
+    await expect(
+      llm.complete({ prompt: "Foto", images: [{ bytes, mimeType: "Image/JPEG; charset=binary" }] }),
+    ).resolves.toBe("Leído");
+    expect(JSON.parse(capturedBody).messages).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: "/9j/4A==" } },
+          { type: "text", text: "Foto" },
+        ],
+      },
+    ]);
+  });
+
+  test("keeps the plain string content when the images are empty", async () => {
+    let capturedBody = "";
+    const llm = anthropicLlm({
+      apiKey: "test-api-key",
+      fetch: mockFetch(async (_input, init) => {
+        capturedBody = init?.body as string;
+        return Response.json({ content: [{ type: "text", text: "Respuesta" }] });
+      }),
+    });
+
+    await llm.complete({ prompt: "Hola", images: [] });
+    expect(JSON.parse(capturedBody).messages).toEqual([{ role: "user", content: "Hola" }]);
+  });
 });

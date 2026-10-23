@@ -205,7 +205,7 @@ describe("crisis protocol", () => {
     // The webhook opens the 24 h window for every message it takes in, before handing it on.
     whatsapp.recordInbound(t.clock.now());
     await receiveMensaje(
-      { store: t.app.store, llm: t.llm, whatsapp, db: t.db },
+      { store: t.app.store, llm: t.llm, whatsapp, voice: t.voice, db: t.db },
       { text: CRISIS, whatsappId: "wamid-in-1" },
     );
 

@@ -156,11 +156,13 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `WHATSAPP_VERIFY_TOKEN` | dev, prd | whatsapp webhook: the token echoed back in Meta's GET subscription challenge; unset means the challenge is refused with 403 |
 | `WHATSAPP_SMOKE_TO` | dev | whatsapp port: Meta test number the smoke test writes to |
 | `WHATSAPP_SMOKE` | none (command line) | set it for one run to let the smoke test send a real message; unset everywhere else, so `bun run test` never does |
+| `WHATSAPP_SIMULADOR` | none (optional) | set to 1 to boot with the /sala simulador as the channel instead of Meta; it can also be switched from /sala |
 | `DEMO_OPERATOR_KEY` | dev, prd | control room: the key that lets `/demo` move the clock and send the test audio; the operator opens `/demo?clave=<key>` once. Unset, `/demo` is view-only |
 | `ANTHROPIC_API_KEY` | dev, prd | llm port: Claude API |
 | `ELEVENLABS_API_KEY` | dev, prd | voice port: ElevenLabs API |
 | `ELEVENLABS_VOICE_ID` | dev, prd | voice port: the voice Patricia hears |
 | `ELEVENLABS_VOICE_ID_OTRA` | dev, prd | voice port: the other voice Patricia can choose in the bienvenida; falls back to ELEVENLABS_VOICE_ID |
+| `DEMO_TOKEN` | dev, prd | /sala: the operator token for the real-agent control room (`/sala?token=…`); unset means /sala answers 404 |
 
 ## Agent skills
 

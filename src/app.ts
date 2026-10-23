@@ -3,7 +3,10 @@ import { createCitaSender } from "./citas/envio";
 import { createScheduler } from "./citas/scheduler";
 import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
+import { GUION } from "./demo/guion";
 import { nightAudioSender } from "./demo/night-audio";
+import { createDemoRoutes } from "./demo/routes";
+import controlPage from "./demo/control.html" with { type: "text" };
 import { pauseIfSilent } from "./escalera/pausa";
 import type { EtapaMove } from "./escalera/policy";
 import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
@@ -17,6 +20,7 @@ import { createStore, type Store } from "./patricia/store";
 import type { IncomingMail, Ports, Web } from "./ports";
 import { createHandler } from "./server";
 import { receiveInbound } from "./whatsapp/inbound";
+import { createCanal, createSimulador } from "./whatsapp/simulador";
 import { createWebhook, type WebhookConfig } from "./whatsapp/webhook";
 
 export type App = {
@@ -67,7 +71,12 @@ export type AppOptions = {
   /** The control room's operator key (`DEMO_OPERATOR_KEY`); unset leaves `/demo` view-only. */
   demoOperatorKey?: string;
   /** The webhook's Meta secrets; unset leaves every delivery refused. */
+  /** The operator token that opens /sala; without it /sala answers 404. */
+  demoToken?: string;
+  /** The webhook's Meta secrets; unset leaves every delivery refused. */
   webhook?: WebhookConfig;
+  /** Whether the /sala simulador is the channel at boot instead of Meta (`WHATSAPP_SIMULADOR`); /sala can switch it. */
+  simulador?: boolean;
 };
 
 /**
@@ -78,6 +87,9 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   migrate(ports.db);
   const clock = createDemoClock(ports.db, ports.clock);
   const store = createStore(ports.db, clock);
+  // Every flow sends through the canal, so the simulador can stand in for Meta while the app runs.
+  const simulador = createSimulador();
+  const canal = createCanal(ports.whatsapp, simulador, options.simulador ?? false);
   // The señal and its decision land together or not at all.
   const receive = (mail: IncomingMail) =>
     receiveMail(store, ports.llm, mail, (fn) => ports.db.transaction(fn)());
@@ -118,7 +130,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
       // A failed bienvenida answer must not cost the escalera its step.
       console.error(`bienvenida: answer failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-    return receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp, db: ports.db }, input);
+    return receiveMensaje({ store, llm: ports.llm, whatsapp: canal, voice: ports.voice, db: ports.db }, input);
   };
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
@@ -167,7 +179,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     clock,
     llm: ports.llm,
     voice: ports.voice,
-    whatsapp: ports.whatsapp,
+    whatsapp: canal,
   });
   const permitir = createPermitir({ mail: ports.mail, store, clock: ports.clock });
   const webhook = createWebhook({
@@ -175,36 +187,52 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     claim: (whatsappId) => store.claimWhatsappId(whatsappId),
     release: (whatsappId) => store.releaseWhatsappId(whatsappId),
     onMensaje: (inbound) => receiveInbound(
-        { store, mensaje, inTransaction, whatsapp: ports.whatsapp, voice: ports.voice, llm: ports.llm },
+        { store, mensaje, inTransaction, whatsapp: canal, voice: ports.voice, llm: ports.llm },
         inbound,
       ),
-    recordInbound: (at) => ports.whatsapp.recordInbound(at),
+    recordInbound: (at) => canal.recordInbound(at),
     now: () => clock.now(),
   });
   const routes = createHandler({
     demoPage,
     nightAudio,
-    sendNightAudio: nightAudioSender(ports.whatsapp, nightAudio),
+    sendNightAudio: nightAudioSender(canal, nightAudio),
     operatorKey: options.demoOperatorKey,
     webhook,
   });
+  const tick = async () => {
+    // Mail first, so tonight's cita is decided with every señal already in.
+    await pollMail();
+    // Fourteen days without a reply silence Luna before tonight's slot is decided.
+    pauseIfSilent(ports.db, store, clock.now());
+    scheduler.tick();
+    await sender.tick();
+  };
+  const reset = () => resetPatricia(ports.db, clock);
+  // A text import hands over the file's contents; Bun's types only know the HTML-bundle import.
+  const controlPageText = controlPage as unknown as string;
+  const demo = createDemoRoutes({
+    token: options.demoToken,
+    clock,
+    store,
+    tick,
+    reset,
+    guion: GUION,
+    page: controlPageText,
+    canal,
+    simulador,
+    inject: (inbound) => webhook.inject(inbound),
+  });
   return {
-    handle: (request) => permitir.handle(request) ?? routes(request),
-    tick: async () => {
-      // Mail first, so tonight's cita is decided with every señal already in.
-      await pollMail();
-      // Fourteen days without a reply silence Luna before tonight's slot is decided.
-      pauseIfSilent(ports.db, store, clock.now());
-      scheduler.tick();
-      await sender.tick();
-    },
+    handle: async (request) => (await demo(request)) ?? permitir.handle(request) ?? routes(request),
+    tick,
     receiveMail: receive,
     extractEstadoDeCuenta: extract,
     drain: () => webhook.drain(),
     store,
     clock,
     receiveMensaje: mensaje,
-    reset: () => resetPatricia(ports.db, clock),
+    reset,
   };
 }
 

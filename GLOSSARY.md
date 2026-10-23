@@ -50,6 +50,12 @@ _Avoid:_ "amount", "importe".
 
 Paying more than the pago mínimo. Half of the case's success condition.
 
+When a «recibimos tu pago» this week says she paid more than the pago mínimo
+of her latest estado de cuenta, the domingo's one cifra is la fecha en que
+queda libre paying that much each month, and how many months earlier than
+paying only the mínimo («en marzo de 2028, 42 meses antes»). The domingo
+also asks how she slept this week («cómo dormiste esta semana») with 😴 🥱 😣.
+
 ## Cuotas
 
 Instalments. She buys in cuotas when anxious («Total, son cuotas chicas»),
@@ -105,8 +111,18 @@ _Avoid:_ "plan", "programme", "levels".
 
 One step of the escalera (etapa 1 «Mira Luna» … etapa 5 «Lo abre ella»,
 then graduada). Luna decides when Patricia moves up or back, and checks
-which etapa she is in when she returns.
+which etapa she is in when she returns. In etapa 4 Patricia brings the
+tienda's pago mínimo in a foto; in etapa 5 the bank's, in a foto or told in
+answer to the lunes cita. Luna celebrates that she opened it, and when the
+figures differ only says the one she has.
 _Avoid:_ "estado" (that is the estado de cuenta), "semana", "peldaño", "nivel".
+
+## Graduada
+
+After etapa 5, Patricia is graduada. Luna keeps one cita a month, on the first
+lunes, asking «¿lo abres tú o te lo cuento yo?». If Patricia asks Luna to tell
+her, Luna sends the pago mínimo by text and Patricia stays graduada.
+_Avoid:_ "egresada", "terminó".
 
 ## Cita
 
@@ -168,8 +184,12 @@ Anything Patricia sends Luna over WhatsApp: a text, an emoji she types, an
 emoji she reacts to Luna's audio with, a nota de voz or a foto. Every one is
 kept (`mensajes_entrantes`), with its intención once Luna can read it. A nota
 de voz is transcribed and read as a text; one that cannot be transcribed is
-kept unread and Luna asks for an emoji instead. A foto is kept unread until
-reading one lands. Reacting with an emoji
+kept unread and Luna asks for an emoji instead. A foto is read with Claude's
+vision and counts as accepting the cita: its pago mínimo is compared with the
+stored estado de cuenta (the tienda's in etapa 4, the bank's otherwise), or
+stored as a new one when there is none. A foto with no legible pago mínimo
+still counts as accepting; one that cannot be downloaded or read is kept
+unread. Either way Luna asks calmly for the foto again. Reacting with an emoji
 counts the same as typing it. Meta may deliver one twice, so each is taken in
 once, by its own id.
 _Avoid:_ "inbound message", "reply".
@@ -289,3 +309,40 @@ The calm fixed text, with no figure, that goes out when the validador
 rejects a text twice (once drafted, once redrafted). Its use is recorded as
 a decision.
 _Avoid:_ "fallback", "default message".
+
+## Sala de control
+
+/sala: the team's screen for the pitch, served by the same app and opened
+only with the operator token (`DEMO_TOKEN`; without it /sala answers 404).
+It moves the demo clock to the momentos del guion, runs a tick and resets
+Patricia to the starting point. It also shows the conversation with
+Patricia (audios, texts, fotos and her answers) and switches the canal to the
+simulador. It has no logic of its own: every button
+calls the same flows Patricia's night runs on. The scripted week at /demo
+is a separate screen. Written "the control room"
+in English prose.
+_Avoid:_ "dashboard", "admin panel".
+
+## Canal
+
+The WhatsApp port the app actually sends through: Meta's number, or the
+simulador when it is active. Every flow writes to the canal, never to one of
+the two directly, so switching it from /sala moves the whole conversation.
+_Avoid:_ "transport", "provider".
+
+## Simulador
+
+The stand-in for Meta's WhatsApp that /sala offers when the real number
+fails: what Luna sends stays on the page, and the operator answers as
+Patricia from there (text, 👍, 👌 or a foto). Her answer enters through the
+webhook's own path, so it takes the same flow as one Meta delivered, without
+opening Meta's 24 h window. Chosen with `WHATSAPP_SIMULADOR=1` at boot or
+switched from /sala.
+_Avoid:_ "mock", "fake channel".
+
+## Momento del guion
+
+A named point of the demo's guion (`Jue 22:30`, `Semana 4`) that a button of
+the sala de control jumps the demo clock to. The list lives in
+`src/demo/guion.json`, so the team adjusts it without touching code.
+_Avoid:_ "preset", "scene".

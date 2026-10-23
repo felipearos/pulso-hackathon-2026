@@ -35,7 +35,7 @@ export type Senal = {
   tipo: TipoSenal;
   /** The mail it came from. */
   origen: { mailId: string; from: string; subject: string };
-  /** What an S3's pedido del catálogo was paid, in pesos; null when unknown or not an S3. */
+  /** What an S3's pedido del catálogo or an S5's pago was, in pesos; null when unknown or another señal. */
   monto: number | null;
   receivedAt: Date;
 };
@@ -129,6 +129,8 @@ export type TipoDecision =
   | "proponer-plata-apartada"
   /** Luna proposed seeing a compra en cuotas tomorrow night. */
   | "proponer-verlo-manana"
+  /** Luna told Patricia the pago mínimo for the month. */
+  | "contar-estado-de-cuenta"
   /** Luna sent a warm reply about cuotas for a remedy or her mother. */
   | "acompanar-compra"
   /** A mail was classified into a señal. */

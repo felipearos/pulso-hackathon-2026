@@ -23,6 +23,10 @@ function stubWebhook(): { webhook: Webhook; calls: string[] } {
       calls.push(`receive ${request.method}`);
       return new Response("ok", { status: 200 });
     },
+    inject(mensaje) {
+      calls.push(`inject ${mensaje.whatsappId}`);
+      return true;
+    },
     async drain() {},
   };
   return { webhook, calls };

@@ -37,7 +37,9 @@ export function createTestApp(
     web?: ConstructorParameters<typeof FakeWeb>[0];
     db?: Database;
     demoOperatorKey?: string;
+    demoToken?: string;
     webhook?: WebhookConfig;
+    simulador?: boolean;
   } = {},
 ): TestApp {
   const ports = {
@@ -51,7 +53,9 @@ export function createTestApp(
   };
   const app = createApp(ports, {
     demoOperatorKey: options.demoOperatorKey,
+    demoToken: options.demoToken,
     webhook: options.webhook ?? TEST_WEBHOOK_CONFIG,
+    simulador: options.simulador,
   });
   return { app, ...ports };
 }

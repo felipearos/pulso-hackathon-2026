@@ -3,7 +3,7 @@ import { santiagoDate, santiagoParts } from "../clock/santiago";
 import { estadoDeCuenta8Pdf } from "../figures/fixtures/estado-de-cuenta-8-pdf";
 import { imagenDifuminada, type ImagenDifuminada } from "../figures/imagen-difuminada";
 import type { Cita } from "../patricia/entities";
-import { pagoRecibidoEstaSemana } from "../plata/apartado";
+import { pagoRecibidoEstaSemana, pagoSobreElMinimoEstaSemana } from "../plata/apartado";
 import { aCompraEnCuotas, comprasEnCuotas as comprasRegistradas } from "../plata/cuotas";
 import type { Store } from "../patricia/store";
 import type { Clock, Llm, SpokenAudio, Voice, WhatsApp } from "../ports";
@@ -31,7 +31,8 @@ export type CitaSender = {
 
 /** The guion as Luna says it: every peso amount of the cifra in words, not digits. */
 export function guionHablado(guion: string, cifra: CifraPermitida | null): string {
-  if (cifra === null) return guion;
+  // A fecha-libre cifra carries no peso amount: its year and meses reach the voice as written.
+  if (cifra === null || cifra.kind === "fecha-libre") return guion;
   const monto = cifra.kind === "pago-minimo" ? cifra.monto : cifra.cuota;
   // «$41.900», «41.900», «41900» and «41.900 pesos» all become words; the validator lets each through.
   const digits = [montoEnPantalla(monto).slice(1), String(monto)].map((form) => form.replaceAll(".", "\\."));
@@ -74,7 +75,8 @@ export function createCitaSender({
     const estadoDeCuenta = store.estadosDeCuenta().findLast((e) => e.origen === "banco" && e.cifras !== null) ?? null;
     const pagoRecibido = pagoRecibidoEstaSemana(store.senales(), now);
     const comprasEnCuotas = comprasRegistradas(store.senales(), now).map(aCompraEnCuotas);
-    return decisionDeCita({ cita, estadoDeCuenta, pagoRecibido, comprasEnCuotas });
+    const pagoSobreElMinimo = pagoSobreElMinimoEstaSemana(store.senales(), estadoDeCuenta?.pagoMinimo ?? null, now);
+    return decisionDeCita({ cita, estadoDeCuenta, pagoRecibido, comprasEnCuotas, pagoSobreElMinimo });
   };
 
   // The cifra Patricia heard, from the audio's decision: a newer estado de cuenta must not change the image.

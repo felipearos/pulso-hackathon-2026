@@ -20,7 +20,7 @@ import type {
 /** What `addEstadoDeCuenta` takes: every caller builds one through this type. */
 export type EstadoDeCuentaInput = Omit<EstadoDeCuenta, "id" | "receivedAt">;
 
-/** What `addSenal` takes. `monto` is what an S3's pedido was paid; leave it out for every other señal. */
+/** What `addSenal` takes. `monto` is what an S3's pedido or an S5's pago was; leave it out for every other señal. */
 export type SenalInput = Omit<Senal, "id" | "receivedAt" | "monto"> & { monto?: number | null };
 
 /**
