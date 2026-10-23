@@ -32,8 +32,10 @@ export function storeMail(store: Store, mail: IncomingMail, classification: Clas
   const origen = { mailId: mail.id, from: mail.from, subject: mail.subject };
   // An S3 quietly puts aside 10 % of its pedido; Luna says nothing about it.
   const pedido = classification.tipo === "S3" ? pedidoPagado(mail) : null;
+  // An S5's monto tells whether she paid sobre el mínimo; the domingo reads it.
+  const pago = classification.tipo === "S5" ? (montoDePedido(mail.subject) ?? montoDePedido(mail.text)) : null;
   // The señal goes first: a duplicate fails here and never reaches the decision log.
-  const senal = store.addSenal({ tipo: classification.tipo, origen, monto: pedido?.monto ?? null });
+  const senal = store.addSenal({ tipo: classification.tipo, origen, monto: pedido?.monto ?? pago });
   // An S4 is only registered: no message goes out when it arrives; it may later end a buena noticia.
   const compra = classification.tipo === "S4" ? compraRegistrada(mail.subject, senal.receivedAt) : null;
   const extra = pedido?.motivo ?? compra?.motivo ?? null;
@@ -44,6 +46,7 @@ export function storeMail(store: Store, mail: IncomingMail, classification: Clas
       ...origen,
       tipo: classification.tipo,
       ...(pedido === null ? {} : { monto: pedido.monto, aporte: pedido.aporte }),
+      ...(pago === null ? {} : { monto: pago }),
       ...(compra === null ? {} : compra.datos),
     },
   });

@@ -6,6 +6,7 @@ import {
   inicioDeSemana,
   montoDePedido,
   pagoRecibidoEstaSemana,
+  pagoSobreElMinimoEstaSemana,
   plataApartada,
   type SenalApartable,
 } from "./apartado";
@@ -141,5 +142,36 @@ describe("pagoRecibidoEstaSemana", () => {
     expect(pagoRecibidoEstaSemana([senal(1, "S5", null, "2026-10-25T21:31")], domingo)).toBe(false);
     expect(pagoRecibidoEstaSemana([senal(1, "S3", 30000, "2026-10-22T10:00")], domingo)).toBe(false);
     expect(pagoRecibidoEstaSemana([], domingo)).toBe(false);
+  });
+});
+
+describe("pagoSobreElMinimoEstaSemana", () => {
+  const domingo = parseSantiago("2026-10-25T21:30");
+
+  test.each([
+    ["an S5 above the mínimo this week", [senal(1, "S5", 50000, "2026-10-22T10:00")], 41900, 50000],
+    ["an S5 of exactly the mínimo", [senal(1, "S5", 41900, "2026-10-22T10:00")], 41900, null],
+    ["an S5 below the mínimo", [senal(1, "S5", 20000, "2026-10-22T10:00")], 41900, null],
+    ["an S5 without a monto", [senal(1, "S5", null, "2026-10-22T10:00")], 41900, null],
+    ["an unknown pago mínimo", [senal(1, "S5", 50000, "2026-10-22T10:00")], null, null],
+    ["an S5 from last week", [senal(1, "S5", 50000, "2026-10-18T23:59")], 41900, null],
+    ["an S5 after now", [senal(1, "S5", 50000, "2026-10-25T21:31")], 41900, null],
+    ["an S5 at Monday 00:00", [senal(1, "S5", 50000, "2026-10-19T00:00")], 41900, 50000],
+    ["another señal with a monto", [senal(1, "S3", 50000, "2026-10-22T10:00")], 41900, null],
+    [
+      "the latest S5 by the clock",
+      [senal(2, "S5", 60000, "2026-10-23T10:00"), senal(1, "S5", 50000, "2026-10-22T10:00")],
+      41900,
+      60000,
+    ],
+    [
+      "the higher id when two S5 share a time",
+      [senal(2, "S5", 60000, "2026-10-22T10:00"), senal(1, "S5", 50000, "2026-10-22T10:00")],
+      41900,
+      60000,
+    ],
+    ["no señales", [], 41900, null],
+  ] as const)("%s gives %p", (_, senales, pagoMinimo, expected) => {
+    expect(pagoSobreElMinimoEstaSemana(senales, pagoMinimo, domingo)).toBe(expected);
   });
 });

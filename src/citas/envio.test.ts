@@ -74,6 +74,11 @@ describe("guionHablado", () => {
     expect(guionHablado("Son $ 141.900 y 41.9001.", cifra)).toBe("Son $ 141.900 y 41.9001.");
   });
 
+  test("leaves la fecha en que queda libre as it is", () => {
+    const guion = "Quedas libre en marzo de 2028, 42 meses antes.";
+    expect(guionHablado(guion, { kind: "fecha-libre", freeOn: "2028-03-26", mesesAdelantados: 42 })).toBe(guion);
+  });
+
   test("leaves a guion without cifra as it is", () => {
     expect(guionHablado("Hola, Patricia.", null)).toBe("Hola, Patricia.");
   });
