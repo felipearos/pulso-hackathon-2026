@@ -140,14 +140,14 @@ describe("a foto of an estado de cuenta, through the app factory", () => {
     expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: textoMinimoCoincide("banco", 40100, "Patricia") }]);
   });
 
-  test("in the madrugada a foto is still stored as an estado de cuenta, but Luna sends nothing", async () => {
+  test("in the madrugada a foto is still stored as an estado de cuenta, and Luna sends only the madrugada note", async () => {
     const t = setup({ pagoMinimo: 40100, now: new Date("2026-10-20T02:30:00-03:00") });
     citaSent(t, 2, "jueves");
 
     await send(t, imageMessage("wamid.FOTO1", "media-foto-1"));
 
     expect(t.app.store.estadosDeCuenta()).toEqual([expect.objectContaining({ origen: "banco", pagoMinimo: 40100 })]);
-    expect(t.whatsapp.outbox).toEqual([]);
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
   });
 
   test("the foto's entrante is accepted without the clasificador, and the registro says it came as a foto", async () => {

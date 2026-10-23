@@ -118,7 +118,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
       // A failed bienvenida answer must not cost the escalera its step.
       console.error(`bienvenida: answer failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-    return receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp, db: ports.db }, input);
+    return receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp, voice: ports.voice, db: ports.db }, input);
   };
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
