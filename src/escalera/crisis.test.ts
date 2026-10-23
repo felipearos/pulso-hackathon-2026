@@ -188,6 +188,8 @@ describe("crisis protocol", () => {
       log: () => {},
     });
 
+    // The webhook opens the 24 h window for every message it takes in, before handing it on.
+    whatsapp.recordInbound(t.clock.now());
     await receiveMensaje(
       { store: t.app.store, llm: t.llm, whatsapp, db: t.db },
       { text: CRISIS, whatsappId: "wamid-in-1" },
@@ -195,15 +197,5 @@ describe("crisis protocol", () => {
 
     expect(bodies).toHaveLength(1);
     expect(bodies[0]).toMatchObject({ type: "text", text: { body: CRISIS_TEXT } });
-  });
-
-  test("only a message that came through WhatsApp opens the 24 h window", async () => {
-    const t = setup();
-
-    await t.app.receiveMensaje({ text: "hola", whatsappId: null });
-    expect(t.whatsapp.inbound).toEqual([]);
-
-    await t.app.receiveMensaje({ text: "hola", whatsappId: "wamid-in-1" });
-    expect(t.whatsapp.inbound).toEqual([t.clock.now()]);
   });
 });
