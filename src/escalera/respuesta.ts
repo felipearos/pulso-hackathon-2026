@@ -1,11 +1,14 @@
+import type { Database } from "bun:sqlite";
 import type { Store } from "../patricia/store";
 import { answerEleccion } from "../plata/jueves";
 import type { Llm, WhatsApp } from "../ports";
 import { classifyIntencion } from "./classify";
+import { returnFromPausa } from "./pausa";
 import { answerPregunta, lastAnswerAt } from "./preguntas";
 import { decideEtapa, type Angustia, type Etapa, type EtapaInput, type EtapaMove, type Intencion } from "./policy";
 
-export type RespuestaDeps = { store: Store; llm: Llm; whatsapp: WhatsApp };
+/** `db` lets a pausa or a return land with its decision in one transaction. */
+export type RespuestaDeps = { store: Store; llm: Llm; whatsapp: WhatsApp; db: Database };
 
 export type MensajeInput = { text: string; whatsappId: string | null };
 
@@ -58,19 +61,72 @@ function buildInput(store: Store, intencion: Intencion): EtapaInput {
   };
 }
 
+function isDownOrCrisis(intencion: Intencion): boolean {
+  return (
+    intencion.kind === "crisis" ||
+    intencion.kind === "doesNotWantToSee" ||
+    (intencion.kind === "angustia" && intencion.value >= 4)
+  );
+}
+
 /**
  * Takes one message from Patricia (text or voice-note transcript), classifies
  * it, lets the política de etapa decide and stores the move with its decision.
  * Luna replies only to «¿por qué?» and «¿qué leíste?», and to her choice on the
  * jueves propuesta (src/plata/jueves.ts), after the move is stored.
+ * «Pausa» silences Luna; any other message during a pausa ends it with a
+ * bienvenida de vuelta, one etapa down per estado de cuenta cycle she missed.
  */
 export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): Promise<EtapaMove> {
-  const { store, llm } = deps;
+  const { store, llm, db } = deps;
   const intencion = await classifyIntencion(input.text, llm);
-  const etapaInput = buildInput(store, intencion);
+  const atomically = (fn: () => void) => db.transaction(fn)();
 
+  const { enPausa, etapa } = store.getPatricia();
+  // Read before the message is stored; a return reads it again after the etapa is recalculated.
+  const inputBefore = enPausa ? null : buildInput(store, intencion);
   const mensaje = store.addMensajeEntrante({ text: input.text, intencion, whatsappId: input.whatsappId });
+  const now = mensaje.receivedAt;
 
+  if (intencion.kind === "pause") {
+    // Already in pausa: she stays, and there is nothing new to log.
+    if (enPausa) return { kind: "stay", from: etapa, to: etapa, reason: "en pausa: ya estaba en pausa" };
+    const reason = "en pausa: pidió pausa";
+    // Luna goes silent without a goodbye.
+    atomically(() => {
+      store.updatePatricia({ enPausa: true });
+      store.recordDecision({ tipo: "pausa", motivo: reason, datos: { desde: now.toISOString(), text: input.text } });
+    });
+    return { kind: "stay", from: etapa, to: etapa, reason };
+  }
+
+  if (enPausa) {
+    const { from, to, reason, desde, missedCycles } = returnFromPausa(store, now);
+    atomically(() => {
+      if (to !== from) store.setEtapa(to, reason);
+      store.recordDecision({
+        tipo: "vuelta",
+        motivo: reason,
+        datos: { text: input.text, desde: desde.toISOString(), missedCycles, from, to },
+      });
+      store.updatePatricia({ enPausa: false });
+      // The scheduler turns it into the next cita, a bienvenida de vuelta.
+      store.addPendiente({
+        tipo: "bienvenida-de-vuelta",
+        motivo: "bienvenida de vuelta",
+        datos: { desde: desde.toISOString(), missedCycles, from, to },
+      });
+    });
+    // A crisis, a high angustia or «no quiero ver» still go through the política, from the etapa she returns to.
+    if (!isDownOrCrisis(intencion)) {
+      if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
+        await answerPregunta(deps, intencion.kind);
+      }
+      return { kind: rank(to) < rank(from) ? "down" : "stay", from, to, reason };
+    }
+  }
+
+  const etapaInput = inputBefore ?? buildInput(store, intencion);
   const move = decideEtapa(etapaInput);
   // The whole input the política read, so the control room can show why.
   const datos = { text: input.text, input: etapaInput, move };
