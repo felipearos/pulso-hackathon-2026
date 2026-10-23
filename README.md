@@ -17,6 +17,14 @@ de pagar solo el mínimo. El caso completo está en
 - Pablo Ossandón ([@pabloossandon88](https://github.com/pabloossandon88))
 - Cristian Nieto ([@cristiannieto82](https://github.com/cristiannieto82))
 
+## Comandos
+
+```bash
+bun install
+bun run start       # servidor local (PORT, por defecto 3000)
+bun run check       # tests, typecheck, lint y build: lo mismo que CI
+```
+
 ## Cómo se trabaja
 
 - Todo entra por pull request y por la cola de merge de Mergify; nadie
