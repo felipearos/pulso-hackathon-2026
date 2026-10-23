@@ -15,6 +15,12 @@ import type {
   TipoDecision,
 } from "./entities";
 
+/** What `addEstadoDeCuenta` takes: every caller builds one through this type. */
+export type EstadoDeCuentaInput = Omit<EstadoDeCuenta, "id" | "receivedAt">;
+
+/** What `addSenal` takes. `monto` is what an S3's pedido was paid; leave it out for every other señal. */
+export type SenalInput = Omit<Senal, "id" | "receivedAt" | "monto"> & { monto?: number | null };
+
 /**
  * Patricia's state over SQLite. There is one Patricia, so no call takes a user
  * id. Every timestamp written comes from the demo clock (ADR 0002); the
@@ -28,10 +34,9 @@ export type Store = {
   setEtapa(to: Etapa, motivo: string): void;
   /** Oldest first. */
   etapaHistory(): EtapaCambio[];
-  addEstadoDeCuenta(input: Omit<EstadoDeCuenta, "id" | "receivedAt">): EstadoDeCuenta;
+  addEstadoDeCuenta(input: EstadoDeCuentaInput): EstadoDeCuenta;
   estadosDeCuenta(): EstadoDeCuenta[];
-  /** `monto` is what an S3's pedido was paid; leave it out for every other señal. */
-  addSenal(input: Omit<Senal, "id" | "receivedAt" | "monto"> & { monto?: number | null }): Senal;
+  addSenal(input: SenalInput): Senal;
   senales(): Senal[];
   /** This week's plata apartada at the clock's current time. */
   plataApartada(): PlataApartada;

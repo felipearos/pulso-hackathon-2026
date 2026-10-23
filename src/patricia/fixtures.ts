@@ -3,8 +3,8 @@ import type { DemoClock } from "../clock/demo-clock";
 import { parseSantiago } from "../clock/santiago";
 import { addMonths, minimumPayment, type MinimumRule, type Statement } from "../figures/payoff";
 import { montoEnPantalla } from "../voz/montos";
-import type { EstadoDeCuenta, Patricia, Senal } from "./entities";
-import { createStore } from "./store";
+import type { Patricia } from "./entities";
+import { createStore, type EstadoDeCuentaInput, type SenalInput } from "./store";
 
 /**
  * Patricia's fictional history: seven estados de cuenta del banco she never
@@ -42,9 +42,6 @@ const MONTHS = ["marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembr
 
 /** Something that happened in her mail, at the time it arrived. */
 export type StoryEvent<T> = { at: Date; input: T };
-
-type EstadoDeCuentaInput = Omit<EstadoDeCuenta, "id" | "receivedAt">;
-type SenalInput = Omit<Senal, "id" | "receivedAt">;
 
 // Ciclo 1 closes on 15 March 2026; each estado de cuenta arrives four days
 // after its cierre, early in the morning, and falls due on the 5th of the next month.
@@ -94,7 +91,6 @@ const S1: StoryEvent<SenalInput>[] = CICLOS.map((ciclo) => ({
       from: BANK_STATEMENTS_FROM,
       subject: `${BANK}: tu estado de cuenta de ${MONTHS[ciclo - 1]} ya está disponible`,
     },
-    monto: null,
   },
 }));
 
@@ -108,7 +104,6 @@ const S5: StoryEvent<SenalInput>[] = CICLOS.slice(0, 7).map((ciclo) => ({
       from: BANK_PAYMENTS_FROM,
       subject: `${BANK}: recibimos tu pago de ${montoEnPantalla(ESTADOS_DE_CUENTA[ciclo - 1]!.input.pagoMinimo!)}`,
     },
-    monto: null,
   },
 }));
 
@@ -140,7 +135,6 @@ const S4: StoryEvent<SenalInput>[] = [
         from: BANK_NOTICES_FROM,
         subject: `${BANK}: compra de ${montoEnPantalla(45_000)} en 3 cuotas en Farmacia Ejemplo`,
       },
-      monto: null,
     },
   },
   {
@@ -152,7 +146,6 @@ const S4: StoryEvent<SenalInput>[] = [
         from: BANK_NOTICES_FROM,
         subject: `${BANK}: compra de ${montoEnPantalla(38_000)} en 6 cuotas en Tienda Ejemplo`,
       },
-      monto: null,
     },
   },
 ];
