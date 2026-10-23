@@ -9,6 +9,7 @@ import type {
   Voice,
   WhatsApp,
 } from "./ports";
+import { dominioDe } from "./mail/remitentes";
 
 export class FakeClock implements Clock {
   private current: Date;
@@ -50,8 +51,13 @@ export class FakeMail implements Mail {
     return full;
   }
 
-  async fetchNew(): Promise<IncomingMail[]> {
-    const drained = this.pending;
+  /** Drains the queue; mails from other senders are dropped, as if Gmail never handed them over. */
+  async fetchNew(senders: readonly string[]): Promise<IncomingMail[]> {
+    const allowed = new Set(senders.map((s) => s.toLowerCase()));
+    const drained = this.pending.filter((m) => {
+      const dominio = dominioDe(m.from);
+      return dominio !== null && allowed.has(dominio);
+    });
     this.pending = [];
     return drained;
   }

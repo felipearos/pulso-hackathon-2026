@@ -17,9 +17,13 @@ export type IncomingMail = {
   links: string[];
 };
 
-/** Gmail: the inbox the bank's mails arrive in. `fetchNew` returns only mails not returned before. */
+/**
+ * Gmail: the inbox the bank's mails arrive in. `fetchNew` returns only mails
+ * not returned before, and only from `senders` (allowed sender domains): the
+ * rest are never downloaded.
+ */
 export type Mail = {
-  fetchNew(): Promise<IncomingMail[]>;
+  fetchNew(senders: readonly string[]): Promise<IncomingMail[]>;
 };
 
 export type OutgoingWhatsApp =

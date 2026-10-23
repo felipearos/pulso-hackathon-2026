@@ -16,7 +16,7 @@ export function dominiosPermitidos(): string[] {
 }
 
 /** The domain of `from`, lowercased; `from` is a bare address or `Nombre <addr@dom>`. */
-function dominioDe(from: string): string | null {
+export function dominioDe(from: string): string | null {
   const angled = /<([^<>]*)>/.exec(from);
   const address = (angled ? angled[1]! : from).trim();
   const at = address.lastIndexOf("@");
