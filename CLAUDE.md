@@ -56,6 +56,32 @@ in `AGENTS.md`.
 | `pabloossandon88` | Pablo Ossandón |
 | `cristiannieto82` | Cristian Nieto |
 
+## Deploy: Railway
+
+One always-on Railway service runs the app, because it polls Gmail, runs the
+night scheduler and answers the Meta webhook even when every laptop is closed.
+`railway.json` and `Dockerfile` define it; merging to `main` deploys. Agents
+never deploy by hand (see `AGENTS.md`).
+
+- One replica, never more: the SQLite file sits on a volume mounted at
+  `/data`, and a volume attaches to a single instance.
+- Railway checks `GET /health` before switching traffic to a new deploy and
+  restarts the process if it dies. App sleeping stays off.
+- Secrets come from Doppler `prd` through the Doppler → Railway integration.
+  Do not edit variables in the Railway dashboard: the next sync overwrites them.
+- Fallback if Railway fails: `doppler run -- bun run start` on a laptop plus
+  an ngrok static domain, then point the Meta webhook at it.
+
+Operator setup, once:
+
+1. Railway → New Project → Deploy from GitHub repo →
+   `felipearos/pulso-hackathon-2026`, branch `main`.
+2. Service → Volumes → add one mounted at `/data`.
+3. Service → Networking → Generate Domain. That URL is the Meta webhook base.
+4. Doppler → `pulso-hackathon-2026` → Integrations → Railway → sync `prd`
+   into the service. Set `DATABASE_PATH=/data/pulso.db` in `prd` first.
+5. Invite the team to the Railway project.
+
 ## Secrets: Doppler `pulso-hackathon-2026`
 
 Every secret the team or the app needs lives in the Doppler project
@@ -92,7 +118,9 @@ Rules:
 
 ### Required variables
 
-None yet. Add one row per variable when the app first needs it.
+Add one row per variable when the app first needs it. Railway sets `PORT`
+itself; never put it in Doppler.
 
 | Variable | Configs | What it is for |
 | --- | --- | --- |
+| `DATABASE_PATH` | `prd` | SQLite file; `/data/pulso.db` on Railway, defaults to `data/pulso.db` locally |
