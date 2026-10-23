@@ -55,6 +55,10 @@ Paying more than the pago mínimo. Half of the case's success condition.
 Instalments. She buys in cuotas when anxious («Total, son cuotas chicas»),
 both at banks and at retail stores; retail concentrates most of the mora in
 Chile.
+When Patricia says she bought or will buy something in cuotas, Luna proposes
+«¿Y si lo vemos mañana en la noche, con calma?» once through the end of the
+next Santiago day. If she mentions a remedio, a medicamento or her mamá, Luna answers warmly
+without a propuesta; see `src/plata/verlo-manana.ts`.
 
 ## Plata de cariño
 
