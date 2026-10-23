@@ -132,7 +132,8 @@ const RECHAZOS = new Set(["no", "no gracias", "nop", "no quiero", "mejor no", "�
 function normalizeRechazo(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[\u{1F3FB}-\u{1F3FF}\uFE0F]/gu, "")
+    .replace(/[\u{1F3FB}-\u{1F3FF}]/gu, "")
+    .replaceAll("\uFE0F", "")
     .replace(/[.,;:!¡?¿]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
