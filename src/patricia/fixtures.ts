@@ -170,8 +170,11 @@ export const RESET_TABLES = [
   "decisions",
 ] as const;
 
-/** Tables a reset keeps: rewritten in place (`patricia`, `reloj_demo`) or not Patricia's history. */
-export const KEPT_TABLES = ["patricia", "reloj_demo", "schema_migrations", "sqlite_sequence"] as const;
+/**
+ * Tables a reset keeps: rewritten in place (`patricia`, `reloj_demo`) or not
+ * Patricia's history (`gmail_cuenta`: a reset must not cost her «Permitir»).
+ */
+export const KEPT_TABLES = ["patricia", "reloj_demo", "gmail_cuenta", "schema_migrations", "sqlite_sequence"] as const;
 
 
 /**
