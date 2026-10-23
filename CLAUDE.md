@@ -29,7 +29,10 @@ numbers, emails, bank data or names.
 ## Stack and commands
 
 Bun 1.4 + TypeScript (strict, ESM), no web framework: `Bun.serve` serves
-HTTP. Tests sit next to the code as `*.test.ts` (`bun:test`).
+HTTP. Tests sit next to the code as `*.test.ts` (`bun:test`). A
+`*.smoke.test.ts` calls the real service and runs only with its key and
+`<SERVICE>_SMOKE=1` set, e.g.
+`ELEVENLABS_SMOKE=1 doppler run -- bun test src/voice/elevenlabs.smoke.test.ts`.
 
 ```bash
 bun install
