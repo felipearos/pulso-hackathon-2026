@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { proximaCita } from "../citas/scheduler";
 import { santiagoParts } from "../clock/santiago";
 import { PATRICIA_START } from "../patricia/fixtures";
 import type { App } from "../app";
@@ -394,5 +395,218 @@ describe("/sala reset while a tick is running", () => {
     const resetting = app.reset();
     expect(snapshot(app)).toEqual(fresh);
     await resetting;
+  });
+});
+
+type SalaState = {
+  etapaHistorial: { at: string; from: unknown; to: unknown; motivo: string }[];
+  decisiones: { at: string; tipo: string; motivo: string }[];
+  cifraDelUltimoAudio: {
+    at: string;
+    cifra: unknown;
+    estadoDeCuenta: unknown;
+    fuente: unknown;
+  } | null;
+  proximaCita: { fecha: string; tipo: string; hora: string } | null;
+};
+
+const salaState = async (app: App) => {
+  const response = await get(app, "/sala/state", { "x-demo-token": TOKEN });
+  expect(response.status).toBe(200);
+  return (await response.json()) as SalaState;
+};
+
+/** Fictional figures the extractor would have read. */
+const CIFRAS_EXTRAIDAS = {
+  pagoMinimo: 18_500,
+  totalFacturado: 320_000,
+  cupo: null,
+  tasaMensual: 0.031,
+  fechaVencimiento: "2026-11-05",
+  fechaCierre: "2026-10-15",
+  mora: 0,
+  pagosAnteriores: [],
+  comprasEnCuotas: [],
+};
+
+describe("/sala state: etapa, decisiones, origen de la cifra, próxima cita", () => {
+  const addEstado = (app: App) =>
+    app.store.addEstadoDeCuenta({
+      origen: "banco",
+      ciclo: 8,
+      fechaCierre: "2026-10-15",
+      fechaVencimiento: "2026-11-05",
+      cifras: null,
+      pagoMinimo: 18_500,
+    });
+  const recordAudio = (app: App, estadoDeCuentaId: number | null | undefined, monto = 18_500) =>
+    app.store.recordDecision({
+      tipo: "mensaje",
+      motivo: "salió la cita del lunes: nota de voz de 40 s",
+      datos: {
+        citaId: 1,
+        decision: { cifra: { kind: "pago-minimo", monto } },
+        guion: "Hola, soy Luna.",
+        source: "llm",
+        durationSeconds: 40,
+        acortado: false,
+        ...(estadoDeCuentaId === undefined ? {} : { estadoDeCuentaId }),
+      },
+    });
+
+  test("answers the etapa history, the decisiones, the cifra's origin and the próxima cita", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    app.store.setEtapa(2, "abrió dos audios seguidos");
+    app.store.setEtapa(3, "pagó más que el mínimo");
+    const estado = addEstado(app);
+    app.store.addSenal({
+      tipo: "S1",
+      origen: { mailId: "mail-banco-8", from: "Banco Ficticio <avisos@banco.example>", subject: "Tu estado de cuenta" },
+    });
+    app.store.addExtraccion({ estadoDeCuentaId: estado.id, mailId: "mail-banco-8", cifras: CIFRAS_EXTRAIDAS });
+    recordAudio(app, null, 1);
+    const audio = recordAudio(app, estado.id);
+    app.store.recordDecision({ tipo: "mensaje", motivo: "no salió", datos: { citaId: 2, error: "falló" } });
+
+    const body = await salaState(app);
+    expect(body.etapaHistorial.map(({ from, to, motivo }) => [from, to, motivo])).toEqual([
+      [1, 2, "abrió dos audios seguidos"],
+      [2, 3, "pagó más que el mínimo"],
+    ]);
+    expect(body.etapaHistorial[0]!.at).toBe(app.clock.now().toISOString());
+    expect(body.decisiones.at(-1)?.motivo).toBe("no salió");
+    expect(body.cifraDelUltimoAudio).toEqual({
+      at: audio.at.toISOString(),
+      cifra: { kind: "pago-minimo", monto: 18_500 },
+      estadoDeCuenta: {
+        origen: "banco",
+        ciclo: 8,
+        fechaVencimiento: "2026-11-05",
+        pagoMinimo: 18_500,
+        receivedAt: estado.receivedAt.toISOString(),
+      },
+      fuente: {
+        kind: "correo",
+        mailId: "mail-banco-8",
+        subject: "Tu estado de cuenta",
+        from: "Banco Ficticio <avisos@banco.example>",
+      },
+    });
+    // The test clock is lunes 2026-10-19 09:00, before that day's 22:30 slot.
+    expect(body.proximaCita).toEqual({ fecha: "2026-10-19", tipo: "lunes", hora: "22:30" });
+    expect(body.proximaCita).toEqual(
+      proximaCita(app.clock.now(), app.store.getPatricia(), (fecha) => app.store.citaOn(fecha)),
+    );
+  });
+
+  test("decisiones are the latest 50, oldest first", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    for (let index = 0; index < 60; index++) {
+      app.store.recordDecision({ tipo: "mensaje", motivo: `decisión ${index}`, datos: null });
+    }
+    const { decisiones } = await salaState(app);
+    expect(decisiones).toHaveLength(50);
+    expect([decisiones[0]?.motivo, decisiones.at(-1)?.motivo]).toEqual(["decisión 10", "decisión 59"]);
+  });
+
+  test("a foto's extracción is a foto fuente", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    const estado = addEstado(app);
+    app.store.addExtraccion({ estadoDeCuentaId: estado.id, mailId: "whatsapp:wamid.foto-1", cifras: CIFRAS_EXTRAIDAS });
+    recordAudio(app, estado.id);
+    const { cifraDelUltimoAudio } = await salaState(app);
+    expect(cifraDelUltimoAudio?.fuente).toEqual({ kind: "foto", mailId: "whatsapp:wamid.foto-1" });
+  });
+
+  test("a mail with no señal leaves subject and from null", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    const estado = addEstado(app);
+    app.store.addExtraccion({ estadoDeCuentaId: estado.id, mailId: "mail-sin-senal", cifras: CIFRAS_EXTRAIDAS });
+    recordAudio(app, estado.id);
+    const { cifraDelUltimoAudio } = await salaState(app);
+    expect(cifraDelUltimoAudio?.fuente).toEqual({ kind: "correo", mailId: "mail-sin-senal", subject: null, from: null });
+  });
+
+  test("an older audio decision without estadoDeCuentaId has no estado de cuenta nor fuente", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    recordAudio(app, undefined);
+    const { cifraDelUltimoAudio } = await salaState(app);
+    expect(cifraDelUltimoAudio).toMatchObject({
+      cifra: { kind: "pago-minimo", monto: 18_500 },
+      estadoDeCuenta: null,
+      fuente: null,
+    });
+  });
+
+  test("no audio decision gives null", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    app.store.recordDecision({ tipo: "mensaje", motivo: "no salió", datos: { citaId: 2, error: "falló" } });
+    expect((await salaState(app)).cifraDelUltimoAudio).toBeNull();
+  });
+
+  test("a newer audio without a cifra gives cifra null, not an older audio's cifra", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    recordAudio(app, addEstado(app).id);
+    const bienvenida = app.store.recordDecision({
+      tipo: "mensaje",
+      motivo: "salió la bienvenida",
+      datos: { citaId: 2, decision: { cifra: null }, guion: "Hola", estadoDeCuentaId: null },
+    });
+    expect((await salaState(app)).cifraDelUltimoAudio).toEqual({
+      at: bienvenida.at.toISOString(),
+      cifra: null,
+      estadoDeCuenta: null,
+      fuente: null,
+    });
+  });
+
+  test("an audio from the plantilla segura gives cifra null, whatever cifra was planned", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    const estado = addEstado(app);
+    const audio = app.store.recordDecision({
+      tipo: "mensaje",
+      motivo: "salió la cita del lunes con la plantilla segura",
+      datos: {
+        citaId: 1,
+        decision: { cifra: { kind: "pago-minimo", monto: 18_500 } },
+        guion: "Hola, soy Luna.",
+        source: "safe-template",
+        estadoDeCuentaId: estado.id,
+      },
+    });
+    expect((await salaState(app)).cifraDelUltimoAudio).toEqual({
+      at: audio.at.toISOString(),
+      cifra: null,
+      estadoDeCuenta: null,
+      fuente: null,
+    });
+  });
+
+  test("today's cita sent or callada moves the próxima cita to the next slot", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    const add = (fecha: string, tipo: "lunes" | "jueves", estado: "programada" | "callada") =>
+      app.store.addCita({ fecha, tipo, estado, etapa: 1, motivo: "sembrada", pendienteIds: [] })!;
+    const lunes = add("2026-10-19", "lunes", "programada");
+    expect((await salaState(app)).proximaCita).toEqual({ fecha: "2026-10-19", tipo: "lunes", hora: "22:30" });
+    const mensaje = app.store.addMensajeSaliente({ kind: "audio", text: "Hola", durationSeconds: 30, whatsappId: "w-1" });
+    expect(app.store.markCitaSent(lunes.id, mensaje.id)).toBe(true);
+    expect((await salaState(app)).proximaCita).toEqual({ fecha: "2026-10-22", tipo: "jueves", hora: "22:30" });
+    add("2026-10-22", "jueves", "callada");
+    expect((await salaState(app)).proximaCita).toEqual({ fecha: "2026-10-25", tipo: "domingo", hora: "21:30" });
+  });
+
+  test("after a reset to Patricia's fixture the four keys are there", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    expect((await post(app, "/sala/reset")).status).toBe(200);
+    const response = await get(app, "/sala/state", { "x-demo-token": TOKEN });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as Record<string, unknown>;
+    for (const key of ["etapaHistorial", "decisiones", "cifraDelUltimoAudio", "proximaCita"]) {
+      expect(Object.hasOwn(body, key)).toBe(true);
+    }
+    const { cifraDelUltimoAudio, proximaCita: proxima } = body as unknown as SalaState;
+    expect(cifraDelUltimoAudio).toBeNull();
+    expect(proxima).not.toBeNull();
+    expect(["22:30", "21:30"]).toContain(proxima!.hora);
   });
 });

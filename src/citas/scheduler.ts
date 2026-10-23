@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { santiagoDate, santiagoParts } from "../clock/santiago";
-import type { Etapa, Pendiente, TipoCita } from "../patricia/entities";
+import type { Cita, Etapa, Pendiente, TipoCita } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import { proponerEnCita } from "../plata/jueves";
 import type { Clock } from "../ports";
@@ -112,6 +112,39 @@ export function createScheduler({ db, store, clock }: { db: Database; store: Sto
       programar(fecha, tipo, etapa, motivoFor(tipo, slot, etapa), pendientes);
     },
   };
+}
+
+/** The next cita Luna will hold, by the scheduler's own slots; `hora` is Santiago wall time. */
+export type ProximaCita = { fecha: string; tipo: TipoCita; hora: string };
+
+/** How far ahead to look: a graduada's first lunes of next month is at most about five weeks away. */
+const PROXIMA_CITA_DIAS = 42;
+
+/**
+ * The next slot the scheduler will fill, from today on: today's counts until
+ * its cita has gone out or went callada. Null in pausa, when Luna does not
+ * speak. Reads the same SLOTS and graduada rule as `tick`.
+ */
+export function proximaCita(
+  now: Date,
+  patricia: { etapa: Etapa; enPausa: boolean },
+  citaOn: (fecha: string) => Cita | null,
+): ProximaCita | null {
+  if (patricia.enPausa) return null;
+  const today = santiagoParts(now);
+  const graduada = patricia.etapa === "graduada";
+  for (let offset = 0; offset < PROXIMA_CITA_DIAS; offset++) {
+    const date = new Date(Date.UTC(today.year, today.month - 1, today.day + offset));
+    const slot = SLOTS[date.getUTCDay()];
+    if (!slot) continue;
+    if (graduada && (slot.tipo !== "lunes" || date.getUTCDate() > 7)) continue;
+    const fecha = date.toISOString().slice(0, 10);
+    const cita = citaOn(fecha);
+    if (cita && (cita.estado === "callada" || cita.mensajeSalienteId !== null)) continue;
+    const hora = `${String(Math.floor(slot.minute / 60)).padStart(2, "0")}:${String(slot.minute % 60).padStart(2, "0")}`;
+    return { fecha, tipo: cita?.tipo ?? (graduada ? "graduada" : slot.tipo), hora };
+  }
+  return null;
 }
 
 function motivoFor(tipo: TipoCita, slot: Slot, etapa: Etapa): string {

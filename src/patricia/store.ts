@@ -49,6 +49,8 @@ export type Store = {
   addExtraccion(input: Omit<Extraccion, "id" | "extractedAt">): Extraccion;
   /** The extraction a mail already became; null if it never was extracted. */
   extraccionForMail(mailId: string): Extraccion | null;
+  /** The latest extraction of an estado de cuenta; null if it has none. */
+  extraccionForEstadoDeCuenta(estadoDeCuentaId: number): Extraccion | null;
   addMensajeSaliente(input: Omit<MensajeSaliente, "id" | "sentAt">): MensajeSaliente;
   mensajesSalientes(): MensajeSaliente[];
   addMensajeEntrante(input: Omit<MensajeEntrante, "id" | "receivedAt">): MensajeEntrante;
@@ -299,6 +301,9 @@ export function createStore(db: Database, clock: Clock): Store {
      VALUES ($estadoDeCuentaId, $mailId, $cifras, $extractedAt) RETURNING *`,
   );
   const selectExtraccionForMail = db.query<ExtraccionRow, [string]>("SELECT * FROM extracciones WHERE mail_id = ?");
+  const selectExtraccionForEstadoDeCuenta = db.query<ExtraccionRow, [number]>(
+    "SELECT * FROM extracciones WHERE estado_de_cuenta_id = ? ORDER BY id DESC LIMIT 1",
+  );
   const insertSenal = db.query<SenalRow, Record<string, string | number | null>>(
     `INSERT INTO senales (tipo, mail_id, mail_from, subject, monto, received_at)
      VALUES ($tipo, $mailId, $from, $subject, $monto, $receivedAt) RETURNING *`,
@@ -458,6 +463,11 @@ export function createStore(db: Database, clock: Clock): Store {
 
     extraccionForMail(mailId) {
       const row = selectExtraccionForMail.get(mailId);
+      return row ? toExtraccion(row) : null;
+    },
+
+    extraccionForEstadoDeCuenta(estadoDeCuentaId) {
+      const row = selectExtraccionForEstadoDeCuenta.get(estadoDeCuentaId);
       return row ? toExtraccion(row) : null;
     },
 
