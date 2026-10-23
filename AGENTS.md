@@ -5,8 +5,18 @@ in `.ralph/config.json` is authoritative. Each loop works in its own checkout.
 
 The product answers the Hackatón Señales case 03, Patricia: read
 `docs/case/patricia.md` before any product work, and name things with the
-vocabulary in `GLOSSARY.md`. Spanish (Chile) for anything Patricia reads or
-hears; English for identifiers, comments and docs.
+vocabulary in `GLOSSARY.md`.
+
+## Language
+
+- **Spanish (Chile):** commit subjects and bodies, PR titles and descriptions,
+  issues, review replies and every GitHub comment, plus anything Patricia
+  reads or hears.
+- **English:** code identifiers, code comments, test names and agent docs.
+- Commits use Conventional Commits with the type in English and the subject in
+  Spanish, lower case, no trailing period, about 72 characters at most, e.g.
+  `feat: el audio de la noche parte con una buena noticia`. The body says why.
+  The PR title becomes the squash subject and follows the same rule.
 
 `.ralph/HACKATHON_LOCK` keeps the Ralph supervisor from starting until the
 operator removes it in a reviewed commit.

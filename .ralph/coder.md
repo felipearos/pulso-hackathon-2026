@@ -4,6 +4,9 @@
 Read AGENTS.md, `docs/case/patricia.md` and the current ticket. Match the
 repository's stack and conventions. Use the vocabulary in `GLOSSARY.md`;
 never a synonym it rules out.
+Commits, PRs and GitHub comments are in Spanish (Chile), with the
+Conventional Commits type in English; code, comments and test names in
+English; UI copy and anything Patricia hears in Spanish (Chile).
 
 <!-- ralph:section GATES -->
 Run the targeted `bun run test <paths>` and `bun run typecheck` for the code
