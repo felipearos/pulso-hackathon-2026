@@ -161,6 +161,7 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `ELEVENLABS_API_KEY` | dev, prd | voice port: ElevenLabs API |
 | `ELEVENLABS_VOICE_ID` | dev, prd | voice port: the voice Patricia hears |
 | `ELEVENLABS_VOICE_ID_OTRA` | dev, prd | voice port: the other voice Patricia can choose in the bienvenida; falls back to ELEVENLABS_VOICE_ID |
+| `DEMO_TOKEN` | dev, prd | /sala: the operator token for the real-agent control room (`/sala?token=…`); unset means /sala answers 404 |
 
 ## Agent skills
 

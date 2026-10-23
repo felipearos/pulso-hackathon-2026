@@ -3,7 +3,10 @@ import { createCitaSender } from "./citas/envio";
 import { createScheduler } from "./citas/scheduler";
 import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
+import { GUION } from "./demo/guion";
 import { nightAudioSender } from "./demo/night-audio";
+import { createDemoRoutes } from "./demo/routes";
+import controlPage from "./demo/control.html" with { type: "text" };
 import { pauseIfSilent } from "./escalera/pausa";
 import type { EtapaMove } from "./escalera/policy";
 import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
@@ -66,6 +69,9 @@ const noWeb: Web = {
 export type AppOptions = {
   /** The control room's operator key (`DEMO_OPERATOR_KEY`); unset leaves `/demo` view-only. */
   demoOperatorKey?: string;
+  /** The webhook's Meta secrets; unset leaves every delivery refused. */
+  /** The operator token that opens /sala; without it /sala answers 404. */
+  demoToken?: string;
   /** The webhook's Meta secrets; unset leaves every delivery refused. */
   webhook?: WebhookConfig;
 };
@@ -188,23 +194,36 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     operatorKey: options.demoOperatorKey,
     webhook,
   });
+  const tick = async () => {
+    // Mail first, so tonight's cita is decided with every señal already in.
+    await pollMail();
+    // Fourteen days without a reply silence Luna before tonight's slot is decided.
+    pauseIfSilent(ports.db, store, clock.now());
+    scheduler.tick();
+    await sender.tick();
+  };
+  const reset = () => resetPatricia(ports.db, clock);
+  // A text import hands over the file's contents; Bun's types only know the HTML-bundle import.
+  const controlPageText = controlPage as unknown as string;
+  const demo = createDemoRoutes({
+    token: options.demoToken,
+    clock,
+    store,
+    tick,
+    reset,
+    guion: GUION,
+    page: controlPageText,
+  });
   return {
-    handle: (request) => permitir.handle(request) ?? routes(request),
-    tick: async () => {
-      // Mail first, so tonight's cita is decided with every señal already in.
-      await pollMail();
-      // Fourteen days without a reply silence Luna before tonight's slot is decided.
-      pauseIfSilent(ports.db, store, clock.now());
-      scheduler.tick();
-      await sender.tick();
-    },
+    handle: async (request) => (await demo(request)) ?? permitir.handle(request) ?? routes(request),
+    tick,
     receiveMail: receive,
     extractEstadoDeCuenta: extract,
     drain: () => webhook.drain(),
     store,
     clock,
     receiveMensaje: mensaje,
-    reset: () => resetPatricia(ports.db, clock),
+    reset,
   };
 }
 
