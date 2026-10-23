@@ -5,7 +5,7 @@
  * the full guion through the validador. It never synthesizes, sends or stores.
  */
 
-import { ANGUSTIA_EMOJIS } from "../escalera/policy";
+import { ANGUSTIA_EMOJIS, SUENO_EMOJIS } from "../escalera/policy";
 import { buenaNoticia, PAGO_RECIBIDO, type BuenaNoticia, type CompraEnCuotas } from "../figures/buena-noticia";
 import { payoff } from "../figures/payoff";
 import type { Cita, Etapa, EstadoDeCuenta, TipoCita } from "../patricia/entities";
@@ -76,8 +76,13 @@ export const GUION_BIENVENIDA =
 
 const PREGUNTA_BIENVENIDA = "¿Te parece si seguimos conversando así? Respóndeme con un 💛 o un 🤔";
 const PREGUNTA = "¿Cómo te cayó escuchar esto? Respóndeme con un 💛 o un 🤔";
-/** Sunday asks how the plata feels, in words only: a digit would spend the cita's one figure. */
-const PREGUNTA_ANGUSTIA = `¿Cómo te sientes con la plata esta semana, del uno al cinco? Respóndeme con un emoji, de tranquila a muy angustiada: ${ANGUSTIA_EMOJIS.join(" ")}`;
+/**
+ * Sunday asks how the plata feels and, optionally, how she slept this week, in words and emoji only: a digit
+ * would spend the cita's one figure.
+ */
+const PREGUNTA_ANGUSTIA =
+  `¿Cómo te sientes con la plata esta semana, del uno al cinco? Respóndeme con un emoji, de tranquila a muy angustiada: ${ANGUSTIA_EMOJIS.join(" ")}. ` +
+  `Y si quieres, cuéntame cómo dormiste esta semana, de bien a mal: ${SUENO_EMOJIS.join(" ")}`;
 
 /** La salida: the smallest round cuota above the pago mínimo that ends the balance. */
 function salida(cifras: NonNullable<EstadoDeCuenta["cifras"]>, fecha: string): CifraPermitida | null {

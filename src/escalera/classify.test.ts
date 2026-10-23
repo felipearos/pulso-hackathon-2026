@@ -137,11 +137,16 @@ describe("angustiaDeRespuesta", () => {
     ["5️⃣", 5],
     ["2", 2],
     [" 4\n", 4],
+    ["😐😴", 3],
+    ["😴 😟", 4],
+    ["3 🥱", 3],
+    ["😣\uFE0F😌", 1],
+    ["5️⃣ 😴\uFE0F", 5],
   ] as const)("reads %p as angustia %p", (message, value) => {
     expect(angustiaDeRespuesta(message)).toBe(value);
   });
 
-  test.each(["6", "0", "6️⃣", "😌😰", "3 o 4", "un 3", "😟 la verdad", "", "👍"])("reads %p as no answer", (message) => {
+  test.each(["6", "0", "6️⃣", "😌😰", "3 o 4", "un 3", "😟 la verdad", "", "👍", "😴", "😴🥱", "😐😴🥱", "😴😐😴", "😌 😴 😰", "😐 😴 dormí mal"])("reads %p as no answer", (message) => {
     expect(angustiaDeRespuesta(message)).toBeNull();
   });
 

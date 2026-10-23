@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { FakeLlm } from "../fakes";
 import { payoff, type Statement } from "../figures/payoff";
 import type { Cita, Etapa, EstadoDeCuenta, TipoCita } from "../patricia/entities";
-import { ANGUSTIA_EMOJIS } from "../escalera/policy";
+import { ANGUSTIA_EMOJIS, SUENO_EMOJIS } from "../escalera/policy";
 import { SAFE_TEMPLATE, findFigures, type ValidatorDecision } from "../validator/validator";
 import { REDACTOR_MODEL, allowedFigures, cifraEscrita, decisionDeCita, redactarGuion } from "./redactor";
 
@@ -109,6 +109,14 @@ describe("decisionDeCita on domingo", () => {
     expect(decision.buenaNoticia.regla).toBe("sin-mora");
     expect(decision.cifra).toEqual(decisionDeCita({ cita: cita(2), estadoDeCuenta: estadoOcho }).cifra);
     for (const emoji of ANGUSTIA_EMOJIS) expect(decision.pregunta).toContain(emoji);
+  });
+
+  test("the pregunta also asks how she slept, with the sleep emojis and no figure", () => {
+    const decision = decisionDeCita({ cita: cita(1, "domingo"), estadoDeCuenta: estadoOcho, pagoRecibido: false });
+    for (const emoji of ANGUSTIA_EMOJIS) expect(decision.pregunta).toContain(emoji);
+    for (const emoji of SUENO_EMOJIS) expect(decision.pregunta).toContain(emoji);
+    expect(decision.pregunta).toContain("cómo dormiste");
+    expect(findFigures(decision.pregunta)).toEqual([]);
   });
 
   test("a pago recibido does not change a lunes cita", () => {
