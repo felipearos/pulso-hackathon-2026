@@ -59,3 +59,53 @@ _Avoid:_ "notification", "alert", "report".
 
 Something true and good said before any figure, so that looking does not
 start with pain. Proposed, not yet decided.
+
+## Escalera
+
+The graded exposure ladder Luna walks Patricia up, from Luna looking for
+her to Patricia opening the estado de cuenta herself. Made of five etapas
+plus graduation. Not tied to the calendar.
+_Avoid:_ "plan", "programme", "levels".
+
+## Etapa
+
+One step of the escalera (etapa 1 «Mira Luna» … etapa 5 «Lo abre ella»,
+then graduada). Luna decides when Patricia moves up or back, and checks
+which etapa she is in when she returns.
+_Avoid:_ "estado" (that is the estado de cuenta), "semana", "peldaño", "nivel".
+
+## Bienvenida de vuelta
+
+The first cita after Patricia returns from a pausa or a crisis: no reproach,
+a buena noticia and at most one figure. Before it, Luna recalculates her
+etapa (one down per estado de cuenta cycle she missed, never below etapa 1;
+etapa 1 after a crisis).
+_Avoid:_ "reactivation", "re-onboarding".
+
+## Pausa
+
+A stretch in which Luna sends nothing: Patricia wrote «pausa», or she went
+two weeks without answering. It ends when she writes again.
+_Avoid:_ "churn", "inactive", "dropped out".
+
+## Plata apartada
+
+The 10 % of each paid pedido del catálogo that Luna proposes to pay sobre el
+mínimo. It is Patricia's money and never leaves her bank; Luna only keeps the
+tally and never claims the money "is" anywhere.
+_Avoid:_ "savings", "ahorro", "fondo".
+
+## Bolsillo
+
+A category or savings account inside Patricia's own bank where she can move
+the plata apartada herself, if her bank offers one and she says she has it.
+She names it, and that name is how Luna calls the plata apartada.
+_Avoid:_ "cuenta aparte", "wallet".
+
+## Madrugada
+
+00:00 to 05:30, America/Santiago. Luna starts nothing in it: anything due
+waits for the next cita. If Patricia writes, Luna answers each message with
+a short voice note, without figures or proposals, unless the crisis
+protocol applies.
+_Avoid:_ "quiet hours", "do not disturb".
