@@ -29,7 +29,26 @@ const MAX_CUOTA_STEPS = 50;
 export const MAX_AUDIO_SECONDS = 45;
 
 /** The one figure a cita may carry, computed by the motor de cifras. */
-export type CifraPermitida = { kind: "pago-minimo"; monto: number } | { kind: "salida"; meses: number; cuota: number };
+export type CifraPermitida =
+  | { kind: "pago-minimo"; monto: number }
+  | { kind: "salida"; meses: number; cuota: number }
+  /** Paying like she did this week: the ISO date she is free of the card, and how many months before only the mínimo. */
+  | { kind: "fecha-libre"; freeOn: string; mesesAdelantados: number };
+
+const MESES = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
 
 export type DecisionDeCita = {
   tipo: TipoCita;
@@ -72,26 +91,44 @@ function salida(cifras: NonNullable<EstadoDeCuenta["cifras"]>, fecha: string): C
   return null;
 }
 
+/** La fecha en que queda libre paying `monto` every month, when it comes before paying only the mínimo. */
+function fechaLibre(
+  cifras: NonNullable<EstadoDeCuenta["cifras"]>,
+  monto: number,
+  fecha: string,
+): CifraPermitida | null {
+  const { fixedPayment, versusMinimum } = payoff(cifras, monto, fecha);
+  if (!fixedPayment.ends || !versusMinimum.comparable || versusMinimum.monthsSaved <= 0) return null;
+  return { kind: "fecha-libre", freeOn: fixedPayment.freeOn, mesesAdelantados: versusMinimum.monthsSaved };
+}
+
 /**
  * What tonight's cita says, decided from the cita and her latest estado de
  * cuenta. The domingo cita carries the same cifra as any other, asks the
  * angustia and celebrates when a «recibimos tu pago» arrived this week
  * (`pagoRecibido`). Her registered compras en cuotas (`comprasEnCuotas`) can
- * give the buena noticia when one is about to end.
+ * give the buena noticia when one is about to end. When she made a pago sobre
+ * el mínimo this week (`pagoSobreElMinimo`, its monto), the domingo's cifra is
+ * the fecha en que queda libre paying that much each month, if it comes earlier
+ * than paying only the mínimo; otherwise the usual cifra.
  */
 export function decisionDeCita(input: {
   cita: Cita;
   estadoDeCuenta: EstadoDeCuenta | null;
   pagoRecibido?: boolean;
   comprasEnCuotas?: CompraEnCuotas[];
+  pagoSobreElMinimo?: number | null;
 }): DecisionDeCita {
-  const { cita, estadoDeCuenta, pagoRecibido = false, comprasEnCuotas = null } = input;
+  const { cita, estadoDeCuenta, pagoRecibido = false, comprasEnCuotas = null, pagoSobreElMinimo = null } = input;
   const cifras = estadoDeCuenta?.cifras ?? null;
   const bienvenida = cita.tipo === "bienvenida" || cita.tipo === "bienvenida-de-vuelta";
   const domingo = cita.tipo === "domingo";
 
   let cifra: CifraPermitida | null = null;
-  if (cifras !== null && !bienvenida) {
+  if (cifras !== null && domingo && pagoSobreElMinimo !== null && pagoSobreElMinimo > 0) {
+    cifra = fechaLibre(cifras, pagoSobreElMinimo, cita.fecha);
+  }
+  if (cifra === null && cifras !== null && !bienvenida) {
     cifra =
       cita.etapa === 2
         ? salida(cifras, cita.fecha)
@@ -115,12 +152,19 @@ export function decisionDeCita(input: {
 export function allowedFigures(cifra: CifraPermitida | null): { allowedFigures: number[]; maxFigures: number } {
   if (cifra === null) return { allowedFigures: [], maxFigures: 1 };
   if (cifra.kind === "pago-minimo") return { allowedFigures: [cifra.monto], maxFigures: 1 };
+  if (cifra.kind === "fecha-libre")
+    return { allowedFigures: [Number(cifra.freeOn.slice(0, 4)), cifra.mesesAdelantados], maxFigures: 2 };
   return { allowedFigures: [cifra.meses, cifra.cuota], maxFigures: 2 };
 }
 
 /** How the cifra must be written in the guion, word for word. */
 export function cifraEscrita(cifra: CifraPermitida): string {
   if (cifra.kind === "pago-minimo") return montoEnPantalla(cifra.monto);
+  if (cifra.kind === "fecha-libre") {
+    const mes = MESES[Number(cifra.freeOn.slice(5, 7)) - 1];
+    const antes = cifra.mesesAdelantados === 1 ? "1 mes antes" : `${cifra.mesesAdelantados} meses antes`;
+    return `en ${mes} de ${cifra.freeOn.slice(0, 4)}, ${antes}`;
+  }
   return `${cifra.meses} meses pagando ${montoEnPantalla(cifra.cuota)}`;
 }
 
@@ -133,7 +177,14 @@ const SYSTEM = [
 
 function cifraInstruccion(cifra: CifraPermitida | null): string {
   if (cifra === null) return "No escribas ninguna cifra ni ningún número con dígitos.";
+  if (cifra.kind === "fecha-libre") return `Luego ${fechaLibreInstruccion(cifra)}`;
   return `Luego menciona una sola cifra, escrita exactamente así: «${cifraEscrita(cifra)}». No escribas ningún otro número con dígitos.`;
+}
+
+/** La fecha en que queda libre: said warmly, as what paying like this week gives her. */
+function fechaLibreInstruccion(cifra: CifraPermitida): string {
+  const escrita = cifraEscrita(cifra);
+  return `cuéntale con calma que, pagando como pagó esta semana, queda libre de la tarjeta ${escrita} que pagando solo el mínimo. Escribe la fecha exactamente así: «${escrita}». No escribas ningún otro número con dígitos.`;
 }
 
 function draftPrompt(decision: DecisionDeCita): string {
@@ -153,7 +204,9 @@ function shortenPrompt(decision: DecisionDeCita, acortar: { guion: string; durat
     `Mantén la buena noticia: «${decision.buenaNoticia.texto}».`,
     decision.cifra === null
       ? "No escribas ninguna cifra ni ningún número con dígitos."
-      : `Mantén la cifra escrita exactamente así: «${cifraEscrita(decision.cifra)}». No escribas ningún otro número con dígitos.`,
+      : decision.cifra.kind === "fecha-libre"
+        ? `Mantén la fecha en que queda libre: ${fechaLibreInstruccion(decision.cifra)}`
+        : `Mantén la cifra escrita exactamente así: «${cifraEscrita(decision.cifra)}». No escribas ningún otro número con dígitos.`,
     "No termines con una pregunta.",
     "",
     acortar.guion,

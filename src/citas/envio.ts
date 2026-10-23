@@ -31,7 +31,8 @@ export type CitaSender = {
 
 /** The guion as Luna says it: every peso amount of the cifra in words, not digits. */
 export function guionHablado(guion: string, cifra: CifraPermitida | null): string {
-  if (cifra === null) return guion;
+  // La fecha en que queda libre carries no peso amount: its year and meses stay as written.
+  if (cifra === null || cifra.kind === "fecha-libre") return guion;
   const monto = cifra.kind === "pago-minimo" ? cifra.monto : cifra.cuota;
   // «$41.900», «41.900», «41900» and «41.900 pesos» all become words; the validator lets each through.
   const digits = [montoEnPantalla(monto).slice(1), String(monto)].map((form) => form.replaceAll(".", "\\."));
