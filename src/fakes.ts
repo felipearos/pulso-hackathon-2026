@@ -16,6 +16,32 @@ import { senderDomain } from "./mail/senders";
 import { VOZ_PRINCIPAL, type Voz } from "./voice/voces";
 import { allowedLink } from "./web/link";
 
+/** A hold a test put on a fake: `reached` resolves once a call waits on it, `release` lets that call go on. */
+export type Hold = { reached: Promise<void>; release: () => void };
+
+type PendingHold<T> = { matches: (value: T) => boolean; arrive: () => void; released: Promise<void> };
+
+function addHold<T>(holds: PendingHold<T>[], matches: (value: T) => boolean): Hold {
+  let arrive!: () => void;
+  let release!: () => void;
+  const reached = new Promise<void>((resolve) => (arrive = resolve));
+  const released = new Promise<void>((resolve) => (release = resolve));
+  holds.push({ matches, arrive, released });
+  return { reached, release };
+}
+
+/**
+ * The release of the first hold `value` matches, which is used up by it, or
+ * null with no match, so an unheld call awaits nothing extra.
+ */
+function heldBy<T>(holds: PendingHold<T>[], value: T): Promise<void> | null {
+  const index = holds.findIndex((hold) => hold.matches(value));
+  if (index === -1) return null;
+  const [hold] = holds.splice(index, 1);
+  hold!.arrive();
+  return hold!.released;
+}
+
 export class FakeClock implements Clock {
   private current: Date;
 
@@ -88,8 +114,21 @@ export class FakeWhatsApp implements WhatsApp {
   readonly downloads: string[] = [];
   /** The next this-many image sends throw instead of reaching the outbox. */
   failNextImages = 0;
+  private readonly holds: PendingHold<OutgoingWhatsApp>[] = [];
+
+  /**
+   * Holds the next send of `match` (a message kind, a predicate, or any send
+   * when omitted) before it reaches the outbox, until the hold is released.
+   */
+  hold(match?: OutgoingWhatsApp["kind"] | ((message: OutgoingWhatsApp) => boolean)): Hold {
+    const matches =
+      match === undefined ? () => true : typeof match === "string" ? (m: OutgoingWhatsApp) => m.kind === match : match;
+    return addHold(this.holds, matches);
+  }
 
   async send(message: OutgoingWhatsApp): Promise<{ id: string }> {
+    const held = heldBy(this.holds, message);
+    if (held) await held;
     if (message.kind === "text" && this.failNextTexts > 0) {
       this.failNextTexts--;
       throw new Error("FakeWhatsApp failed on purpose");
@@ -116,11 +155,21 @@ export class FakeWhatsApp implements WhatsApp {
 
 export class FakeLlm implements Llm {
   readonly calls: LlmRequest[] = [];
+  private readonly holds: PendingHold<LlmRequest>[] = [];
 
   constructor(private readonly table: Array<[match: string | RegExp, reply: string]>) {}
 
+  /** Holds the next call whose prompt has `match` (any call when omitted), after it is recorded, until released. */
+  hold(match?: string | RegExp): Hold {
+    return addHold(this.holds, ({ prompt }) =>
+      match === undefined ? true : typeof match === "string" ? prompt.includes(match) : match.test(prompt),
+    );
+  }
+
   async complete(request: LlmRequest): Promise<string> {
     this.calls.push(request);
+    const held = heldBy(this.holds, request);
+    if (held) await held;
     for (const [match, reply] of this.table) {
       const found = typeof match === "string" ? request.prompt.includes(match) : match.test(request.prompt);
       if (found) return reply;
@@ -138,6 +187,7 @@ export class FakeVoice implements Voice {
   private failures: number;
   private readonly transcripts: string[];
   private transcribeFailures: number;
+  private readonly holds: PendingHold<string>[] = [];
 
   /**
    * Each `synthesize` takes the next of `durations` (3 s once they run out); the first `failures` calls throw.
@@ -152,9 +202,16 @@ export class FakeVoice implements Voice {
     this.transcribeFailures = options.transcribeFailures ?? 0;
   }
 
+  /** Holds the next `synthesize`, after it is recorded, until released. */
+  holdSynthesis(): Hold {
+    return addHold(this.holds, () => true);
+  }
+
   async synthesize(text: string, voz?: Voz): Promise<SpokenAudio> {
     this.calls.push(text);
     this.voces.push(voz ?? VOZ_PRINCIPAL);
+    const held = heldBy(this.holds, text);
+    if (held) await held;
     const durationSeconds = this.durations.shift() ?? 3;
     if (this.failures > 0) {
       this.failures--;
