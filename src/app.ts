@@ -84,7 +84,7 @@ export function createApp(ports: Ports): App {
     receiveMail: receive,
     store,
     clock,
-    receiveMensaje: (input) => receiveMensaje({ store, llm: ports.llm }, input),
+    receiveMensaje: (input) => receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp }, input),
     reset: () => resetPatricia(ports.db, clock),
   };
 }
