@@ -1,0 +1,11 @@
+# Merging to main deploys within about a minute, the way a hosted platform
+# would, so nobody has to log into the PC after the 13:00 delivery.
+[Unit]
+Description=Poll origin/main for the live Pulso checkout
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=60
+
+[Install]
+WantedBy=timers.target

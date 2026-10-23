@@ -1,9 +1,0 @@
-.git
-.ralph
-.buildkite
-node_modules
-dist
-data
-docs
-.env
-.env.*
