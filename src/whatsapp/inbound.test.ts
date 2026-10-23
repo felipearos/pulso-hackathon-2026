@@ -1,8 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import type { Database } from "bun:sqlite";
-import { createTestApp, TEST_START } from "../testing";
 import type { App } from "../app";
-import { FOTO_SIN_LEER, MENSAJE_NO_ENTENDIDO, NOTA_DE_VOZ_SIN_TRANSCRIBIR, receiveInbound } from "./inbound";
+import { FakeLlm, FakeVoice, FakeWhatsApp } from "../fakes";
+import { createTestApp, TEST_START, type TestApp } from "../testing";
+import {
+  FOTO_SIN_LEER,
+  MENSAJE_NO_ENTENDIDO,
+  NOTA_DE_VOZ_NO_ESCUCHADA,
+  NOTA_DE_VOZ_SIN_TRANSCRIBIR,
+  receiveInbound,
+} from "./inbound";
 import type { InboundMensaje } from "./webhook";
 
 const FROM = "56900000000";
@@ -12,13 +19,22 @@ function mensaje(body: InboundMensaje["body"], whatsappId = "wamid.TEST1"): Inbo
 }
 
 /** The app's own flujo normal and the real transaction, so a test sees what production sees. */
-function deps(app: App, db: Database) {
+function deps(app: App, db: Database, ports?: Pick<TestApp, "whatsapp" | "voice" | "llm">) {
   return {
     store: app.store,
     mensaje: app.receiveMensaje,
     inTransaction: <T,>(write: () => T): T => db.transaction(write)(),
+    whatsapp: ports?.whatsapp ?? new FakeWhatsApp(),
+    voice: ports?.voice ?? new FakeVoice(),
+    llm: ports?.llm ?? new FakeLlm([]),
   };
 }
+
+/** A fictional nota de voz, as Meta hands it over. */
+const VOICE_NOTE = { bytes: new Uint8Array([0x4f, 0x67, 0x67, 0x53]), mimeType: "audio/ogg" };
+
+/** The validador's tone review passes the calm answer. */
+const TONE_OK: [string, string] = [NOTA_DE_VOZ_NO_ESCUCHADA, "OK"];
 
 describe("receiveInbound", () => {
   test("a bare 👍 goes through the flujo normal, without calling the LLM", async () => {
@@ -106,28 +122,90 @@ describe("receiveInbound", () => {
     expect(app.store.decisions()).toEqual([]);
   });
 
-  test("a nota de voz is kept unread with its media id", async () => {
-    const { app, llm, db } = createTestApp();
+  test("a nota de voz is transcribed and goes through the flujo normal", async () => {
+    const t = createTestApp({
+      llm: [["pagué el mínimo", '{"intencion":"minimum"}']],
+      voice: { transcripts: ["pagué el mínimo no más"] },
+    });
+    t.whatsapp.media.set("media-audio-1", VOICE_NOTE);
 
-    await receiveInbound(deps(app, db), mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType: "audio/ogg" }));
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType: "audio/ogg" }));
 
-    const entrantes = app.store.mensajesEntrantes();
+    expect(t.whatsapp.downloads).toEqual(["media-audio-1"]);
+    expect(t.voice.transcribed).toEqual([{ bytes: VOICE_NOTE.bytes.length, mimeType: "audio/ogg" }]);
+
+    const entrantes = t.app.store.mensajesEntrantes();
+    expect(entrantes).toHaveLength(1);
+    expect(entrantes[0]?.text).toBe("pagué el mínimo no más");
+    expect(entrantes[0]?.intencion).toEqual({ kind: "minimum" });
+    expect(entrantes[0]?.whatsappId).toBe("wamid.TEST1");
+
+    // The registro says it came as a nota de voz.
+    const decisions = t.app.store.decisions();
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]?.datos).toMatchObject({
+      text: "pagué el mínimo no más",
+      whatsappId: "wamid.TEST1",
+      arrival: { from: FROM, kind: "audio" },
+    });
+    expect(t.whatsapp.outbox).toEqual([]);
+  });
+
+  /** A nota de voz Luna could not hear: kept unread, and she asks calmly for an emoji. */
+  async function expectNotHeard(t: TestApp, mimeType: string | null) {
+    const before = t.app.store.mensajesSalientes();
+
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType }));
+
+    const entrantes = t.app.store.mensajesEntrantes();
     expect(entrantes).toHaveLength(1);
     expect(entrantes[0]?.text).toBe(NOTA_DE_VOZ_SIN_TRANSCRIBIR);
     expect(entrantes[0]?.intencion).toBeNull();
-    expect(llm.calls).toHaveLength(0);
 
-    const decisions = app.store.decisions();
-    expect(decisions).toHaveLength(1);
-    expect(decisions[0]?.tipo).toBe("mensaje");
-    expect(decisions[0]?.motivo).toContain(NOTA_DE_VOZ_SIN_TRANSCRIBIR);
-    expect(decisions[0]?.datos).toEqual({
+    const [unread, answer] = t.app.store.decisions();
+    expect(unread?.tipo).toBe("mensaje");
+    expect(unread?.motivo).toContain(NOTA_DE_VOZ_SIN_TRANSCRIBIR);
+    expect(unread?.motivo).toContain("no se pudo transcribir");
+    expect(unread?.datos).toMatchObject({
       whatsappId: "wamid.TEST1",
       from: FROM,
       kind: "audio",
       mediaId: "media-audio-1",
-      mimeType: "audio/ogg",
+      mimeType,
+      error: expect.any(String),
     });
+
+    expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: NOTA_DE_VOZ_NO_ESCUCHADA }]);
+    expect(NOTA_DE_VOZ_NO_ESCUCHADA).toContain("emoji");
+    expect(NOTA_DE_VOZ_NO_ESCUCHADA).toContain("👍");
+    expect(NOTA_DE_VOZ_NO_ESCUCHADA).not.toMatch(/deberías|tienes que|culpa|otra vez|de nuevo/i);
+    expect(answer?.datos).toMatchObject({ text: NOTA_DE_VOZ_NO_ESCUCHADA, source: "draft" });
+
+    // Not a cita: the list a 👍 answers stays as it was.
+    expect(t.app.store.mensajesSalientes()).toEqual(before);
+  }
+
+  test("a nota de voz that fails to transcribe is kept unread and Luna asks for an emoji", async () => {
+    const t = createTestApp({ llm: [TONE_OK], voice: { transcribeFailures: 1 } });
+    t.whatsapp.media.set("media-audio-1", VOICE_NOTE);
+
+    await expectNotHeard(t, "audio/ogg");
+    expect(t.voice.transcribed).toHaveLength(1);
+  });
+
+  test("a nota de voz that fails to download is kept unread and Luna asks for an emoji", async () => {
+    const t = createTestApp({ llm: [TONE_OK] });
+
+    await expectNotHeard(t, null);
+    expect(t.whatsapp.downloads).toEqual(["media-audio-1"]);
+    expect(t.voice.transcribed).toEqual([]);
+  });
+
+  test("a nota de voz with an empty transcript is kept unread and Luna asks for an emoji", async () => {
+    const t = createTestApp({ llm: [TONE_OK], voice: { transcripts: ["  "] } });
+    t.whatsapp.media.set("media-audio-1", VOICE_NOTE);
+
+    await expectNotHeard(t, "audio/ogg");
   });
 
   test("a foto is kept unread with its media id", async () => {
@@ -172,7 +250,7 @@ describe("receiveInbound", () => {
     const d = deps(app, db);
 
     await receiveInbound(d, mensaje({ kind: "text", text: "👍" }, "wamid.TEST1"));
-    await receiveInbound(d, mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType: null }, "wamid.TEST2"));
+    await receiveInbound(d, mensaje({ kind: "image", mediaId: "media-image-1", mimeType: null }, "wamid.TEST2"));
     await receiveInbound(d, mensaje({ kind: "other", type: "sticker" }, "wamid.TEST3"));
 
     expect(app.store.mensajesEntrantes().map((entrante) => entrante.whatsappId)).toEqual([
