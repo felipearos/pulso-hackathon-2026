@@ -53,6 +53,8 @@ export function createCitaSender({
     if (parts.hour * 60 + parts.minute < MADRUGADA_END) return;
     const cita = store.citaOn(santiagoDate(now));
     if (!cita || cita.estado !== "programada" || cita.mensajeSalienteId !== null) return;
+    // A pausa that began after the cita was programada still silences it.
+    if (store.getPatricia().enPausa) return;
 
     const estadoDeCuenta = store.estadosDeCuenta().findLast((e) => e.cifras !== null) ?? null;
     const decision = decisionDeCita({ cita, estadoDeCuenta });
