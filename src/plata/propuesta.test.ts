@@ -27,6 +27,12 @@ describe("textoPropuesta", () => {
     expect(texto).toBe("Esta semana llevas $8.100 apartados. ¿Pagas $50.000 👍 o el mínimo 👌?");
     for (const part of ["$8.100", "$50.000", "👍", "👌"]) expect(texto).toContain(part);
   });
+
+  test("names the bolsillo as the destination for the plata apartada", () => {
+    expect(textoPropuesta(CASO, "Para la mamá")).toBe(
+      "Esta semana llevas $8.100 para «Para la mamá». ¿Pagas $50.000 👍 o el mínimo 👌?",
+    );
+  });
 });
 
 describe("respuestaAEleccion", () => {
@@ -36,6 +42,15 @@ describe("respuestaAEleccion", () => {
   test("both replies are the expected text", () => {
     expect(propuesta).toBe("Anotado: $50.000 este mes. Gracias por contarme, Patricia.");
     expect(minimo).toBe("Anotado: el mínimo este mes. Gracias por contarme, Patricia.");
+  });
+
+  test("reminds Patricia where to move the plata apartada only after the propuesta choice", () => {
+    expect(respuestaAEleccion("propuesta", CASO, "Para la mamá")).toBe(
+      "Anotado: $50.000 este mes. Mañana, cuando pagues, pasa lo apartado a «Para la mamá». Gracias por contarme, Patricia.",
+    );
+    expect(respuestaAEleccion("minimo", CASO, "Para la mamá")).toBe(
+      "Anotado: el mínimo este mes. Gracias por contarme, Patricia.",
+    );
   });
 
   test("both replies share the same closing", () => {

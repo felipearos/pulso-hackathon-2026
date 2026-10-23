@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { Store } from "../patricia/store";
+import { answerBolsillo } from "../plata/bolsillo";
 import { answerEleccion } from "../plata/jueves";
 import type { Llm, WhatsApp } from "../ports";
 import { classifyIntencion } from "./classify";
@@ -95,7 +96,7 @@ function isDown(intencion: Intencion): boolean {
  * Takes one message from Patricia (text or voice-note transcript), classifies
  * it, lets the política de etapa decide and stores the move with its decision.
  * Luna replies only to «¿por qué?» and «¿qué leíste?», and to her choice on the
- * jueves propuesta (src/plata/jueves.ts), after the move is stored.
+ * jueves propuesta (src/plata/jueves.ts) and the bolsillo question, after the move is stored.
  * «Pausa» silences Luna; any other message during a pausa ends it with a
  * bienvenida de vuelta, one etapa down per estado de cuenta cycle she missed.
  * A crisis puts her in pausa and Luna sends the crisis text at once, at any
@@ -201,6 +202,6 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
   if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
     await answerPregunta(deps, intencion.kind);
   }
-  await answerEleccion(deps, mensaje, intencion);
+  if (!(await answerBolsillo(deps, mensaje, intencion))) await answerEleccion(deps, mensaje, intencion);
   return move;
 }
