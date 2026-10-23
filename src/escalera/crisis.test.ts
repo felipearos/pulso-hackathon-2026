@@ -3,13 +3,15 @@ import { parseSantiago } from "../clock/santiago";
 import { createTestApp, type TestApp } from "../testing";
 import type { OutgoingWhatsApp, WhatsApp } from "../ports";
 import { createWhatsAppCloud } from "../whatsapp-cloud";
-import { CRISIS_TEXT, sendCrisisText } from "./crisis";
+import { crisisText, sendCrisisText } from "./crisis";
 import { receiveMensaje } from "./respuesta";
 
 const MINUTE_MS = 60 * 1000;
 const STEP_MS = 15 * MINUTE_MS;
 // A CRISIS_PHRASES match: the classifier answers crisis without the LLM.
 const CRISIS = "ya no doy más";
+// The text the fixture Patricia, nombre «Patricia», gets.
+const CRISIS_TEXT = crisisText("Patricia");
 
 const LLM: Array<[string, string]> = [
   ["Escribe el guion", "Hola, Patricia. Qué bueno escucharte de nuevo. Estás al día. ¿Cómo estás hoy?"],
@@ -34,9 +36,21 @@ async function tickUntil({ app, clock }: TestApp, until: string): Promise<void> 
 }
 
 describe("crisis protocol", () => {
-  test("CRISIS_TEXT gives both phone lines and says nothing about money", () => {
+  test("the crisis text calls her by the nombre she gave", async () => {
+    const t = setup();
+    t.app.store.updatePatricia({ nombre: "Paty" });
+    t.clock.set(parseSantiago("2026-10-21T02:00"));
+
+    await t.app.receiveMensaje({ text: CRISIS, whatsappId: null });
+
+    expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: crisisText("Paty") }]);
+    expect(crisisText("Paty")).toStartWith("Paty, te leo");
+  });
+
+  test("CRISIS_TEXT gives the three phone lines and says nothing about money", () => {
     expect(CRISIS_TEXT).toContain("600 360 7777");
     expect(CRISIS_TEXT).toContain("*4141");
+    expect(CRISIS_TEXT).toContain("llama al 131");
     for (const word of ["$", "peso", "deuda", "mínimo", "pago", "cuenta"]) {
       expect(CRISIS_TEXT.toLowerCase()).not.toContain(word);
     }

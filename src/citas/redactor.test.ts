@@ -184,6 +184,19 @@ describe("figure rules", () => {
 });
 
 describe("redactarGuion", () => {
+  test("the LLM is told to call her by her nombre, never a nickname", async () => {
+    const decision = decisionDeCita({ cita: cita(1), estadoDeCuenta: estadoOcho });
+    const llm = new FakeLlm([
+      ["Escribe el guion", "Hola, Paty. Estás al día, no estás en DICOM. Este mes el pago mínimo es $41.900."],
+      ["Respóndeme", "OK"],
+    ]);
+    const { recordDecision } = recorder();
+
+    await redactarGuion({ llm, decision, nombre: "Paty", recordDecision });
+
+    expect(llm.calls[0]!.system).toContain("Si la nombras, dile «Paty», nunca un apodo ni otro nombre.");
+  });
+
   test("etapa 1: the guion carries only the pago mínimo and ends with the pregunta", async () => {
     const decision = decisionDeCita({ cita: cita(1), estadoDeCuenta: estadoOcho });
     const llm = new FakeLlm([
@@ -192,7 +205,7 @@ describe("redactarGuion", () => {
     ]);
     const { decisions, recordDecision } = recorder();
 
-    const { guion, source } = await redactarGuion({ llm, decision, recordDecision });
+    const { guion, source } = await redactarGuion({ llm, decision, nombre: "Patricia", recordDecision });
 
     expect(source).toBe("draft");
     expect(findFigures(guion)).toEqual([41_900]);
@@ -233,7 +246,7 @@ describe("redactarGuion", () => {
     ]);
     const { recordDecision } = recorder();
 
-    const { guion, source } = await redactarGuion({ llm, decision, recordDecision });
+    const { guion, source } = await redactarGuion({ llm, decision, nombre: "Patricia", recordDecision });
 
     expect(source).toBe("draft");
     expect(guion).toContain("17 meses pagando $50.000");
@@ -249,7 +262,7 @@ describe("redactarGuion", () => {
     ]);
     const { decisions, recordDecision } = recorder();
 
-    const { guion, source } = await redactarGuion({ llm, decision, recordDecision });
+    const { guion, source } = await redactarGuion({ llm, decision, nombre: "Patricia", recordDecision });
 
     expect(source).toBe("safe-template");
     expect(guion).toBe(`${SAFE_TEMPLATE} ${decision.pregunta}`);
@@ -267,7 +280,7 @@ describe("redactarGuion", () => {
     ]);
     const { recordDecision } = recorder();
 
-    const { guion, source } = await redactarGuion({ llm, decision, recordDecision });
+    const { guion, source } = await redactarGuion({ llm, decision, nombre: "Patricia", recordDecision });
 
     expect(source).toBe("redraft");
     expect(guion).toBe(`Estás al día. El pago mínimo es $41.900. ${decision.pregunta}`);
@@ -278,7 +291,7 @@ describe("redactarGuion", () => {
     const llm = new FakeLlm([]);
     const { decisions, recordDecision } = recorder();
 
-    const { guion, source } = await redactarGuion({ llm, decision, recordDecision });
+    const { guion, source } = await redactarGuion({ llm, decision, nombre: "Patricia", recordDecision });
 
     expect(source).toBe("safe-template");
     expect(guion).toBe(`${SAFE_TEMPLATE} ${decision.pregunta}`);
@@ -301,6 +314,7 @@ describe("redactarGuion", () => {
     const { guion, source } = await redactarGuion({
       llm,
       decision,
+      nombre: "Patricia",
       recordDecision,
       acortar: { guion: previous, durationSeconds: 52 },
     });

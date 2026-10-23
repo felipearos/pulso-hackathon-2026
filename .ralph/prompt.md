@@ -51,7 +51,7 @@ rebase and its push: that stretch is the window in which main moves again,
 and CI on the rebased head is the gate.
 Post `@mergifyio queue` once on the checked PR using `gh pr comment`.
 Mergify builds main plus the queued changes and squashes only after success.
-The normal automatic path waits thirty minutes; `ready-to-merge` permits
+The normal automatic path waits five minutes; `ready-to-merge` permits
 early queueing and `hold` opts out, matching the reference project's policy.
 
 <!-- ralph:section REQUEUE -->

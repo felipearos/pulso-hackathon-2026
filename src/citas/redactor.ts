@@ -173,12 +173,15 @@ export function cifraEscrita(cifra: CifraPermitida): string {
   return `${cifra.meses} meses pagando ${montoEnPantalla(cifra.cuota)}`;
 }
 
-const SYSTEM = [
-  "Eres Luna y escribes el guion de una nota de voz para Patricia, una persona que dejó de mirar sus cuentas por miedo.",
-  "Hablas en español de Chile, neutro, de tú, con calidez y calma.",
-  "Nunca reprochas, nunca apuras, nunca culpas.",
-  "Respondes solo con el guion, sin comillas ni títulos.",
-].join(" ");
+/** The redactor's system prompt; when Luna names her, it is by her `nombre`, never a nickname. */
+const system = (nombre: string): string =>
+  [
+    `Eres Luna y escribes el guion de una nota de voz para ${nombre}, una persona que dejó de mirar sus cuentas por miedo.`,
+    `Si la nombras, dile «${nombre}», nunca un apodo ni otro nombre.`,
+    "Hablas en español de Chile, neutro, de tú, con calidez y calma.",
+    "Nunca reprochas, nunca apuras, nunca culpas.",
+    "Respondes solo con el guion, sin comillas ni títulos.",
+  ].join(" ");
 
 function cifraInstruccion(cifra: CifraPermitida | null): string {
   if (cifra === null) return "No escribas ninguna cifra ni ningún número con dígitos.";
@@ -247,17 +250,19 @@ function redraftPrompt(decision: DecisionDeCita, body: string, rejections: Rejec
 export async function redactarGuion(input: {
   llm: Llm;
   decision: DecisionDeCita;
+  /** How she likes to be called. */
+  nombre: string;
   recordDecision: (d: ValidatorDecision) => void;
   acortar?: { guion: string; durationSeconds: number };
 }): Promise<{ guion: string; source: ValidatedText["source"] }> {
-  const { llm, decision, recordDecision, acortar } = input;
+  const { llm, decision, nombre, recordDecision, acortar } = input;
   const withPregunta = (body: string) => `${body.trim()} ${decision.pregunta}`;
   const safeTemplate = withPregunta(SAFE_TEMPLATE);
 
   let body: string;
   try {
     const prompt = acortar === undefined ? draftPrompt(decision) : shortenPrompt(decision, acortar);
-    body = await llm.complete({ model: REDACTOR_MODEL, system: SYSTEM, prompt });
+    body = await llm.complete({ model: REDACTOR_MODEL, system: system(nombre), prompt });
   } catch (cause) {
     const error = cause instanceof Error ? cause.message : String(cause);
     recordDecision({
@@ -276,7 +281,7 @@ export async function redactarGuion(input: {
     llm,
     redraft: async (rejections) =>
       withPregunta(
-        await llm.complete({ model: REDACTOR_MODEL, system: SYSTEM, prompt: redraftPrompt(decision, body, rejections) }),
+        await llm.complete({ model: REDACTOR_MODEL, system: system(nombre), prompt: redraftPrompt(decision, body, rejections) }),
       ),
     safeTemplate,
     recordDecision,
