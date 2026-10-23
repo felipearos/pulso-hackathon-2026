@@ -76,6 +76,29 @@ describe("the domingo cita and her angustia through the app", () => {
     expect(bajar[0]!.motivo).toBe("bajó: angustia 5");
   });
 
+  test("a 😟 to Luna's answer after the domingo cita is not read as an angustia answer", async () => {
+    const t = createTestApp({
+      now: parseSantiago("2026-10-19T09:00"),
+      llm: [
+        ["Escribe el guion", DRAFT],
+        ["¿por qué me escribes?", '{"intencion":"askWhy"}'],
+        ["", "OK"],
+      ],
+    });
+    t.app.store.setEtapa(3, "subió: respondió la cita de la etapa 2");
+    await domingo(t);
+    t.clock.set(parseSantiago("2026-10-25T21:35"));
+    await t.app.receiveMensaje({ text: "¿por qué me escribes?", whatsappId: "in-1" });
+    const llmCalls = t.llm.calls.length;
+
+    t.clock.set(parseSantiago("2026-10-25T21:40"));
+    await t.app.receiveMensaje({ text: "😟", whatsappId: "in-2" });
+
+    expect(t.llm.calls.length).toBeGreaterThan(llmCalls);
+    expect(t.app.store.mensajesEntrantes().at(-1)?.intencion).not.toEqual({ kind: "angustia", value: 4 });
+    expect(t.app.store.getPatricia().etapa).toBe(3);
+  });
+
   test("after a lunes cita a 😟 is not read as an angustia answer: the LLM classifies it", async () => {
     const t = setup();
     t.clock.set(parseSantiago("2026-10-19T22:30"));

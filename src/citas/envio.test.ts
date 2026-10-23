@@ -8,7 +8,7 @@ import { guionHablado } from "./envio";
 const DRAFT_ETAPA_1 = "Hola, Patricia. Estás al día, no estás en DICOM. Este mes el pago mínimo es $41.900.";
 const DRAFT_ETAPA_2 = "Estás al día, no estás en DICOM. Hay una salida: 17 meses pagando $50.000, con calma.";
 const SHORT = "Estás al día. El pago mínimo es $41.900.";
-const DRAFT_DOMINGO = "Hola, Patricia. Llegó tu pago esta semana, el banco ya lo recibió.";
+const DRAFT_DOMINGO = "Hola, Patricia. Llegó tu pago esta semana, ya te confirmaron que lo recibieron.";
 const PAGO_ORIGEN = { mailId: "mail-pago", from: "avisos@banco.example", subject: "Recibimos tu pago" };
 
 const EMOJI_AT_END = /\p{Extended_Pictographic}$/u;

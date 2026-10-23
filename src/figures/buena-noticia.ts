@@ -49,7 +49,7 @@ const WARM = "qué bueno que estemos conversando";
 /** The domingo celebration when a «recibimos tu pago» arrived this week. */
 export const PAGO_RECIBIDO: BuenaNoticia = {
   regla: "pago-recibido",
-  texto: "llegó tu pago esta semana, el banco ya lo recibió",
+  texto: "llegó tu pago esta semana, ya te confirmaron que lo recibieron",
 };
 
 /** Months paid on time at the end of the history, counting back from the latest. */

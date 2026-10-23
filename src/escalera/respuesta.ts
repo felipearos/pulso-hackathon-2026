@@ -39,10 +39,16 @@ function citaEtapaOf(store: Store): Etapa | null {
   return store.getPatricia().etapa;
 }
 
-/** Whether Luna's latest message is the domingo cita, whose pregunta she answers on the angustia scale. */
+/**
+ * Whether Luna's latest message is the domingo cita, whose pregunta she answers
+ * on the angustia scale. False once Luna answered a question after it: she is
+ * reacting to that answer.
+ */
 function answersDomingo(store: Store): boolean {
   const mensaje = store.mensajesSalientes().at(-1);
   if (mensaje === undefined) return false;
+  const answeredAt = lastAnswerAt(store);
+  if (answeredAt !== null && answeredAt.getTime() >= mensaje.sentAt.getTime()) return false;
   return store.citas().find((cita) => cita.mensajeSalienteId === mensaje.id)?.tipo === "domingo";
 }
 
