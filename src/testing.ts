@@ -19,7 +19,8 @@ export type TestApp = {
 /**
  * The app on an in-memory SQLite base with a fake for every port, in one line:
  * `const { app, clock, mail, whatsapp } = createTestApp();`
- * Pass `db` to build it over an existing base, as a restart would.
+ * Pass `db` to build it over an existing base, as a restart would, and
+ * `demoOperatorKey` to drive the control room.
  */
 export function createTestApp(
   options: {
@@ -27,6 +28,7 @@ export function createTestApp(
     llm?: ConstructorParameters<typeof FakeLlm>[0];
     voice?: ConstructorParameters<typeof FakeVoice>[0];
     db?: Database;
+    demoOperatorKey?: string;
   } = {},
 ): TestApp {
   const ports = {
@@ -37,5 +39,5 @@ export function createTestApp(
     voice: new FakeVoice(options.voice),
     db: options.db ?? openDatabase(":memory:"),
   };
-  return { app: createApp(ports), ...ports };
+  return { app: createApp(ports, { demoOperatorKey: options.demoOperatorKey }), ...ports };
 }
