@@ -50,6 +50,9 @@ describe("classifyIntencion", () => {
     "No puedo más, de verdad",
     "A veces quiero desaparecer",
     "Sería mejor no despertar",
+    "Quiero desaparecer de este mundo",
+    "Pienso en quitarme la vida de una vez",
+    "Quiero terminar con todo de una vez",
   ]) (
     "returns crisis for keyword phrase %s without calling the LLM",
     async (message) => {

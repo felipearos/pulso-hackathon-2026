@@ -46,13 +46,14 @@ function normalize(text: string): string {
     .trim();
 }
 
-/**
- * A phrase followed by "que" or "de" is money talk, not crisis: «no puedo más
- * que el mínimo», «no doy más de 20 mil».
- */
-const CRISIS_PATTERNS = CRISIS_PHRASES.map(
-  (phrase) => new RegExp(`${normalize(phrase).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?! (?:que|de)\\b)`),
-);
+/** Phrases that also talk about amounts: «no puedo más que el mínimo», «no doy más de 20 mil». */
+const AMOUNT_PHRASES: ReadonlySet<string> = new Set(["no doy más", "no puedo más"]);
+
+/** Only an amount phrase followed by "que" or "de" is money talk; every other phrase is crisis as is. */
+const CRISIS_PATTERNS = CRISIS_PHRASES.map((phrase) => {
+  const escaped = normalize(phrase).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(AMOUNT_PHRASES.has(phrase) ? `${escaped}(?! (?:que|de)\\b)` : escaped);
+});
 
 function hasCrisisPhrase(message: string): boolean {
   const normalized = normalize(message);
