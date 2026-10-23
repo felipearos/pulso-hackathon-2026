@@ -29,12 +29,18 @@ export function propuestaDelJueves({
 }
 
 /** What the jueves cita says: the plata apartada this week and the question with the two emoji. */
-export function textoPropuesta(p: Propuesta): string {
-  return `Esta semana llevas ${montoEnPantalla(p.apartado)} apartados. ¿Pagas ${montoEnPantalla(p.monto)} 👍 o el mínimo 👌?`;
+export function textoPropuesta(p: Propuesta, bolsillo: string | null = null): string {
+  const apartado = bolsillo === null
+    ? `${montoEnPantalla(p.apartado)} apartados`
+    : `${montoEnPantalla(p.apartado)} para «${bolsillo}»`;
+  return `Esta semana llevas ${apartado}. ¿Pagas ${montoEnPantalla(p.monto)} 👍 o el mínimo 👌?`;
 }
 
 /** Luna's reply to Patricia's choice; equally warm either way, never comparing the two. */
-export function respuestaAEleccion(eleccion: EleccionDePago, p: Propuesta): string {
+export function respuestaAEleccion(eleccion: EleccionDePago, p: Propuesta, bolsillo: string | null = null): string {
   const anotado = eleccion === "propuesta" ? montoEnPantalla(p.monto) : "el mínimo";
-  return `Anotado: ${anotado} este mes. ${CIERRE}`;
+  const recordatorio = eleccion === "propuesta" && bolsillo !== null
+    ? ` Mañana, cuando pagues, pasa lo apartado a «${bolsillo}».`
+    : "";
+  return `Anotado: ${anotado} este mes.${recordatorio} ${CIERRE}`;
 }
