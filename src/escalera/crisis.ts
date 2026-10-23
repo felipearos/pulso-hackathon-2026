@@ -1,7 +1,8 @@
 /**
  * The crisis protocol: when Patricia writes something that reads as a crisis,
  * Luna answers at once, at any hour, with a fixed text that points her to the
- * phone lines. Never generated, never passed through the LLM.
+ * phone lines: Salud Responde, *4141 and the SAMU ambulance, 131. Never
+ * generated, never passed through the LLM.
  */
 
 import type { Store } from "../patricia/store";
@@ -9,7 +10,7 @@ import type { WhatsApp } from "../ports";
 
 /** The crisis text, calling her by her `nombre`. Wording pending clinical review by Cristian, issue #69. */
 export function crisisText(nombre: string): string {
-  return `${nombre}, te leo y me importa cómo estás. No tienes que pasar esto sola. Puedes llamar ahora a Salud Responde, 600 360 7777, atienden a toda hora. Si sientes que estás en peligro, marca *4141, la línea de prevención del suicidio, gratis desde tu celular. Aquí voy a estar cuando quieras volver a escribirme.`;
+  return `${nombre}, te leo y me importa cómo estás. No tienes que pasar esto sola. Puedes llamar ahora a Salud Responde, 600 360 7777, atienden a toda hora. Si sientes que estás en peligro, marca *4141, la línea de prevención del suicidio, gratis desde tu celular. Si necesitas una ambulancia, llama al 131. Aquí voy a estar cuando quieras volver a escribirme.`;
 }
 
 /**

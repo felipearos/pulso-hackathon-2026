@@ -47,9 +47,10 @@ describe("crisis protocol", () => {
     expect(crisisText("Paty")).toStartWith("Paty, te leo");
   });
 
-  test("CRISIS_TEXT gives both phone lines and says nothing about money", () => {
+  test("CRISIS_TEXT gives the three phone lines and says nothing about money", () => {
     expect(CRISIS_TEXT).toContain("600 360 7777");
     expect(CRISIS_TEXT).toContain("*4141");
+    expect(CRISIS_TEXT).toContain("llama al 131");
     for (const word of ["$", "peso", "deuda", "mínimo", "pago", "cuenta"]) {
       expect(CRISIS_TEXT.toLowerCase()).not.toContain(word);
     }
