@@ -70,6 +70,6 @@ export function createApp(ports: Ports): App {
     store,
     clock,
     receiveMensaje: (input) => receiveMensaje({ store, llm: ports.llm }, input),
-    reset: () => resetPatricia(ports.db, store, clock),
+    reset: () => resetPatricia(ports.db, clock),
   };
 }

@@ -111,11 +111,22 @@ describe("no real data", () => {
     expect(story).not.toMatch(/\+?56\s?9/);
     expect(story).not.toMatch(/\d{8,}/);
     expect(story).not.toMatch(/\d{1,2}\.?\d{3}\.?\d{3}-[\dkK]/);
-    expect(story).not.toMatch(/\d{12,}/);
   });
 });
 
 describe("resetPatricia", () => {
+  test("rows are stamped with their story time even while the source clock runs", () => {
+    const { app, clock } = createTestApp();
+    // Every read of the source is a millisecond later, as the system clock would be.
+    let reads = 0;
+    clock.now = () => new Date(PATRICIA_START.getTime() + ++reads);
+    app.reset();
+    expect(app.store.estadosDeCuenta().map((estado) => estado.receivedAt)).toEqual(
+      ESTADOS_DE_CUENTA.map((event) => event.at),
+    );
+    expect(app.store.senales().map((senal) => senal.receivedAt)).toEqual(SENALES.map((event) => event.at));
+  });
+
   test("two resets in a row give the same base, ids included", () => {
     const { app } = createTestApp();
     app.store.recordDecision({ tipo: "callar", motivo: "calla: es tarde", datos: null });
