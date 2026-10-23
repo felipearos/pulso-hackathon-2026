@@ -129,6 +129,8 @@ export type TipoDecision =
   | "proponer-plata-apartada"
   /** Luna proposed seeing a compra en cuotas tomorrow night. */
   | "proponer-verlo-manana"
+  /** Luna told Patricia the pago mínimo for the month. */
+  | "contar-estado-de-cuenta"
   /** Luna sent a warm reply about cuotas for a remedy or her mother. */
   | "acompanar-compra"
   /** A mail was classified into a señal. */

@@ -76,6 +76,8 @@ export const GUION_BIENVENIDA =
 
 const PREGUNTA_BIENVENIDA = "¿Te parece si seguimos conversando así? Respóndeme con un 💛 o un 🤔";
 const PREGUNTA = "¿Cómo te cayó escuchar esto? Respóndeme con un 💛 o un 🤔";
+export const PREGUNTA_GRADUADA =
+  "¿Lo abres tú o te lo cuento yo? Si lo abres tú, respóndeme con un 👍; si te lo cuento yo, con un 👌";
 /**
  * Sunday asks how the plata feels and, optionally, how she slept this week, in words and emoji only: a digit
  * would spend the cita's one figure.
@@ -128,12 +130,13 @@ export function decisionDeCita(input: {
   const cifras = estadoDeCuenta?.cifras ?? null;
   const bienvenida = cita.tipo === "bienvenida" || cita.tipo === "bienvenida-de-vuelta";
   const domingo = cita.tipo === "domingo";
+  const graduada = cita.tipo === "graduada";
 
   let cifra: CifraPermitida | null = null;
   if (cifras !== null && domingo && pagoSobreElMinimo !== null && pagoSobreElMinimo > 0) {
     cifra = fechaLibre(cifras, pagoSobreElMinimo, cita.fecha);
   }
-  if (cifra === null && cifras !== null && !bienvenida) {
+  if (cifra === null && cifras !== null && !bienvenida && !graduada) {
     cifra =
       cita.etapa === 2
         ? salida(cifras, cita.fecha)
@@ -148,7 +151,13 @@ export function decisionDeCita(input: {
         ? PAGO_RECIBIDO
         : buenaNoticia({ mora: cifras?.overdue ?? null, pagosAnteriores: null, comprasEnCuotas }),
     cifra,
-    pregunta: domingo ? PREGUNTA_ANGUSTIA : bienvenida ? PREGUNTA_BIENVENIDA : PREGUNTA,
+    pregunta: domingo
+      ? PREGUNTA_ANGUSTIA
+      : bienvenida
+        ? PREGUNTA_BIENVENIDA
+        : graduada
+          ? PREGUNTA_GRADUADA
+          : PREGUNTA,
     motivo: cita.motivo,
   };
 }

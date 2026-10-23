@@ -46,6 +46,18 @@ function normalize(text: string): string {
     .trim();
 }
 
+const PIDE_QUE_LE_CUENTE =
+  /(?:^|[^\p{L}\p{N}])(?:cuentamelo|cuentame tu|cuentame vos|dimelo|me lo cuentas|me lo cuentes|me lo dices|te lo cuento yo|cuentalo tu|mejor tu|tu cuentame|tu dime|leelo tu|abrelo tu)(?=$|[^\p{L}\p{N}])/u;
+
+/** «No me lo cuentes», «lo abro yo»: she wants to open it herself. */
+const LO_ABRE_ELLA = /(?:^|[^\p{L}\p{N}])(?:no me|lo abro yo|yo lo abro)(?=$|[^\p{L}\p{N}])/u;
+
+/** Whether the message asks Luna to tell her what the estado de cuenta says. */
+export function pideQueLeCuente(message: string): boolean {
+  const normalized = normalize(message);
+  return PIDE_QUE_LE_CUENTE.test(normalized) && !LO_ABRE_ELLA.test(normalized);
+}
+
 /** Phrases that also talk about amounts: «no puedo más que el mínimo», «no doy más de 20 mil». */
 const AMOUNT_PHRASES: ReadonlySet<string> = new Set(["no doy más", "no puedo más"]);
 
@@ -127,16 +139,19 @@ export function angustiaDeRespuesta(message: string): Angustia | null {
 /**
  * Classifies one text message or voice-note transcript from Patricia. With
  * `angustiaEsperada` (she is answering the domingo pregunta) a bare answer on
- * the angustia scale is read without the LLM.
+ * the angustia scale is read without the LLM. With `cuentoEsperado`, a request
+ * for Luna to tell her what the estado de cuenta says is read without the LLM,
+ * and not wanting to open it is read as that same request.
  */
 export async function classifyIntencion(
   message: string,
   llm: Llm,
-  options?: { timeoutMs?: number; angustiaEsperada?: boolean },
+  options?: { timeoutMs?: number; angustiaEsperada?: boolean; cuentoEsperado?: boolean },
 ): Promise<Intencion> {
   if (hasCrisisPhrase(message)) return { kind: "crisis" };
   if (isOnlyEmoji(message, "👍")) return { kind: "accepted" };
   if (isOnlyEmoji(message, "👌")) return { kind: "listened" };
+  if (options?.cuentoEsperado && pideQueLeCuente(message)) return { kind: "listened" };
   if (options?.angustiaEsperada) {
     const angustia = angustiaDeRespuesta(message);
     if (angustia !== null) return { kind: "angustia", value: angustia };
@@ -154,7 +169,10 @@ export async function classifyIntencion(
       }),
       timeout,
     ]);
-    return parseIntencion(reply);
+    const intencion = parseIntencion(reply);
+    // Answering «¿lo abres tú o te lo cuento yo?», not wanting to open it is choosing «te lo cuento yo».
+    if (options?.cuentoEsperado && intencion.kind === "doesNotWantToSee") return { kind: "listened" };
+    return intencion;
   } catch {
     return OTHER;
   } finally {
