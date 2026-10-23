@@ -1,0 +1,8 @@
+[Unit]
+Description=Deploy origin/main to the live Pulso checkout
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/pulso-live
+Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/pulso-live/deploy/update.sh

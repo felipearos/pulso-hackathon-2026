@@ -1,0 +1,20 @@
+# The live app on the operator's PC. Runs from the ~/pulso-live checkout that
+# deploy/update.sh keeps on origin/main.
+[Unit]
+Description=Pulso app (Hackatón Señales)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/pulso-live
+# Loopback only: nothing on the LAN talks to the app directly.
+Environment=HOST=127.0.0.1
+Environment=PORT=3010
+Environment=DATABASE_PATH=%h/.local/share/pulso/pulso.db
+ExecStartPre=/usr/bin/mkdir -p %h/.local/share/pulso
+ExecStart=/usr/bin/doppler run --project pulso-hackathon-2026 --config prd -- %h/.bun/bin/bun src/main.ts
+Restart=always
+RestartSec=2
+TimeoutStopSec=15
+
+[Install]
+WantedBy=default.target
