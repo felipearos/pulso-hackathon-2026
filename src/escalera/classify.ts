@@ -47,7 +47,7 @@ function normalize(text: string): string {
 }
 
 const PIDE_QUE_LE_CUENTE =
-  /(?:^|[^\p{L}\p{N}])(?:cuentamelo|cuentame tu|cuentame vos|dimelo tu|dimelo|me lo cuentas|me lo cuentes|me lo dices|te lo cuento yo|cuentalo tu|mejor tu|tu cuentame|tu dime)(?=$|[^\p{L}\p{N}])/u;
+  /(?:^|[^\p{L}\p{N}])(?:cuentamelo|cuentame tu|cuentame vos|dimelo tu|dimelo|me lo cuentas|me lo cuentes|me lo dices|te lo cuento yo|cuentalo tu|mejor tu|tu cuentame|tu dime|leelo tu|abrelo tu)(?=$|[^\p{L}\p{N}])/u;
 
 /** Whether the message asks Luna to tell her what the estado de cuenta says. */
 export function pideQueLeCuente(message: string): boolean {
@@ -136,7 +136,8 @@ export function angustiaDeRespuesta(message: string): Angustia | null {
  * Classifies one text message or voice-note transcript from Patricia. With
  * `angustiaEsperada` (she is answering the domingo pregunta) a bare answer on
  * the angustia scale is read without the LLM. With `cuentoEsperado`, a request
- * for Luna to tell her what the estado de cuenta says is read without the LLM.
+ * for Luna to tell her what the estado de cuenta says is read without the LLM,
+ * and not wanting to open it is read as that same request.
  */
 export async function classifyIntencion(
   message: string,
@@ -164,7 +165,10 @@ export async function classifyIntencion(
       }),
       timeout,
     ]);
-    return parseIntencion(reply);
+    const intencion = parseIntencion(reply);
+    // Answering «¿lo abres tú o te lo cuento yo?», not wanting to open it is choosing «te lo cuento yo».
+    if (options?.cuentoEsperado && intencion.kind === "doesNotWantToSee") return { kind: "listened" };
+    return intencion;
   } catch {
     return OTHER;
   } finally {

@@ -44,7 +44,7 @@ describe("classifyIntencion", () => {
   });
 
   test("recognizes requests for Luna to tell her what the estado de cuenta says", () => {
-    for (const message of ["Cuéntamelo tú", "mejor tú dime", "te lo cuento yo", "prefiero que me lo cuentes"]) {
+    for (const message of ["Cuéntamelo tú", "mejor tú dime", "te lo cuento yo", "prefiero que me lo cuentes", "Léelo tú"]) {
       expect(pideQueLeCuente(message)).toBe(true);
     }
     for (const message of ["lo abro yo", "mejor tuve que pagar"]) {
@@ -64,6 +64,15 @@ describe("classifyIntencion", () => {
 
     expect(await classifyIntencion("Cuéntamelo tú", llm)).toEqual({ kind: "other" });
     expect(llm.calls).toHaveLength(1);
+  });
+
+  test("not wanting to open it, when Luna offered to tell her, is read as listened", async () => {
+    const llm = new FakeLlm([["No quiero abrirlo yo", '{"intencion":"doesNotWantToSee"}']]);
+
+    expect(await classifyIntencion("No quiero abrirlo yo", llm, { cuentoEsperado: true })).toEqual({
+      kind: "listened",
+    });
+    expect(await classifyIntencion("No quiero abrirlo yo", llm)).toEqual({ kind: "doesNotWantToSee" });
   });
 
   test("crisis takes precedence over an expected request for Luna to tell her", async () => {
