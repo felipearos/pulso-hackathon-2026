@@ -17,7 +17,7 @@ export class MissingEnvError extends Error {
 }
 
 /**
- * The system clock: the time source the reloj de demo runs on, and the one
+ * The system clock: the time source the demo clock runs on, and the one
  * place allowed to read system time (ADR 0002).
  */
 export const systemClock: Clock = {

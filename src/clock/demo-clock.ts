@@ -2,9 +2,9 @@ import type { Database } from "bun:sqlite";
 import type { Clock } from "../ports";
 
 /**
- * The reloj de demo: the only source of domain time (ADR 0002). It runs at the
- * pace of its source, shifted by an offset kept in SQLite, so the demo can jump
- * to «jueves 22:30» and keep flowing from there.
+ * The demo clock: the only source of domain time (ADR 0002). SQLite keeps an
+ * offset rather than a frozen time, so the clock runs at the pace of its source
+ * and the demo can jump to «jueves 22:30» and keep flowing from there.
  */
 export type DemoClock = Clock & {
   /** Moves the clock to `at`; time keeps flowing from there. */

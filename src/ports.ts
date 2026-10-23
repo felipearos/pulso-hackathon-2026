@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 
 /**
  * Something that tells the time. The app's `ports.clock` is only the raw time
- * source the reloj de demo runs on; domain code reads `App.clock` (ADR 0002).
+ * source the demo clock runs on; domain code reads `App.clock` (ADR 0002).
  */
 export type Clock = {
   now(): Date;
@@ -57,7 +57,7 @@ export type Voice = {
 
 /** Everything the app talks to. `main` passes the real ones, tests the fakes. */
 export type Ports = {
-  /** The raw time source the reloj de demo runs on; never read by domain code. */
+  /** The raw time source the demo clock runs on; never read by domain code. */
   clock: Clock;
   mail: Mail;
   whatsapp: WhatsApp;

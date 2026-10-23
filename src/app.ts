@@ -11,7 +11,7 @@ export type App = {
   tick(): Promise<void>;
   /** Patricia's persisted state and the decision log. */
   store: Store;
-  /** The reloj de demo: every domain time read goes through it (ADR 0002). */
+  /** The demo clock: every domain time read goes through it (ADR 0002). */
   clock: DemoClock;
 };
 
