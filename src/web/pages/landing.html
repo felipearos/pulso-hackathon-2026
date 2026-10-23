@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luna</title>
+<meta name="description" content="Luna revisa tus cuentas por ti y te cuenta lo importante en un audio cortito por WhatsApp. Con calma, a tu ritmo.">
+<meta name="theme-color" content="#FAF7F0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FAF7F0;
+  --surface: #F2ECE0;
+  --ink: #1B1C22;
+  --ink-2: #4A4B53;
+  --night: #283A8E;
+  --night-deep: #141D4A;
+  --moon: #E8A623;
+  --moon-soft: #FBEFD2;
+  --wa-bubble: #D9FDD3;
+  --wa-bg: #EFEAE2;
+  --on-night: #FFFFFF;
+  --on-night-2: #D5DAF0;
+  --line: #E2DACB;
+  --f-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --f-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --gutter: 16px;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 18px; line-height: 1.5;
+  overflow-x: clip;
+}
+h1, h2, h3 { font-family: var(--f-display); font-weight: 600; margin: 0; letter-spacing: -0.015em; line-height: 1.15; }
+p { margin: 0; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--night); outline-offset: 3px; border-radius: 6px; }
+.night :focus-visible { outline-color: var(--moon-soft); }
+.wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 var(--gutter); }
+
+/* Header */
+.top { display: flex; align-items: center; justify-content: space-between; min-height: 64px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; min-height: 44px; }
+.brand svg { width: 30px; height: 30px; flex: none; }
+.brand span { font-family: var(--f-display); font-weight: 600; font-size: 26px; letter-spacing: -0.02em; }
+.signin {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px;
+  font-weight: 600; text-decoration: none; color: var(--night); border-radius: 999px;
+}
+.signin:hover { background: var(--surface); }
+
+/* Buttons */
+.cta {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 56px; padding: 0 28px; border-radius: 999px;
+  background: var(--night); color: var(--on-night); text-decoration: none;
+  font: 600 19px/1.2 var(--f-body);
+  box-shadow: 0 6px 18px rgba(40, 58, 142, 0.22);
+  transition: background .2s ease, transform .2s ease;
+}
+.cta:hover { background: var(--night-deep); }
+.cta:active { transform: translateY(1px); }
+.cta svg { width: 20px; height: 20px; }
+.night .cta { background: var(--on-night); color: var(--night-deep); box-shadow: none; }
+.night .cta:hover { background: var(--moon-soft); }
+
+/* Hero */
+.hero { padding: 20px 0 56px; }
+.hero .wrap { display: grid; gap: 40px; }
+.hero h1 { font-size: clamp(40px, 11vw, 64px); }
+.lead { margin-top: 16px; font-size: 20px; color: var(--ink-2); max-width: 30em; }
+.actions { margin-top: 28px; display: grid; justify-items: start; gap: 12px; }
+.hint { display: flex; align-items: flex-start; gap: 8px; color: var(--ink-2); font-size: 17px; }
+.hint svg { width: 20px; height: 20px; flex: none; margin-top: 3px; }
+
+/* The WhatsApp mockup: drawing only, no sound. */
+.stage { position: relative; display: grid; place-items: center; padding: 8px 0; }
+.stage::before {
+  content: ""; position: absolute; inset: 6% 4%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(232, 166, 35, 0.32), rgba(232, 166, 35, 0));
+  animation: glow 6s ease-in-out infinite;
+}
+.phone {
+  position: relative; width: 100%; max-width: 360px; border-radius: 28px; overflow: hidden;
+  background: var(--wa-bg); border: 1px solid var(--line);
+  box-shadow: 0 24px 48px rgba(20, 29, 74, 0.14);
+}
+.phone .bar { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #FFFFFF; border-bottom: 1px solid var(--line); }
+.avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--night-deep); display: grid; place-items: center; flex: none; }
+.avatar svg { width: 22px; height: 22px; }
+.phone .bar b { display: block; font-size: 17px; line-height: 1.2; }
+.phone .bar small { display: block; font-size: 14px; color: var(--ink-2); }
+.chat { padding: 16px 14px 20px; display: grid; gap: 10px; }
+.day { justify-self: center; background: #FFFFFF; color: var(--ink-2); font-size: 13px; font-weight: 600; border-radius: 8px; padding: 2px 10px; }
+.msg { max-width: 88%; border-radius: 14px; padding: 10px 12px 6px; background: #FFFFFF; box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06); justify-self: start; }
+.msg.mine { background: var(--wa-bubble); justify-self: end; }
+.msg .time { display: block; text-align: right; font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.voice { display: flex; align-items: center; gap: 10px; width: min(240px, 62vw); }
+.play { width: 38px; height: 38px; border-radius: 50%; background: var(--night); display: grid; place-items: center; flex: none; }
+.play svg { width: 16px; height: 16px; margin-left: 2px; }
+.wave { flex: 1; display: flex; align-items: center; gap: 3px; height: 30px; }
+.wave i { flex: 1; border-radius: 2px; background: #9AA3C7; transform-origin: center; animation: wave 2.4s ease-in-out infinite; }
+.wave i:nth-child(-n+7) { background: var(--night); }
+.wave i:nth-child(3n) { animation-delay: -.6s; }
+.wave i:nth-child(3n+1) { animation-delay: -1.2s; }
+.dur { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.emoji { font-size: 30px; line-height: 1.1; }
+
+@keyframes glow { 0%, 100% { opacity: .75; transform: scale(.97); } 50% { opacity: 1; transform: scale(1.03); } }
+@keyframes wave { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.7); } }
+
+/* Sections */
+section { padding: 64px 0; }
+h2 { font-size: clamp(32px, 8vw, 44px); }
+
+.night { background: var(--night-deep); color: var(--on-night); position: relative; overflow: hidden; }
+.night .sky { display: none; position: absolute; pointer-events: none; }
+.steps { list-style: none; margin: 36px 0 0; padding: 0; display: grid; gap: 28px; counter-reset: step; }
+.steps li { display: grid; grid-template-columns: 56px 1fr; gap: 16px; align-items: start; align-content: start; }
+.steps .icon { width: 56px; height: 56px; border-radius: 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16); display: grid; place-items: center; }
+.steps .icon svg { width: 28px; height: 28px; }
+.steps .n { display: block; font-size: 15px; font-weight: 600; color: var(--on-night-2); margin-bottom: 2px; }
+.steps h3 { font-size: 24px; }
+
+.nevers { list-style: none; margin: 32px 0 0; padding: 0; display: grid; gap: 14px; }
+.nevers li { display: flex; align-items: center; gap: 16px; padding: 18px 20px; background: var(--surface); border-radius: 18px; font-size: 20px; }
+.nevers svg { width: 32px; height: 32px; flex: none; }
+.nevers b { font-weight: 600; }
+
+.safe { padding-top: 0; }
+.safe .card { display: grid; gap: 20px; padding: 28px 24px; border-radius: 24px; background: var(--moon-soft); }
+.safe .shield { width: 56px; height: 56px; border-radius: 16px; background: var(--bg); display: grid; place-items: center; }
+.safe .shield svg { width: 30px; height: 30px; }
+.safe p { margin-top: 10px; font-size: 20px; color: var(--ink-2); max-width: 32em; }
+
+.closing { text-align: center; padding: 72px 0; }
+.closing .moon { width: 64px; height: 64px; margin: 0 auto 20px; display: block; }
+.closing .cta { margin-top: 4px; }
+
+footer { padding: 28px 0 36px; color: var(--ink-2); font-size: 16px; }
+footer .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; }
+footer .brand span { font-size: 20px; }
+footer .brand svg { width: 22px; height: 22px; }
+
+@media (min-width: 700px) {
+  :root { --gutter: 32px; }
+  .steps { grid-template-columns: repeat(3, 1fr); gap: 32px; }
+  .steps li { grid-template-columns: 1fr; }
+  .nevers { grid-template-columns: repeat(3, 1fr); }
+  .nevers li { flex-direction: column; align-items: flex-start; }
+  .safe .card { grid-template-columns: auto 1fr; gap: 24px; padding: 36px; align-items: start; }
+}
+@media (min-width: 900px) {
+  .hero { padding: 48px 0 88px; }
+  .hero .wrap { grid-template-columns: 1.1fr .9fr; align-items: center; gap: 56px; }
+  section { padding: 96px 0; }
+  .night .sky { display: block; width: 200px; height: 200px; right: 4%; top: 48px; opacity: .85; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <mask id="crescent">
+      <rect width="32" height="32" fill="#fff"/>
+      <circle cx="21" cy="11" r="10" fill="#000"/>
+    </mask>
+    <symbol id="moon" viewBox="0 0 32 32"><circle cx="15" cy="17" r="13" fill="currentColor" mask="url(#crescent)"/></symbol>
+  </defs>
+</svg>
+
+<header class="wrap top">
+  <a class="brand" href="/" aria-label="Luna, inicio">
+    <svg aria-hidden="true" focusable="false" style="color:var(--moon)"><use href="#moon"/></svg>
+    <span>Luna</span>
+  </a>
+  <a class="signin" href="/entrar">Entrar</a>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <h1>Mira tus cuentas sin angustia.</h1>
+        <p class="lead">Luna las revisa por ti y te cuenta lo importante en un audio cortito por WhatsApp. Con calma, a tu ritmo.</p>
+        <div class="actions">
+          <a class="cta" href="/empezar">Empezar con Luna
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <p class="hint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20.5l1.6-5.2A8.5 8.5 0 1 1 21 11.5Z"/></svg>
+            Por WhatsApp. No tienes que instalar nada.
+          </p>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="phone" role="img" aria-label="Ejemplo de un chat de WhatsApp: Luna manda un audio de quince segundos a las 22:30 y la respuesta es un emoji de mano en señal de ok.">
+          <div class="bar" aria-hidden="true">
+            <div class="avatar"><svg style="color:var(--moon)"><use href="#moon"/></svg></div>
+            <div><b>Luna</b><small>en línea</small></div>
+          </div>
+          <div class="chat" aria-hidden="true">
+            <span class="day">Hoy</span>
+            <div class="msg">
+              <div class="voice">
+                <span class="play"><svg viewBox="0 0 16 16"><path d="M3 1.5v13L14 8Z" fill="#fff"/></svg></span>
+                <span class="wave">
+                  <i style="height:40%"></i><i style="height:70%"></i><i style="height:55%"></i><i style="height:90%"></i><i style="height:60%"></i><i style="height:35%"></i><i style="height:75%"></i><i style="height:50%"></i><i style="height:85%"></i><i style="height:45%"></i><i style="height:65%"></i><i style="height:30%"></i><i style="height:70%"></i><i style="height:55%"></i><i style="height:40%"></i><i style="height:60%"></i><i style="height:35%"></i><i style="height:50%"></i>
+                </span>
+                <span class="dur">0:15</span>
+              </div>
+              <span class="time">22:30</span>
+            </div>
+            <div class="msg mine"><span class="emoji">👌</span><span class="time">22:34</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="night" aria-labelledby="como">
+    <svg class="sky" viewBox="0 0 32 32" aria-hidden="true" focusable="false" style="color:var(--moon)"><use href="#moon"/></svg>
+    <div class="wrap">
+      <h2 id="como">Cómo te acompaña</h2>
+      <ol class="steps">
+        <li>
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--moon-soft)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span>
+          <div><span class="n">Paso 1</span><h3>Luna mira tus cuentas por ti</h3></div>
+        </li>
+        <li>
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--moon-soft)" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg></span>
+          <div><span class="n">Paso 2</span><h3>Te cuenta lo importante en un audio cortito, de noche</h3></div>
+        </li>
+        <li>
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--moon-soft)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="m9 14 2 2 4-4"/></svg></span>
+          <div><span class="n">Paso 3</span><h3>A tu ritmo, vuelves a mirarlas tú</h3></div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section aria-labelledby="nunca">
+    <div class="wrap">
+      <h2 id="nunca">Lo que Luna nunca hace</h2>
+      <ul class="nevers">
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--night)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2Z"/><path d="M9 10h.01M15 10h.01M9.5 13.5c1.4 1 3.6 1 5 0"/></svg>
+          <span>Nunca <b>te reta</b>.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--night)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h2M14 11h2M8 15h2M14 15h2"/></svg>
+          <span>Nunca <b>te llena de números</b>.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--night)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 15h.01M12 15h.01M16 15h.01"/></svg>
+          <span>Nunca <b>te escribe más de tres veces por semana</b>.</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="safe" aria-labelledby="seguro">
+    <div class="wrap">
+      <div class="card">
+        <span class="shield"><svg viewBox="0 0 24 24" fill="none" stroke="var(--night)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6Z"/><rect x="9" y="11" width="6" height="5" rx="1"/><path d="M10 11V9.5a2 2 0 0 1 4 0V11"/></svg></span>
+        <div>
+          <h2 id="seguro">Tu correo, seguro</h2>
+          <p>Luna solo lee tus estados de cuenta. No puede mover tu plata ni escribir por ti.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="night closing" aria-label="Empezar">
+    <div class="wrap">
+      <svg class="moon" viewBox="0 0 32 32" aria-hidden="true" focusable="false" style="color:var(--moon)"><use href="#moon"/></svg>
+      <a class="cta" href="/empezar">Empezar con Luna
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Luna, inicio">
+      <svg aria-hidden="true" focusable="false" style="color:var(--moon)"><use href="#moon"/></svg>
+      <span>Luna</span>
+    </a>
+    <span>Hackatón Señales · 2026</span>
+  </div>
+</footer>
+</body>
+</html>

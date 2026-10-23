@@ -5,6 +5,10 @@ import type { Webhook } from "./whatsapp/webhook";
 
 export interface Deps {
   demoPage: Blob;
+  /** Luna's front door, served on `/`. */
+  landingPage: Blob;
+  /** Stands in for `/empezar` and `/entrar` until sign-up and sign-in exist. */
+  soonPage: Blob;
   nightAudio: Blob;
   sendNightAudio: () => Promise<NightAudioResult>;
   /** The operator's key for the routes that move the clock; unset leaves the room view-only. */
@@ -18,6 +22,11 @@ const WEBHOOK_PATH = "/webhook/whatsapp";
 
 /** The header the control room sends its operator key in. */
 export const OPERATOR_KEY_HEADER = "x-demo-key";
+
+/** The routes the landing links to, answered with the coming-soon page for now. */
+const SOON_PATHS = new Set(["/empezar", "/entrar"]);
+
+const HTML = { "Content-Type": "text/html; charset=utf-8" };
 
 const MOMENT_ROUTE = /^\/demo\/moments\/([a-z0-9-]+)$/;
 
@@ -45,9 +54,9 @@ export function createHandler(deps: Deps): (request: Request) => Promise<Respons
 
     if (request.method === "GET") {
       if (pathname === "/health") return Response.json({ status: "ok" });
-      if (pathname === "/demo") {
-        return new Response(deps.demoPage, { headers: { "Content-Type": "text/html; charset=utf-8" } });
-      }
+      if (pathname === "/") return new Response(deps.landingPage, { headers: HTML });
+      if (SOON_PATHS.has(pathname)) return new Response(deps.soonPage, { headers: HTML });
+      if (pathname === "/demo") return new Response(deps.demoPage, { headers: HTML });
       if (pathname === "/demo/state") return Response.json(snapshotAt(moment));
       if (pathname === NIGHT_AUDIO_URL) {
         return new Response(deps.nightAudio, { headers: { "Content-Type": "audio/ogg" } });

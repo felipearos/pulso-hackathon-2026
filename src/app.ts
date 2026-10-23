@@ -53,6 +53,9 @@ export type App = {
 
 // The control room's page and test audio ship with the repo; Bun reads them on request.
 const demoPage = Bun.file(new URL("./demo/page.html", import.meta.url));
+// The landing and its coming-soon page ship with the repo the same way.
+const landingPage = Bun.file(new URL("./web/pages/landing.html", import.meta.url));
+const soonPage = Bun.file(new URL("./web/pages/pronto.html", import.meta.url));
 const nightAudio = Bun.file(new URL("../assets/night-audio-test.ogg", import.meta.url));
 
 /** How many times an S2's link is tried before Luna gives that mail up. */
@@ -200,6 +203,8 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   });
   const routes = createHandler({
     demoPage,
+    landingPage,
+    soonPage,
     nightAudio,
     sendNightAudio: nightAudioSender(canal, nightAudio),
     operatorKey: options.demoOperatorKey,
