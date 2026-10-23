@@ -94,13 +94,26 @@ export class FakeLlm implements Llm {
 
 export class FakeVoice implements Voice {
   readonly calls: string[] = [];
+  private readonly durations: number[];
+  private failures: number;
+
+  /** Each call takes the next of `durations` (3 s once they run out); the first `failures` calls throw. */
+  constructor(options: { durations?: number[]; failures?: number } = {}) {
+    this.durations = [...(options.durations ?? [])];
+    this.failures = options.failures ?? 0;
+  }
 
   async synthesize(text: string): Promise<SpokenAudio> {
     this.calls.push(text);
+    const durationSeconds = this.durations.shift() ?? 3;
+    if (this.failures > 0) {
+      this.failures--;
+      throw new Error("FakeVoice failed on purpose");
+    }
     return {
       audio: new Uint8Array([0x4f, 0x67, 0x67, 0x53]),
       mimeType: "audio/ogg",
-      durationSeconds: 3,
+      durationSeconds,
     };
   }
 }

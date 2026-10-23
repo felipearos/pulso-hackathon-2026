@@ -1,3 +1,4 @@
+import { createCitaSender } from "./citas/envio";
 import { createScheduler } from "./citas/scheduler";
 import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
@@ -13,7 +14,11 @@ import { handle } from "./server";
 export type App = {
   /** Answers one HTTP request; `Bun.serve` in `main` and tests call it alike. */
   handle(request: Request): Response | Promise<Response>;
-  /** Runs one pass at the clock's current time: reads new mail into señales if Patricia allowed it, then fixes the cita. */
+  /**
+   * Runs one pass at the clock's current time: reads new mail into señales if
+   * Patricia allowed it, fixes the cita, then sends today's programada cita as
+   * a nota de voz if it has not gone out yet.
+   */
   tick(): Promise<void>;
   /** Turns one mail into at most one señal; Gmail, the fake and the /demo injection all end here. */
   receiveMail(mail: IncomingMail): Senal | null;
@@ -56,12 +61,21 @@ export function createApp(ports: Ports): App {
     }
   };
   const scheduler = createScheduler({ db: ports.db, store, clock });
+  const sender = createCitaSender({
+    db: ports.db,
+    store,
+    clock,
+    llm: ports.llm,
+    voice: ports.voice,
+    whatsapp: ports.whatsapp,
+  });
   return {
     handle,
     tick: async () => {
       // Mail first, so tonight's cita is decided with every señal already in.
       await pollMail();
       scheduler.tick();
+      await sender.tick();
     },
     receiveMail: receive,
     store,
