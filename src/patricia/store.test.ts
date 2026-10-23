@@ -271,6 +271,17 @@ describe("store", () => {
     expect(app.store.pendientes()[0]!.diferidoAt).toEqual(first);
   });
 
+  test("a whatsapp id is claimed once, and the claim survives a restart", () => {
+    const { app, db } = createTestApp();
+    expect(app.store.claimWhatsappId("wamid.AAA")).toBe(true);
+    expect(app.store.claimWhatsappId("wamid.AAA")).toBe(false);
+    expect(app.store.claimWhatsappId("wamid.BBB")).toBe(true);
+
+    // The same file, as a deploy or a crash would reopen it.
+    const { app: restarted } = createTestApp({ db });
+    expect(restarted.store.claimWhatsappId("wamid.AAA")).toBe(false);
+  });
+
   test("migrating the app's database again applies nothing", () => {
     const { db } = createTestApp();
     expect(migrate(db)).toEqual([]);

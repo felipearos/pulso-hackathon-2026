@@ -50,6 +50,12 @@ export type Store = {
   mensajesSalientes(): MensajeSaliente[];
   addMensajeEntrante(input: Omit<MensajeEntrante, "id" | "receivedAt">): MensajeEntrante;
   mensajesEntrantes(): MensajeEntrante[];
+  /**
+   * Takes the Meta message id for processing, returning false if it was taken
+   * before. Meta retries a delivery it believes failed, and the claim is what
+   * makes the message arrive once: call it before processing, not after.
+   */
+  claimWhatsappId(whatsappId: string): boolean;
   /** Appends to the decision log; there is no way to edit or remove an entry. */
   recordDecision(input: { tipo: TipoDecision; motivo: string; datos: unknown }): Decision;
   /** Oldest first. */
@@ -297,6 +303,9 @@ export function createStore(db: Database, clock: Clock): Store {
      VALUES ($text, $intencion, $whatsappId, $receivedAt) RETURNING *`,
   );
   const selectMensajesEntrantes = db.query<MensajeEntranteRow, []>("SELECT * FROM mensajes_entrantes ORDER BY id");
+  const claimMensajeProcesado = db.query<null, Record<string, string>>(
+    "INSERT OR IGNORE INTO mensajes_procesados (whatsapp_id, claimed_at) VALUES ($whatsappId, $claimedAt)",
+  );
   const insertDecision = db.query<DecisionRow, Record<string, string>>(
     "INSERT INTO decisions (at, tipo, motivo, datos) VALUES ($at, $tipo, $motivo, $datos) RETURNING *",
   );
@@ -459,6 +468,10 @@ export function createStore(db: Database, clock: Clock): Store {
 
     mensajesEntrantes() {
       return selectMensajesEntrantes.all().map(toMensajeEntrante);
+    },
+
+    claimWhatsappId(whatsappId) {
+      return claimMensajeProcesado.run({ whatsappId, claimedAt: now() }).changes === 1;
     },
 
     recordDecision({ tipo, motivo, datos }) {
