@@ -1,5 +1,5 @@
 import type { Llm } from "../ports";
-import type { Angustia, Intencion } from "./policy";
+import { ANGUSTIA_EMOJIS, type Angustia, type Intencion } from "./policy";
 
 export const CRISIS_PHRASES = [
   "no quiero vivir",
@@ -104,6 +104,17 @@ export function isOnlyEmoji(message: string, emoji: "👍" | "👌"): boolean {
   return pattern.test(message.trim());
 }
 
+const ANGUSTIA_KEYCAP = /^([1-5])\uFE0F?\u20E3$/u;
+
+/** Her answer to the domingo pregunta when the message is only that: one scale emoji, a keycap 1️⃣..5️⃣ or a bare 1..5. */
+export function angustiaDeEmoji(message: string): Angustia | null {
+  const answer = message.trim().replace(/\uFE0F$/u, "");
+  const index = (ANGUSTIA_EMOJIS as readonly string[]).indexOf(answer);
+  if (index >= 0) return (index + 1) as Angustia;
+  const digit = answer.match(/^[1-5]$/u)?.[0] ?? message.trim().match(ANGUSTIA_KEYCAP)?.[1];
+  return digit === undefined ? null : (Number(digit) as Angustia);
+}
+
 /** Classifies one text message or voice-note transcript from Patricia. */
 export async function classifyIntencion(
   message: string,
@@ -113,6 +124,8 @@ export async function classifyIntencion(
   if (hasCrisisPhrase(message)) return { kind: "crisis" };
   if (isOnlyEmoji(message, "👍")) return { kind: "accepted" };
   if (isOnlyEmoji(message, "👌")) return { kind: "listened" };
+  const angustia = angustiaDeEmoji(message);
+  if (angustia !== null) return { kind: "angustia", value: angustia };
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {

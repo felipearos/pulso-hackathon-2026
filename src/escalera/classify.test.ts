@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { FakeLlm } from "../fakes";
-import { classifyIntencion } from "./classify";
+import { angustiaDeEmoji, classifyIntencion } from "./classify";
 import type { Intencion } from "./policy";
 
 describe("classifyIntencion", () => {
@@ -121,6 +121,41 @@ describe("classifyIntencion", () => {
     const llm = new FakeLlm([[message, reply]]);
 
     expect(await classifyIntencion(message, llm)).toEqual(expected);
+    expect(llm.calls).toHaveLength(1);
+  });
+});
+
+describe("angustiaDeEmoji", () => {
+  test.each([
+    ["😌", 1],
+    ["🙂", 2],
+    [" 😐 ", 3],
+    ["😟", 4],
+    ["😰\uFE0F", 5],
+    ["1️⃣", 1],
+    ["3\u20E3", 3],
+    ["5️⃣", 5],
+    ["2", 2],
+    [" 4\n", 4],
+  ] as const)("reads %p as angustia %p", (message, value) => {
+    expect(angustiaDeEmoji(message)).toBe(value);
+  });
+
+  test.each(["6", "0", "6️⃣", "😌😰", "3 o 4", "un 3", "😟 la verdad", "", "👍"])("reads %p as no answer", (message) => {
+    expect(angustiaDeEmoji(message)).toBeNull();
+  });
+
+  test.each(["😟", "4️⃣", "4"])("classifies %p as angustia 4 without calling the LLM", async (message) => {
+    const llm = new FakeLlm([]);
+
+    expect(await classifyIntencion(message, llm)).toEqual({ kind: "angustia", value: 4 });
+    expect(llm.calls).toHaveLength(0);
+  });
+
+  test("sends a mixed answer like «3 o 4» to the LLM", async () => {
+    const llm = new FakeLlm([["3 o 4", '{"intencion":"angustia","valor":3}']]);
+
+    expect(await classifyIntencion("3 o 4", llm)).toEqual({ kind: "angustia", value: 3 });
     expect(llm.calls).toHaveLength(1);
   });
 });
