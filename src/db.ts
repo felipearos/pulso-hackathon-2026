@@ -20,7 +20,7 @@ export const migrations: Migration[] = [
         nombre TEXT NOT NULL,
         voz TEXT,
         gmail_permitido INTEGER NOT NULL DEFAULT 0,
-        etapa TEXT NOT NULL,
+        etapa TEXT NOT NULL CHECK (etapa IN ('1', '2', '3', '4', '5', 'graduada')),
         bolsillo TEXT,
         en_pausa INTEGER NOT NULL DEFAULT 0
       );
@@ -28,7 +28,7 @@ export const migrations: Migration[] = [
       CREATE TABLE etapa_cambios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         at TEXT NOT NULL,
-        from_etapa TEXT,
+        from_etapa TEXT NOT NULL,
         to_etapa TEXT NOT NULL,
         motivo TEXT NOT NULL
       );

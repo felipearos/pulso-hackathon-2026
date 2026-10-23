@@ -92,8 +92,7 @@ export type Patricia = {
 /** One row of her etapa history. */
 export type EtapaCambio = {
   at: Date;
-  /** Null for the first etapa she was placed in. */
-  from: Etapa | null;
+  from: Etapa;
   to: Etapa;
   motivo: string;
 };

@@ -47,7 +47,7 @@ type PatriciaRow = {
   en_pausa: number;
 };
 
-type EtapaCambioRow = { at: string; from_etapa: string | null; to_etapa: string; motivo: string };
+type EtapaCambioRow = { at: string; from_etapa: string; to_etapa: string; motivo: string };
 
 type EstadoDeCuentaRow = {
   id: number;
@@ -238,7 +238,7 @@ export function createStore(db: Database, clock: Clock): Store {
     etapaHistory() {
       return selectEtapaCambios.all().map((row) => ({
         at: new Date(row.at),
-        from: row.from_etapa === null ? null : etapaFromText(row.from_etapa),
+        from: etapaFromText(row.from_etapa),
         to: etapaFromText(row.to_etapa),
         motivo: row.motivo,
       }));
