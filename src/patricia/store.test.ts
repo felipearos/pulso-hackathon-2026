@@ -84,6 +84,17 @@ describe("store", () => {
     expect(app.store.senales()[0]).toEqual(added);
   });
 
+  test("a mail becomes at most one señal", () => {
+    const { app } = createTestApp();
+    const origen = { mailId: "mail-1", from: "avisos@banco.example", subject: "Tu estado de cuenta" };
+    expect(app.store.senalForMail("mail-1")).toBeNull();
+    const added = app.store.addSenal({ tipo: "S1", origen });
+
+    expect(app.store.senalForMail("mail-1")).toEqual(added);
+    expect(() => app.store.addSenal({ tipo: "S5", origen })).toThrow();
+    expect(app.store.senales()).toHaveLength(1);
+  });
+
   test("mensajes salientes round-trip with the clock time", () => {
     const { app, clock } = createTestApp();
     clock.set(NIGHT);

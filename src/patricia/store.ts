@@ -28,6 +28,8 @@ export type Store = {
   estadosDeCuenta(): EstadoDeCuenta[];
   addSenal(input: Omit<Senal, "id" | "receivedAt">): Senal;
   senales(): Senal[];
+  /** The señal a mail already became; null if it never was seen. */
+  senalForMail(mailId: string): Senal | null;
   addMensajeSaliente(input: Omit<MensajeSaliente, "id" | "sentAt">): MensajeSaliente;
   mensajesSalientes(): MensajeSaliente[];
   addMensajeEntrante(input: Omit<MensajeEntrante, "id" | "receivedAt">): MensajeEntrante;
@@ -191,6 +193,7 @@ export function createStore(db: Database, clock: Clock): Store {
      VALUES ($tipo, $mailId, $from, $subject, $receivedAt) RETURNING *`,
   );
   const selectSenales = db.query<SenalRow, []>("SELECT * FROM senales ORDER BY id");
+  const selectSenalForMail = db.query<SenalRow, [string]>("SELECT * FROM senales WHERE mail_id = ?");
   const insertMensajeSaliente = db.query<MensajeSalienteRow, Record<string, string | number | null>>(
     `INSERT INTO mensajes_salientes (kind, text, duration_seconds, whatsapp_id, sent_at)
      VALUES ($kind, $text, $durationSeconds, $whatsappId, $sentAt) RETURNING *`,
@@ -274,6 +277,11 @@ export function createStore(db: Database, clock: Clock): Store {
 
     senales() {
       return selectSenales.all().map(toSenal);
+    },
+
+    senalForMail(mailId) {
+      const row = selectSenalForMail.get(mailId);
+      return row ? toSenal(row) : null;
     },
 
     addMensajeSaliente(input) {

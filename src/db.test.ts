@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { migrate, openDatabase, type Migration } from "./db";
+import { migrate, migrations, openDatabase, type Migration } from "./db";
 
 const steps: Migration[] = [
   { version: 1, name: "notes", sql: "CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)" },
@@ -43,5 +43,20 @@ describe("migrate", () => {
     const broken: Migration = { version: 1, name: "broken", sql: "CREATE TABLE oops (" };
     expect(() => migrate(db, [broken])).toThrow();
     expect(migrate(db, [steps[0]!])).toEqual([1]);
+  });
+
+  test("the one-señal-per-mail step keeps the first of duplicates a v1 base already holds", () => {
+    const db = openDatabase(":memory:");
+    migrate(db, migrations.filter((m) => m.version < 3));
+    const insert = "INSERT INTO senales (tipo, mail_id, mail_from, subject, received_at) VALUES (?, ?, 'a@b.example', 's', 't')";
+    db.run(insert, ["S1", "dup"]);
+    db.run(insert, ["S5", "dup"]);
+    db.run(insert, ["S2", "solo"]);
+    expect(migrate(db)).toEqual([3]);
+    expect(db.query<{ tipo: string; mail_id: string }, []>("SELECT tipo, mail_id FROM senales ORDER BY id").all()).toEqual([
+      { tipo: "S1", mail_id: "dup" },
+      { tipo: "S2", mail_id: "solo" },
+    ]);
+    expect(() => db.run(insert, ["S1", "dup"])).toThrow();
   });
 });
