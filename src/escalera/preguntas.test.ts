@@ -135,19 +135,19 @@ describe("answerPregunta", () => {
   test("«¿qué leíste?» names only the sender domains, never a subject", async () => {
     const { app, whatsapp } = createTestApp({ llm: llmTable() });
     app.receiveMail({
-      id: "m1", from: "Banco Andino <avisos@bancoandino.example>", subject: "Tu estado de cuenta de octubre",
+      id: "m1", from: "Banco Ficticio <avisos@bancoficticio.example>", subject: "Tu estado de cuenta de octubre",
       text: "", receivedAt, links: [],
     });
     app.receiveMail({
       id: "m2", from: "avisos@tiendaplaza.example", subject: "Estado de cuenta Tienda Plaza", text: "", receivedAt, links: [],
     });
     app.receiveMail({
-      id: "m3", from: "avisos@bancoandino.example", subject: "Tu compra en 6 cuotas", text: "", receivedAt, links: [],
+      id: "m3", from: "avisos@bancoficticio.example", subject: "Tu compra en 6 cuotas", text: "", receivedAt, links: [],
     });
 
     await app.receiveMensaje({ text: WHAT_READ, whatsappId: null });
 
-    const text = "Leí solo correos de bancoandino.example y tiendaplaza.example. Nada más.";
+    const text = "Leí solo correos de bancoficticio.example y tiendaplaza.example. Nada más.";
     expect(whatsapp.outbox).toEqual([{ kind: "text", text }]);
     expect(app.store.decisions().at(-1)?.motivo).toBe("respondió qué leyó");
   });

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { IncomingMail } from "../ports";
 import { createTestApp } from "../testing";
 
-const BANCO = "avisos@bancoandino.example";
+const BANCO = "avisos@bancoficticio.example";
 const DECEMBER = new Date("2026-12-10T10:00:00-03:00");
 const NOVEMBER = new Date("2026-11-10T10:00:00-03:00");
 

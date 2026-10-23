@@ -3,7 +3,7 @@ import type { GmailAccount, GmailCursor } from "./gmail-oauth";
 import { createGmailMail } from "./gmail";
 
 const START_MS = 1_000_000;
-const SENDER = "bancoandino.example";
+const SENDER = "bancoficticio.example";
 
 function makeAccount(initial: GmailCursor = { ms: START_MS, ids: [] }): {
   account: GmailAccount;
@@ -73,19 +73,19 @@ describe("createGmailMail", () => {
       if (url.searchParams.has("format")) {
         const id = getId(url);
         const date = id === "newest" ? 1_010_000 : 1_005_000;
-        return json(fullMessage(id, date, "Banco <avisos@bancoandino.example>", [], id));
+        return json(fullMessage(id, date, "Banco <avisos@bancoficticio.example>", [], id));
       }
       if (url.searchParams.get("pageToken") === "page-2") return json({ messages: [{ id: "older" }] });
       return json({ messages: [{ id: "newest" }], nextPageToken: "page-2" });
     });
 
     const mails = await createGmailMail({ account: state.account, fetch }).fetchNew([
-      "bancoandino.example",
+      "bancoficticio.example",
       "tiendaplaza.example",
     ]);
 
     expect(requests[0]!.url.searchParams.get("q")).toBe(
-      "from:(bancoandino.example OR tiendaplaza.example) after:1000",
+      "from:(bancoficticio.example OR tiendaplaza.example) after:1000",
     );
     expect(requests[0]!.url.searchParams.get("maxResults")).toBe("50");
     expect(requests[1]!.url.searchParams.get("pageToken")).toBe("page-2");
@@ -104,7 +104,7 @@ describe("createGmailMail", () => {
       if (!url.searchParams.has("format")) return json({ messages: [{ id: "plain" }, { id: "html" }] });
       if (getId(url) === "plain") {
         return json(
-          fullMessage("plain", 1_001_000, "avisos@bancoandino.example", [
+          fullMessage("plain", 1_001_000, "avisos@bancoficticio.example", [
             { mimeType: "text/plain", body: { data: encoded("Revisa https://texto.example/uno.") } },
             {
               mimeType: "text/html",
@@ -116,7 +116,7 @@ describe("createGmailMail", () => {
         );
       }
       return json(
-        fullMessage("html", 1_002_000, "avisos@bancoandino.example", [
+        fullMessage("html", 1_002_000, "avisos@bancoficticio.example", [
           { mimeType: "text/html", body: { data: encoded('<p>Solo <a href="https://solo.example/tres">un enlace</a></p>') } },
         ], "HTML"),
       );
@@ -135,7 +135,7 @@ describe("createGmailMail", () => {
     const state = makeAccount({ ms: START_MS, ids: ["seen"] });
     const { fetch } = recordedFetch((url) => {
       if (!url.searchParams.has("format")) return json({ messages: [{ id: "seen" }, { id: "fresh" }] });
-      return json(fullMessage(getId(url), START_MS, "avisos@bancoandino.example", []));
+      return json(fullMessage(getId(url), START_MS, "avisos@bancoficticio.example", []));
     });
 
     const mails = await createGmailMail({ account: state.account, fetch }).fetchNew([SENDER]);
@@ -168,7 +168,7 @@ describe("createGmailMail", () => {
     const state = makeAccount();
     const { fetch } = recordedFetch((url) =>
       url.searchParams.has("format")
-        ? json(fullMessage("outside", 1_001_000, "avisos@lookalike-bancoandino.example", []))
+        ? json(fullMessage("outside", 1_001_000, "avisos@lookalike-bancoficticio.example", []))
         : json({ messages: [{ id: "outside" }] }),
     );
 

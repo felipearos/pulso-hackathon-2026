@@ -13,7 +13,7 @@ test.skipIf(!apiKey)(
 
     expect(await classifyByLlm(
       {
-        from: "Banco Andino <avisos@bancoandino.example>",
+        from: "Banco Ficticio <avisos@bancoficticio.example>",
         subject: "Resumen mensual de tu tarjeta",
         text: "El monto facturado para octubre es $89.000 y el pago mínimo es $12.000. Revisa los movimientos del mes.",
         links: [],
@@ -23,7 +23,7 @@ test.skipIf(!apiKey)(
 
     expect(await classifyByLlm(
       {
-        from: "Catálogo Aurora <hola@catalogoaurora.example>",
+        from: "Catálogo Ejemplo <hola@catalogoejemplo.example>",
         subject: "Llegó el catálogo de primavera",
         text: "Conoce los nuevos productos, ofertas y descuentos de esta temporada.",
         links: [],

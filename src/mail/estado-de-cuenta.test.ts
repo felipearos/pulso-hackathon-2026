@@ -5,10 +5,10 @@ import { openDatabase } from "../db";
 import { FakeClock, FakeMail, FakeVoice, FakeWeb, FakeWhatsApp } from "../fakes";
 import type { Llm } from "../ports";
 import { createTestApp } from "../testing";
-import { BANCO_ANDINO_MINIMUM_RULE, TIENDA_PLAZA_MINIMUM_RULE, linkDelEstadoDeCuenta } from "./estado-de-cuenta";
+import { BANCO_FICTICIO_MINIMUM_RULE, TIENDA_PLAZA_MINIMUM_RULE, linkDelEstadoDeCuenta } from "./estado-de-cuenta";
 
 const receivedAt = new Date("2026-10-19T08:00:00-03:00");
-const bank = "Banco Andino <avisos@bancoandino.example>";
+const bank = "Banco Ficticio <avisos@bancoficticio.example>";
 
 /** The reply the extractor's prompt asks for, carrying every figure of estado de cuenta 8. */
 const FULL_REPLY = {
@@ -56,7 +56,7 @@ describe("extractEstadoDeCuenta", () => {
       pagoMinimo: 41900,
       fechaVencimiento: "2026-11-05",
       fechaCierre: "2026-10-15",
-      cifras: { totalBilled: 650000, monthlyRate: 0.031, minimumRule: BANCO_ANDINO_MINIMUM_RULE, overdue: 0 },
+      cifras: { totalBilled: 650000, monthlyRate: 0.031, minimumRule: BANCO_FICTICIO_MINIMUM_RULE, overdue: 0 },
     });
     expect(callarCifra(app.store.decisions())).toEqual([]);
   });
@@ -228,7 +228,7 @@ describe("extractEstadoDeCuenta for an S2 mail", () => {
   test("only a link on the tienda's own domain is followed", async () => {
     const { app, mail, web } = createTiendaApp();
     // A look-alike domain already makes the mail S7, so these are allowed hosts that are not this tienda's link.
-    injectTienda(mail, "tp1", ["https://bancoandino.example/x", "http://www.tiendaplaza.example/y", statementUrl]);
+    injectTienda(mail, "tp1", ["https://bancoficticio.example/x", "http://www.tiendaplaza.example/y", statementUrl]);
     await app.tick();
 
     expect(app.store.senalForMail("tp1")?.tipo).toBe("S2");
@@ -238,7 +238,7 @@ describe("extractEstadoDeCuenta for an S2 mail", () => {
 
   test("an S2 mail with no allowed link fetches nothing, stores nothing and is not retried", async () => {
     const { app, mail, web, llm } = createTiendaApp();
-    injectTienda(mail, "tp1", ["https://bancoandino.example/cuenta", "http://www.tiendaplaza.example/cuenta/octubre"]);
+    injectTienda(mail, "tp1", ["https://bancoficticio.example/cuenta", "http://www.tiendaplaza.example/cuenta/octubre"]);
     await app.tick();
     await app.tick();
 
@@ -309,12 +309,12 @@ describe("extractEstadoDeCuenta for an S2 mail", () => {
 
 describe("linkDelEstadoDeCuenta", () => {
   test("a bank mail never yields a link, even one on the bank's own domain", () => {
-    const mail = { id: "b1", from: bank, subject: "Estado de cuenta", text: "", receivedAt, links: ["https://bancoandino.example/estado"] };
+    const mail = { id: "b1", from: bank, subject: "Estado de cuenta", text: "", receivedAt, links: ["https://bancoficticio.example/estado"] };
     expect(linkDelEstadoDeCuenta(mail)).toBeNull();
   });
 
   test("the tienda's mail yields its first link on the tienda's domain", () => {
-    const mail = { id: "t1", from: tienda, subject: "Estado de cuenta", text: "", receivedAt, links: ["https://bancoandino.example/x", statementUrl] };
+    const mail = { id: "t1", from: tienda, subject: "Estado de cuenta", text: "", receivedAt, links: ["https://bancoficticio.example/x", statementUrl] };
     expect(linkDelEstadoDeCuenta(mail)?.href).toBe(statementUrl);
   });
 });

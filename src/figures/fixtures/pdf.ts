@@ -1,16 +1,27 @@
 import { ESTADO_DE_CUENTA_8_TEXTO } from "./estado-de-cuenta-8";
+import { ESTADO_DE_CUENTA_9_TEXTO } from "./estado-de-cuenta-9";
+import { ESTADO_DE_CUENTA_TIENDA_TEXTO } from "./estado-de-cuenta-tienda";
 
 /**
- * The fictional estado de cuenta 8 as a one-page A4 PDF, built in memory:
- * one text line per line of `ESTADO_DE_CUENTA_8_TEXTO`, in Courier with
- * WinAnsiEncoding so accents and «°» render. No binary file is committed.
+ * The fictional estados de cuenta as one-page A4 PDFs, built in memory: one
+ * text line per line of their text, in Courier with WinAnsiEncoding so
+ * accents and «°» render. No binary file is committed.
  */
 export function estadoDeCuenta8Pdf(): Uint8Array {
-  return pdfDeTexto(ESTADO_DE_CUENTA_8_TEXTO.replace(/\n$/, "").split("\n"));
+  return pdfDeTexto(ESTADO_DE_CUENTA_8_TEXTO);
 }
 
-/** A one-page A4 PDF with `lines` set from the top-left margin, 10 pt on 12 pt leading. */
-function pdfDeTexto(lines: string[]): Uint8Array {
+export function estadoDeCuenta9Pdf(): Uint8Array {
+  return pdfDeTexto(ESTADO_DE_CUENTA_9_TEXTO);
+}
+
+export function estadoDeCuentaTiendaPdf(): Uint8Array {
+  return pdfDeTexto(ESTADO_DE_CUENTA_TIENDA_TEXTO);
+}
+
+/** A one-page A4 PDF with the lines of `texto` set from the top-left margin, 10 pt on 12 pt leading. */
+function pdfDeTexto(texto: string): Uint8Array {
+  const lines = texto.replace(/\n$/, "").split("\n");
   const escape = (s: string) => s.replace(/[\\()]/g, (c) => `\\${c}`);
   const content = [
     "BT",

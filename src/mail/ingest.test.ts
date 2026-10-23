@@ -17,10 +17,10 @@ function createAllowedApp(options: Parameters<typeof createTestApp>[0] = {}) {
 describe("receiveMail", () => {
   test("classifies the bank, store, catalogue, cuotas and payment mails, one decision each", async () => {
     const { app, mail } = createAllowedApp();
-    mail.inject({ id: "s1", from: "Banco Andino <avisos@bancoandino.example>", subject: "Tu estado de cuenta de octubre", receivedAt });
+    mail.inject({ id: "s1", from: "Banco Ficticio <avisos@bancoficticio.example>", subject: "Tu estado de cuenta de octubre", receivedAt });
     mail.inject({ id: "s2", from: "avisos@tiendaplaza.example", subject: "Estado de cuenta Tienda Plaza", receivedAt });
-    mail.inject({ id: "s3", from: "pedidos@catalogoaurora.example", subject: "Pagamos tu pedido #1234", receivedAt });
-    mail.inject({ id: "s4", from: "avisos@bancoandino.example", subject: "Tu compra en 6 cuotas", receivedAt });
+    mail.inject({ id: "s3", from: "pedidos@catalogoejemplo.example", subject: "Pagamos tu pedido #1234", receivedAt });
+    mail.inject({ id: "s4", from: "avisos@bancoficticio.example", subject: "Tu compra en 6 cuotas", receivedAt });
     mail.inject({ id: "s5", from: "avisos@tiendaplaza.example", subject: "¡Recibimos tu pago!", receivedAt });
     await app.tick();
 
@@ -36,7 +36,7 @@ describe("receiveMail", () => {
     for (const d of decisions) expect(d.motivo).toContain("Remitente");
     expect(decisions[0]!.datos).toEqual({
       mailId: "s1",
-      from: "Banco Andino <avisos@bancoandino.example>",
+      from: "Banco Ficticio <avisos@bancoficticio.example>",
       subject: "Tu estado de cuenta de octubre",
       tipo: "S1",
     });
@@ -45,7 +45,7 @@ describe("receiveMail", () => {
   test.each([
     {
       id: "ambiguous-bank",
-      from: "Banco Andino <avisos@bancoandino.example>",
+      from: "Banco Ficticio <avisos@bancoficticio.example>",
       subject: "Información importante de tu tarjeta",
       text: "El monto facturado fue $89.000 y el pago mínimo es $12.000.",
       tipo: "S1",
@@ -59,7 +59,7 @@ describe("receiveMail", () => {
     },
     {
       id: "ambiguous-installment",
-      from: "Banco Andino <avisos@bancoandino.example>",
+      from: "Banco Ficticio <avisos@bancoficticio.example>",
       subject: "Movimiento aprobado en Farmacia Sol",
       text: "Registramos una compra que se pagará en cuatro pagos mensuales.",
       tipo: "S4",
@@ -79,7 +79,7 @@ describe("receiveMail", () => {
     const { app, mail, llm } = createAllowedApp();
     mail.inject({
       id: "llm-failure",
-      from: "avisos@bancoandino.example",
+      from: "avisos@bancoficticio.example",
       subject: "Movimiento de octubre",
       text: "Hay novedades en tu cuenta.",
       receivedAt,
@@ -96,7 +96,7 @@ describe("receiveMail", () => {
     const { app, mail, llm } = createAllowedApp({
       llm: [[subject, '{"tipo":"S1","confianza":0.2}']],
     });
-    mail.inject({ id: "low-confidence", from: "avisos@bancoandino.example", subject, receivedAt });
+    mail.inject({ id: "low-confidence", from: "avisos@bancoficticio.example", subject, receivedAt });
     await app.tick();
 
     expect(classifyCalls(llm.calls)).toHaveLength(1);
@@ -135,10 +135,10 @@ describe("receiveMail", () => {
   test("off-list and look-alike senders store nothing and record nothing", async () => {
     const { app, mail } = createAllowedApp();
     mail.inject({ from: "amiga@correo.example", subject: "Estado de cuenta", receivedAt });
-    mail.inject({ from: "avisos@bancoandino.example.fraude.example", subject: "Estado de cuenta", receivedAt });
+    mail.inject({ from: "avisos@bancoficticio.example.fraude.example", subject: "Estado de cuenta", receivedAt });
     await app.tick();
     expect(await app.receiveMail({
-      id: "direct", from: "avisos@bancoandin0.example", subject: "Estado de cuenta", text: "", receivedAt, links: [],
+      id: "direct", from: "avisos@bancofictici0.example", subject: "Estado de cuenta", text: "", receivedAt, links: [],
     })).toBeNull();
     expect(app.store.senales()).toEqual([]);
     expect(app.store.decisions()).toEqual([]);
@@ -146,8 +146,8 @@ describe("receiveMail", () => {
 
   test("a «recibimos tu pago» stores its monto, from the subject or else the body", async () => {
     const { app } = createAllowedApp();
-    const from = "avisos@bancoandino.example";
-    await app.receiveMail({ id: "p1", from, subject: "Banco Andino: recibimos tu pago de $50.000", text: "", receivedAt, links: [] });
+    const from = "avisos@bancoficticio.example";
+    await app.receiveMail({ id: "p1", from, subject: "Banco Ficticio: recibimos tu pago de $50.000", text: "", receivedAt, links: [] });
     await app.receiveMail({ id: "p2", from, subject: "Recibimos tu pago", text: "Abonamos $41.900 a tu tarjeta.", receivedAt, links: [] });
     await app.receiveMail({ id: "p3", from, subject: "Recibimos tu pago", text: "", receivedAt, links: [] });
 
@@ -163,9 +163,9 @@ describe("receiveMail", () => {
 
   test("the same mail seen twice gives one señal and one decision", async () => {
     const { app, mail } = createAllowedApp();
-    mail.inject({ id: "dup", from: "avisos@bancoandino.example", subject: "Estado de cuenta", receivedAt });
+    mail.inject({ id: "dup", from: "avisos@bancoficticio.example", subject: "Estado de cuenta", receivedAt });
     await app.tick();
-    mail.inject({ id: "dup", from: "avisos@bancoandino.example", subject: "Estado de cuenta", receivedAt });
+    mail.inject({ id: "dup", from: "avisos@bancoficticio.example", subject: "Estado de cuenta", receivedAt });
     await app.tick();
     expect(app.store.senales()).toHaveLength(1);
     expect(app.store.decisions().filter((d) => d.tipo === "senal")).toHaveLength(1);
@@ -176,7 +176,7 @@ describe("receiveMail", () => {
     const { app, mail, llm } = createAllowedApp({ llm: [[subject, '{"tipo":"S1","confianza":0.9}']] });
     const incoming = {
       id: "llm-dup",
-      from: "avisos@bancoandino.example",
+      from: "avisos@bancoficticio.example",
       subject,
       text: "El monto facturado está disponible.",
       receivedAt,
@@ -201,7 +201,7 @@ describe("receiveMail", () => {
       reads += 1;
       return fetchNew(senders);
     };
-    mail.inject({ id: "before", from: "avisos@bancoandino.example", subject: "Estado de cuenta", receivedAt });
+    mail.inject({ id: "before", from: "avisos@bancoficticio.example", subject: "Estado de cuenta", receivedAt });
     await app.tick();
     expect(reads).toBe(0);
     expect(app.store.senales()).toEqual([]);
@@ -241,7 +241,7 @@ describe("receiveMail", () => {
       if (calls === 1) throw new Error("registro lleno");
       return record(input);
     };
-    mail.inject({ id: "first", from: "avisos@bancoandino.example", subject: "Estado de cuenta", receivedAt });
+    mail.inject({ id: "first", from: "avisos@bancoficticio.example", subject: "Estado de cuenta", receivedAt });
     mail.inject({ id: "second", from: "avisos@tiendaplaza.example", subject: "Recibimos tu pago", receivedAt });
     const original = console.error;
     console.error = () => {};
