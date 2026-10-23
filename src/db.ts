@@ -78,6 +78,17 @@ export const migrations: Migration[] = [
         BEGIN SELECT RAISE(ABORT, 'the decision log is append-only'); END;
     `,
   },
+  {
+    version: 2,
+    name: "reloj_demo",
+    sql: `
+      CREATE TABLE reloj_demo (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        offset_ms INTEGER
+      );
+      INSERT INTO reloj_demo (id, offset_ms) VALUES (1, NULL);
+    `,
+  },
 ];
 
 /** Opens the SQLite file, creating its directory, or an in-memory database for `:memory:`. */
