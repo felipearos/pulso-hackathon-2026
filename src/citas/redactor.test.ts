@@ -4,7 +4,14 @@ import { payoff, type Statement } from "../figures/payoff";
 import type { Cita, Etapa, EstadoDeCuenta, TipoCita } from "../patricia/entities";
 import { ANGUSTIA_EMOJIS, SUENO_EMOJIS } from "../escalera/policy";
 import { SAFE_TEMPLATE, findFigures, type ValidatorDecision } from "../validator/validator";
-import { REDACTOR_MODEL, allowedFigures, cifraEscrita, decisionDeCita, redactarGuion } from "./redactor";
+import {
+  PREGUNTA_GRADUADA,
+  REDACTOR_MODEL,
+  allowedFigures,
+  cifraEscrita,
+  decisionDeCita,
+  redactarGuion,
+} from "./redactor";
 
 /** Estado de cuenta 8 from the case, as in `src/figures/payoff.test.ts`. */
 const statementEight: Statement = {
@@ -62,6 +69,13 @@ describe("decisionDeCita", () => {
   test("a bienvenida carries no cifra", () => {
     expect(decisionDeCita({ cita: cita(1, "bienvenida"), estadoDeCuenta: estadoOcho }).cifra).toBeNull();
     expect(decisionDeCita({ cita: cita(2, "bienvenida-de-vuelta"), estadoDeCuenta: estadoOcho }).cifra).toBeNull();
+  });
+
+  test("a graduada cita keeps the cifra quiet and asks whether she opens the estado de cuenta", () => {
+    const decision = decisionDeCita({ cita: cita(1, "graduada"), estadoDeCuenta: estadoOcho });
+
+    expect(decision.cifra).toBeNull();
+    expect(decision.pregunta).toBe(PREGUNTA_GRADUADA);
   });
 
   test("without an estado de cuenta there is no cifra and the buena noticia is the warm one", () => {

@@ -21,7 +21,7 @@ export const CRISIS_PHRASES = [
 const SYSTEM_PROMPT = `Clasifica el mensaje de Patricia en una sola intención.
 Responde SOLO un objeto JSON con la forma {"intencion":"<tipo>"}; para angustia usa {"intencion":"angustia","valor":<entero de 1 a 5>}.
 Los tipos permitidos son:
-- listened: escuchó o solo confirma que recibió el audio.
+- listened: escuchó o solo confirma que recibió el audio, o pide que Luna le cuente lo que dice su estado de cuenta (por ejemplo «cuéntamelo tú»).
 - accepted: acepta responder o hacer lo propuesto en la cita.
 - minimum: cuenta que pagó o piensa pagar solo el pago mínimo.
 - angustia: dice cómo se siente, con valor de angustia de 1 (poca) a 5 (mucha).
@@ -44,6 +44,14 @@ function normalize(text: string): string {
     .replace(/\p{Diacritic}/gu, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+const PIDE_QUE_LE_CUENTE =
+  /(?:^|[^\p{L}\p{N}])(?:cuentamelo|cuentame tu|cuentame vos|dimelo tu|dimelo|me lo cuentas|me lo cuentes|me lo dices|te lo cuento yo|cuentalo tu|mejor tu|tu cuentame|tu dime)(?=$|[^\p{L}\p{N}])/u;
+
+/** Whether the message asks Luna to tell her what the estado de cuenta says. */
+export function pideQueLeCuente(message: string): boolean {
+  return PIDE_QUE_LE_CUENTE.test(normalize(message));
 }
 
 /** Phrases that also talk about amounts: «no puedo más que el mínimo», «no doy más de 20 mil». */
@@ -127,16 +135,18 @@ export function angustiaDeRespuesta(message: string): Angustia | null {
 /**
  * Classifies one text message or voice-note transcript from Patricia. With
  * `angustiaEsperada` (she is answering the domingo pregunta) a bare answer on
- * the angustia scale is read without the LLM.
+ * the angustia scale is read without the LLM. With `cuentoEsperado`, a request
+ * for Luna to tell her what the estado de cuenta says is read without the LLM.
  */
 export async function classifyIntencion(
   message: string,
   llm: Llm,
-  options?: { timeoutMs?: number; angustiaEsperada?: boolean },
+  options?: { timeoutMs?: number; angustiaEsperada?: boolean; cuentoEsperado?: boolean },
 ): Promise<Intencion> {
   if (hasCrisisPhrase(message)) return { kind: "crisis" };
   if (isOnlyEmoji(message, "👍")) return { kind: "accepted" };
   if (isOnlyEmoji(message, "👌")) return { kind: "listened" };
+  if (options?.cuentoEsperado && pideQueLeCuente(message)) return { kind: "listened" };
   if (options?.angustiaEsperada) {
     const angustia = angustiaDeRespuesta(message);
     if (angustia !== null) return { kind: "angustia", value: angustia };
