@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { Database } from "bun:sqlite";
 import { createTestApp, TEST_START } from "../testing";
-import { FOTO_SIN_LEER, MENSAJE_NO_ENTENDIDO, NOTA_DE_VOZ_SIN_TRANSCRIBIR, receiveMensaje } from "./inbound";
+import type { App } from "../app";
+import { FOTO_SIN_LEER, MENSAJE_NO_ENTENDIDO, NOTA_DE_VOZ_SIN_TRANSCRIBIR, receiveInbound } from "./inbound";
 import type { InboundMensaje } from "./webhook";
 
 const FROM = "56900000000";
@@ -10,16 +11,20 @@ function mensaje(body: InboundMensaje["body"], whatsappId = "wamid.TEST1"): Inbo
   return { whatsappId, from: FROM, when: TEST_START, body };
 }
 
-/** The real transaction, so a test sees what production sees. */
-function inTransaction(db: Database) {
-  return <T,>(write: () => T): T => db.transaction(write)();
+/** The app's own flujo normal and the real transaction, so a test sees what production sees. */
+function deps(app: App, db: Database) {
+  return {
+    store: app.store,
+    mensaje: app.receiveMensaje,
+    inTransaction: <T,>(write: () => T): T => db.transaction(write)(),
+  };
 }
 
-describe("receiveMensaje", () => {
-  test("a bare 👍 is read as accepted without calling the LLM", async () => {
+describe("receiveInbound", () => {
+  test("a bare 👍 goes through the flujo normal, without calling the LLM", async () => {
     const { app, llm, db } = createTestApp();
 
-    await receiveMensaje({ store: app.store, llm, inTransaction: inTransaction(db) }, mensaje({ kind: "text", text: "👍" }));
+    await receiveInbound(deps(app, db), mensaje({ kind: "text", text: "👍" }));
 
     const entrantes = app.store.mensajesEntrantes();
     expect(entrantes).toHaveLength(1);
@@ -28,39 +33,33 @@ describe("receiveMensaje", () => {
     expect(entrantes[0]?.whatsappId).toBe("wamid.TEST1");
     expect(llm.calls).toHaveLength(0);
 
+    // The política decided, and said so in the registro: with no cita to
+    // answer it is «quedarse», and the 👍 it read is in it.
     const decisions = app.store.decisions();
     expect(decisions).toHaveLength(1);
-    expect(decisions[0]?.tipo).toBe("mensaje");
-    expect(decisions[0]?.motivo).toBe("entrante: escribió «👍», se leyó como acepta");
-    expect(decisions[0]?.datos).toEqual({
-      whatsappId: "wamid.TEST1",
-      from: FROM,
-      text: "👍",
-      intencion: { kind: "accepted" },
-    });
+    expect(decisions[0]?.tipo).toBe("quedarse");
+    expect(decisions[0]?.datos).toMatchObject({ text: "👍" });
   });
 
-  test("free text is classified through the LLM", async () => {
+  test("free text is classified through the LLM and decided on", async () => {
     const { app, llm, db } = createTestApp({ llm: [["pagué el mínimo", '{"intencion":"minimum"}']] });
 
-    await receiveMensaje({ store: app.store, llm, inTransaction: inTransaction(db) }, mensaje({ kind: "text", text: "pagué el mínimo no más" }));
+    await receiveInbound(deps(app, db), mensaje({ kind: "text", text: "pagué el mínimo no más" }));
 
     expect(llm.calls).toHaveLength(1);
     const entrantes = app.store.mensajesEntrantes();
     expect(entrantes).toHaveLength(1);
     expect(entrantes[0]?.intencion).toEqual({ kind: "minimum" });
-    const decisions = app.store.decisions();
-    expect(decisions).toHaveLength(1);
-    expect(decisions[0]?.datos).toMatchObject({ whatsappId: "wamid.TEST1", intencion: { kind: "minimum" } });
+    expect(entrantes[0]?.whatsappId).toBe("wamid.TEST1");
+    expect(app.store.decisions()).toHaveLength(1);
   });
 
   test("a 👍 reaction to Luna's audio counts as acceptance, like typing it", async () => {
-    const { app, llm, db } = createTestApp();
+    const { app: typed, db: typedDb } = createTestApp();
+    await receiveInbound(deps(typed, typedDb), mensaje({ kind: "text", text: "👍" }));
 
-    await receiveMensaje(
-      { store: app.store, llm, inTransaction: inTransaction(db) },
-      mensaje({ kind: "reaction", emoji: "👍", toWhatsappId: "wamid.LUNA1" }),
-    );
+    const { app, llm, db } = createTestApp();
+    await receiveInbound(deps(app, db), mensaje({ kind: "reaction", emoji: "👍", toWhatsappId: "wamid.LUNA1" }));
 
     const entrantes = app.store.mensajesEntrantes();
     expect(entrantes).toHaveLength(1);
@@ -68,25 +67,26 @@ describe("receiveMensaje", () => {
     expect(entrantes[0]?.intencion).toEqual({ kind: "accepted" });
     expect(llm.calls).toHaveLength(0);
 
-    const decisions = app.store.decisions();
-    expect(decisions).toHaveLength(1);
-    expect(decisions[0]?.motivo).toBe("entrante: reaccionó con «👍», se leyó como acepta");
-    expect(decisions[0]?.datos).toEqual({
-      whatsappId: "wamid.TEST1",
-      from: FROM,
-      emoji: "👍",
-      toWhatsappId: "wamid.LUNA1",
-      intencion: { kind: "accepted" },
-    });
+    // Reacting with it and typing it leave the same decision behind.
+    expect(app.store.decisions().map((decision) => decision.tipo)).toEqual(
+      typed.store.decisions().map((decision) => decision.tipo),
+    );
+    expect(app.store.getPatricia().etapa).toBe(typed.store.getPatricia().etapa);
+  });
+
+  test("a removed reaction says nothing", async () => {
+    const { app, db } = createTestApp();
+
+    await receiveInbound(deps(app, db), mensaje({ kind: "other", type: "reaction-removed" }));
+
+    expect(app.store.mensajesEntrantes()[0]?.intencion).toBeNull();
+    expect(app.store.decisions().map((decision) => decision.tipo)).toEqual(["mensaje"]);
   });
 
   test("a nota de voz is kept unread with its media id", async () => {
     const { app, llm, db } = createTestApp();
 
-    await receiveMensaje(
-      { store: app.store, llm, inTransaction: inTransaction(db) },
-      mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType: "audio/ogg" }),
-    );
+    await receiveInbound(deps(app, db), mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType: "audio/ogg" }));
 
     const entrantes = app.store.mensajesEntrantes();
     expect(entrantes).toHaveLength(1);
@@ -108,9 +108,9 @@ describe("receiveMensaje", () => {
   });
 
   test("a foto is kept unread with its media id", async () => {
-    const { app, llm, db } = createTestApp();
+    const { app, db } = createTestApp();
 
-    await receiveMensaje({ store: app.store, llm, inTransaction: inTransaction(db) }, mensaje({ kind: "image", mediaId: "media-image-1", mimeType: null }));
+    await receiveInbound(deps(app, db), mensaje({ kind: "image", mediaId: "media-image-1", mimeType: null }));
 
     const entrantes = app.store.mensajesEntrantes();
     expect(entrantes).toHaveLength(1);
@@ -130,9 +130,9 @@ describe("receiveMensaje", () => {
   });
 
   test("an unknown kind is kept with its raw type", async () => {
-    const { app, llm, db } = createTestApp();
+    const { app, db } = createTestApp();
 
-    await receiveMensaje({ store: app.store, llm, inTransaction: inTransaction(db) }, mensaje({ kind: "other", type: "sticker" }));
+    await receiveInbound(deps(app, db), mensaje({ kind: "other", type: "sticker" }));
 
     const entrantes = app.store.mensajesEntrantes();
     expect(entrantes).toHaveLength(1);
@@ -145,24 +145,18 @@ describe("receiveMensaje", () => {
   });
 
   test("the registro de decisiones only grows, one entry per message", async () => {
-    const { app, llm, db } = createTestApp();
-    const deps = { store: app.store, llm, inTransaction: inTransaction(db) };
+    const { app, db } = createTestApp();
+    const d = deps(app, db);
 
-    await receiveMensaje(deps, mensaje({ kind: "text", text: "👍" }, "wamid.TEST1"));
-    await receiveMensaje(deps, mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType: null }, "wamid.TEST2"));
-    await receiveMensaje(deps, mensaje({ kind: "other", type: "sticker" }, "wamid.TEST3"));
+    await receiveInbound(d, mensaje({ kind: "text", text: "👍" }, "wamid.TEST1"));
+    await receiveInbound(d, mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType: null }, "wamid.TEST2"));
+    await receiveInbound(d, mensaje({ kind: "other", type: "sticker" }, "wamid.TEST3"));
 
     expect(app.store.mensajesEntrantes().map((entrante) => entrante.whatsappId)).toEqual([
       "wamid.TEST1",
       "wamid.TEST2",
       "wamid.TEST3",
     ]);
-    const decisions = app.store.decisions();
-    expect(decisions.map((decision) => decision.tipo)).toEqual(["mensaje", "mensaje", "mensaje"]);
-    expect(decisions.map((decision) => (decision.datos as { whatsappId: string }).whatsappId)).toEqual([
-      "wamid.TEST1",
-      "wamid.TEST2",
-      "wamid.TEST3",
-    ]);
+    expect(app.store.decisions()).toHaveLength(3);
   });
 });

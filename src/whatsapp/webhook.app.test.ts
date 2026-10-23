@@ -84,10 +84,12 @@ describe("the whatsapp webhook through the app factory", () => {
     expect(entrantes[0]?.intencion).toEqual({ kind: "accepted" });
     expect(entrantes[0]?.whatsappId).toBe("wamid.TEST1");
 
+    // The flujo normal left the política's own decisión: she had no cita to
+    // answer, so it is «quedarse», and the 👍 it read is in it.
     const decisions = app.store.decisions();
     expect(decisions).toHaveLength(1);
-    expect(decisions[0]?.tipo).toBe("mensaje");
-    expect(decisions[0]?.datos).toMatchObject({ whatsappId: "wamid.TEST1", intencion: { kind: "accepted" } });
+    expect(decisions[0]?.tipo).toBe("quedarse");
+    expect(decisions[0]?.datos).toMatchObject({ text: "👍" });
 
     // She wrote, so Meta's 24 h window is open and the cita can go out free-form.
     expect(whatsapp.inbound).toHaveLength(1);

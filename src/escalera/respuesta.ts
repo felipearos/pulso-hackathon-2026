@@ -143,21 +143,29 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
   const move = decideEtapa(etapaInput);
   // The whole input the política read, so the control room can show why.
   const datos = { text: input.text, input: etapaInput, move };
-  switch (move.kind) {
-    case "up":
-    case "graduate":
-      store.setEtapa(move.to, move.reason);
-      store.recordDecision({ tipo: "subir-etapa", motivo: move.reason, datos });
-      break;
-    case "down":
-      store.setEtapa(move.to, move.reason);
-      store.recordDecision({ tipo: "bajar-etapa", motivo: move.reason, datos });
-      break;
-    case "stay":
-    case "freeze":
-      store.recordDecision({ tipo: "quedarse", motivo: move.reason, datos });
-      break;
-  }
+
+  // Everything the move writes, as one unit. Classifying it is a network call,
+  // so it stays outside.
+  atomically(() => {
+    switch (move.kind) {
+      case "up":
+      case "graduate":
+        store.setEtapa(move.to, move.reason);
+        store.recordDecision({ tipo: "subir-etapa", motivo: move.reason, datos });
+        break;
+      case "down":
+        store.setEtapa(move.to, move.reason);
+        store.recordDecision({ tipo: "bajar-etapa", motivo: move.reason, datos });
+        break;
+      case "stay":
+      case "freeze":
+        store.recordDecision({ tipo: "quedarse", motivo: move.reason, datos });
+        break;
+    }
+  });
+
+  // Luna answers the question only once the move is stored: her reply says what
+  // the registro already holds.
   if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
     await answerPregunta(deps, intencion.kind);
   }
