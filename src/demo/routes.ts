@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { CifraPermitida } from "../citas/redactor";
+import { proximaCita } from "../citas/scheduler";
 import type { DemoClock } from "../clock/demo-clock";
-import { santiagoDate } from "../clock/santiago";
 import { SAMPLE_MAILS, type SampleMailKind } from "../mail/samples";
 import type { Decision, Senal, TipoSenal } from "../patricia/entities";
 import type { Store } from "../patricia/store";
@@ -59,6 +59,7 @@ type DatosDeAudio = {
   guion: string;
   citaId: number;
   decision: { cifra: CifraPermitida | null };
+  source?: string;
   estadoDeCuentaId?: number | null;
 };
 
@@ -113,17 +114,19 @@ function givenToken(request: Request, url: URL): string | null {
  * published on the internet.
  */
 export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<Response | null> {
-  /** The latest audio that carried a cifra, with the estado de cuenta and the mail or foto it came from. */
+  /** The latest audio: the cifra it said, if any, with the estado de cuenta and the mail or foto it came from. */
   const cifraDelUltimoAudio = () => {
-    let found: { decision: Decision; datos: DatosDeAudio; cifra: CifraPermitida } | null = null;
-    for (const decision of deps.store.decisions()) {
-      const { datos } = decision;
-      if (decision.tipo !== "mensaje" || !isDatosDeAudio(datos)) continue;
-      const cifra = datos.decision.cifra;
-      if (cifra === null || cifra === undefined) continue;
-      found = { decision, datos, cifra };
+    let found: { decision: Decision; datos: DatosDeAudio } | null = null;
+    for (const decision of deps.store.decisions().toReversed()) {
+      if (decision.tipo !== "mensaje" || !isDatosDeAudio(decision.datos)) continue;
+      found = { decision, datos: decision.datos };
+      break;
     }
     if (!found) return null;
+    const at = found.decision.at.toISOString();
+    // The plantilla segura says no number, whatever cifra the decision had planned.
+    const cifra = found.datos.source === "safe-template" ? null : (found.datos.decision.cifra ?? null);
+    if (cifra === null) return { at, cifra, estadoDeCuenta: null, fuente: null };
     const id = found.datos.estadoDeCuentaId ?? null;
     const estado = id === null ? undefined : deps.store.estadosDeCuenta().find((row) => row.id === id);
     const extraccion = id === null ? null : deps.store.extraccionForEstadoDeCuenta(id);
@@ -140,8 +143,8 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
       };
     }
     return {
-      at: found.decision.at.toISOString(),
-      cifra: found.cifra,
+      at,
+      cifra,
       estadoDeCuenta: estado
         ? {
             origen: estado.origen,
@@ -153,15 +156,6 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
         : null,
       fuente,
     };
-  };
-  /** The earliest cita still to go out, from today on. */
-  const proximaCita = (now: Date) => {
-    const today = santiagoDate(now);
-    const [next] = deps.store
-      .citas()
-      .filter((cita) => cita.estado === "programada" && cita.mensajeSalienteId === null && cita.fecha >= today)
-      .sort((a, b) => a.fecha.localeCompare(b.fecha));
-    return next ? { fecha: next.fecha, tipo: next.tipo, etapa: next.etapa, motivo: next.motivo } : null;
   };
   const state = () => {
     const now = deps.clock.now();
@@ -180,7 +174,7 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
         .etapaHistory()
         .map(({ at, from, to, motivo }) => ({ at: at.toISOString(), from, to, motivo })),
       cifraDelUltimoAudio: cifraDelUltimoAudio(),
-      proximaCita: proximaCita(now),
+      proximaCita: proximaCita(now, deps.store.getPatricia(), (fecha) => deps.store.citaOn(fecha)),
       correos: deps.store
         .senales()
         .slice(-10)

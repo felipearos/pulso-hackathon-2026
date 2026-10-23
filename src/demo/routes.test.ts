@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { proximaCita } from "../citas/scheduler";
 import { santiagoParts } from "../clock/santiago";
 import { PATRICIA_START } from "../patricia/fixtures";
 import type { App } from "../app";
@@ -406,7 +407,7 @@ type SalaState = {
     estadoDeCuenta: unknown;
     fuente: unknown;
   } | null;
-  proximaCita: { fecha: string; tipo: string; etapa: unknown; motivo: string } | null;
+  proximaCita: { fecha: string; tipo: string; hora: string } | null;
 };
 
 const salaState = async (app: App) => {
@@ -466,14 +467,6 @@ describe("/sala state: etapa, decisiones, origen de la cifra, próxima cita", ()
     recordAudio(app, null, 1);
     const audio = recordAudio(app, estado.id);
     app.store.recordDecision({ tipo: "mensaje", motivo: "no salió", datos: { citaId: 2, error: "falló" } });
-    app.store.addCita({
-      fecha: "2026-10-22",
-      tipo: "jueves",
-      estado: "programada",
-      etapa: 3,
-      motivo: "cita del jueves",
-      pendienteIds: [],
-    });
 
     const body = await salaState(app);
     expect(body.etapaHistorial.map(({ from, to, motivo }) => [from, to, motivo])).toEqual([
@@ -499,7 +492,11 @@ describe("/sala state: etapa, decisiones, origen de la cifra, próxima cita", ()
         from: "Banco Ficticio <avisos@banco.example>",
       },
     });
-    expect(body.proximaCita).toEqual({ fecha: "2026-10-22", tipo: "jueves", etapa: 3, motivo: "cita del jueves" });
+    // The test clock is lunes 2026-10-19 09:00, before that day's 22:30 slot.
+    expect(body.proximaCita).toEqual({ fecha: "2026-10-19", tipo: "lunes", hora: "22:30" });
+    expect(body.proximaCita).toEqual(
+      proximaCita(app.clock.now(), app.store.getPatricia(), (fecha) => app.store.citaOn(fecha)),
+    );
   });
 
   test("decisiones are the latest 50, oldest first", async () => {
@@ -541,29 +538,61 @@ describe("/sala state: etapa, decisiones, origen de la cifra, próxima cita", ()
     });
   });
 
-  test("an audio without a cifra is skipped, and none gives null", async () => {
+  test("no audio decision gives null", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
-    app.store.recordDecision({
-      tipo: "mensaje",
-      motivo: "salió la bienvenida",
-      datos: { citaId: 1, decision: { cifra: null }, guion: "Hola", estadoDeCuentaId: null },
-    });
+    app.store.recordDecision({ tipo: "mensaje", motivo: "no salió", datos: { citaId: 2, error: "falló" } });
     expect((await salaState(app)).cifraDelUltimoAudio).toBeNull();
   });
 
-  test("a cita already sent, callada or dated before today is not the próxima cita", async () => {
+  test("a newer audio without a cifra gives cifra null, not an older audio's cifra", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
-    const add = (fecha: string, estado: "programada" | "callada", motivo: string) =>
-      app.store.addCita({ fecha, tipo: "jueves", estado, etapa: 1, motivo, pendienteIds: [] });
-    add("2026-10-18", "programada", "ayer");
-    add("2026-10-20", "callada", "callada");
-    const enviada = add("2026-10-21", "programada", "enviada")!;
+    recordAudio(app, addEstado(app).id);
+    const bienvenida = app.store.recordDecision({
+      tipo: "mensaje",
+      motivo: "salió la bienvenida",
+      datos: { citaId: 2, decision: { cifra: null }, guion: "Hola", estadoDeCuentaId: null },
+    });
+    expect((await salaState(app)).cifraDelUltimoAudio).toEqual({
+      at: bienvenida.at.toISOString(),
+      cifra: null,
+      estadoDeCuenta: null,
+      fuente: null,
+    });
+  });
+
+  test("an audio from the plantilla segura gives cifra null, whatever cifra was planned", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    const estado = addEstado(app);
+    const audio = app.store.recordDecision({
+      tipo: "mensaje",
+      motivo: "salió la cita del lunes con la plantilla segura",
+      datos: {
+        citaId: 1,
+        decision: { cifra: { kind: "pago-minimo", monto: 18_500 } },
+        guion: "Hola, soy Luna.",
+        source: "safe-template",
+        estadoDeCuentaId: estado.id,
+      },
+    });
+    expect((await salaState(app)).cifraDelUltimoAudio).toEqual({
+      at: audio.at.toISOString(),
+      cifra: null,
+      estadoDeCuenta: null,
+      fuente: null,
+    });
+  });
+
+  test("today's cita sent or callada moves the próxima cita to the next slot", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    const add = (fecha: string, tipo: "lunes" | "jueves", estado: "programada" | "callada") =>
+      app.store.addCita({ fecha, tipo, estado, etapa: 1, motivo: "sembrada", pendienteIds: [] })!;
+    const lunes = add("2026-10-19", "lunes", "programada");
+    expect((await salaState(app)).proximaCita).toEqual({ fecha: "2026-10-19", tipo: "lunes", hora: "22:30" });
     const mensaje = app.store.addMensajeSaliente({ kind: "audio", text: "Hola", durationSeconds: 30, whatsappId: "w-1" });
-    expect(app.store.markCitaSent(enviada.id, mensaje.id)).toBe(true);
-    expect((await salaState(app)).proximaCita).toBeNull();
-    add("2026-10-26", "programada", "la del lunes");
-    add("2026-10-19", "programada", "la de hoy");
-    expect((await salaState(app)).proximaCita?.motivo).toBe("la de hoy");
+    expect(app.store.markCitaSent(lunes.id, mensaje.id)).toBe(true);
+    expect((await salaState(app)).proximaCita).toEqual({ fecha: "2026-10-22", tipo: "jueves", hora: "22:30" });
+    add("2026-10-22", "jueves", "callada");
+    expect((await salaState(app)).proximaCita).toEqual({ fecha: "2026-10-25", tipo: "domingo", hora: "21:30" });
   });
 
   test("after a reset to Patricia's fixture the four keys are there", async () => {
@@ -575,5 +604,9 @@ describe("/sala state: etapa, decisiones, origen de la cifra, próxima cita", ()
     for (const key of ["etapaHistorial", "decisiones", "cifraDelUltimoAudio", "proximaCita"]) {
       expect(Object.hasOwn(body, key)).toBe(true);
     }
+    const { cifraDelUltimoAudio, proximaCita: proxima } = body as unknown as SalaState;
+    expect(cifraDelUltimoAudio).toBeNull();
+    expect(proxima).not.toBeNull();
+    expect(["22:30", "21:30"]).toContain(proxima!.hora);
   });
 });

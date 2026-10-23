@@ -192,18 +192,16 @@
     list.append(...rows);
   }
 
-  function etapaLabel(etapa) {
-    return etapa === "graduada" ? "graduada" : String(etapa);
-  }
-
   function cifraText(cifra) {
     if (cifra.kind === "pago-minimo") return `pago mínimo ${peso(cifra.monto)}`;
     if (cifra.kind === "salida") return `salida en ${cifra.meses} meses, cuota ${peso(cifra.cuota)}`;
-    return `libre el ${cifra.freeOn}, ${cifra.mesesAdelantados} meses antes que pagando solo el mínimo`;
+    if (cifra.kind === "fecha-libre") return `libre el ${cifra.freeOn}, ${cifra.mesesAdelantados} meses antes que pagando solo el mínimo`;
+    return JSON.stringify(cifra);
   }
 
   function cifraRows(origen) {
     if (!origen) return [];
+    if (!origen.cifra) return [item(shortTime.format(new Date(origen.at)), "El último audio no dijo cifra")];
     const rows = [item(shortTime.format(new Date(origen.at)), cifraText(origen.cifra))];
     const estado = origen.estadoDeCuenta;
     if (estado) {
@@ -248,11 +246,11 @@
       item(`${shortTime.format(new Date(decision.at))} · ${decision.tipo}`, decision.motivo ?? "")),
       "Sin decisiones");
     fillList($("etapas"), [...(state.etapaHistorial ?? [])].reverse().map((cambio) =>
-      item(`${shortTime.format(new Date(cambio.at))} · Etapa ${etapaLabel(cambio.from)} → ${etapaLabel(cambio.to)}`,
+      item(`${shortTime.format(new Date(cambio.at))} · Etapa ${cambio.from} → ${cambio.to}`,
         cambio.motivo ?? "")), "Sin cambios de etapa");
-    fillList($("cifra"), cifraRows(state.cifraDelUltimoAudio), "Ningún audio con cifra todavía");
+    fillList($("cifra"), cifraRows(state.cifraDelUltimoAudio), "Ningún audio todavía");
     const proxima = state.proximaCita;
-    fillList($("proxima-cita"), proxima ? [item(`${proxima.fecha} · ${proxima.tipo}`, proxima.motivo ?? "")] : [],
+    fillList($("proxima-cita"), proxima ? [item(`${proxima.fecha} · ${proxima.hora}`, proxima.tipo)] : [],
       "Sin cita programada");
     fillList($("correos"), [...state.correos].reverse().map((correo) => {
       const li = item(`${shortTime.format(new Date(correo.at))} · ${correo.etiqueta}`, `${correo.subject} — ${correo.from}`);

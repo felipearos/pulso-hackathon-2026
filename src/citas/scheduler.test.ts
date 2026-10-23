@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { parseSantiago } from "../clock/santiago";
+import type { Cita } from "../patricia/entities";
 import { createTestApp, type TestApp } from "../testing";
+import { proximaCita } from "./scheduler";
 
 const MINUTE_MS = 60 * 1000;
 const STEP_MS = 15 * MINUTE_MS;
@@ -168,5 +170,87 @@ describe("cita scheduler", () => {
     t.app.store.updatePatricia({ enPausa: false });
     await tickUntil(t, "2026-11-30T23:45");
     expect(summary(t)).toEqual([{ fecha: "2026-11-02", tipo: "graduada", estado: "callada" }]);
+  });
+});
+
+describe("proximaCita", () => {
+  const activa = { etapa: 1, enPausa: false } as const;
+  const sinCitas = () => null;
+  const cita = (fecha: string, overrides: Partial<Cita> = {}): Cita => ({
+    id: 1,
+    fecha,
+    tipo: "lunes",
+    estado: "programada",
+    etapa: 1,
+    motivo: "sembrada",
+    pendientes: [],
+    programadaAt: new Date("2026-10-26T09:00:00-03:00"),
+    mensajeSalienteId: null,
+    ...overrides,
+  });
+  const only = (stored: Cita) => (fecha: string) => (fecha === stored.fecha ? stored : null);
+
+  test("a martes looks ahead to that week's jueves", () => {
+    expect(proximaCita(new Date("2026-10-27T15:00:00-03:00"), activa, sinCitas)).toEqual({
+      fecha: "2026-10-29",
+      tipo: "jueves",
+      hora: "22:30",
+    });
+  });
+
+  test("a lunes at 10:00 with no cita yet is today's", () => {
+    expect(proximaCita(new Date("2026-10-26T10:00:00-03:00"), activa, sinCitas)).toEqual({
+      fecha: "2026-10-26",
+      tipo: "lunes",
+      hora: "22:30",
+    });
+  });
+
+  test("a lunes whose cita went out moves to the jueves", () => {
+    const enviada = cita("2026-10-26", { mensajeSalienteId: 7 });
+    expect(proximaCita(new Date("2026-10-26T23:00:00-03:00"), activa, only(enviada))).toEqual({
+      fecha: "2026-10-29",
+      tipo: "jueves",
+      hora: "22:30",
+    });
+  });
+
+  test("a lunes whose cita went callada moves to the jueves", () => {
+    const callada = cita("2026-10-26", { estado: "callada" });
+    expect(proximaCita(new Date("2026-10-26T22:45:00-03:00"), activa, only(callada))).toEqual({
+      fecha: "2026-10-29",
+      tipo: "jueves",
+      hora: "22:30",
+    });
+  });
+
+  test("a domingo's cita is at 21:30", () => {
+    expect(proximaCita(new Date("2026-10-25T12:00:00-03:00"), activa, sinCitas)).toEqual({
+      fecha: "2026-10-25",
+      tipo: "domingo",
+      hora: "21:30",
+    });
+  });
+
+  test("en pausa there is none", () => {
+    expect(proximaCita(new Date("2026-10-27T15:00:00-03:00"), { etapa: 2, enPausa: true }, sinCitas)).toBeNull();
+  });
+
+  test("graduada on the 10th waits for the first lunes of next month", () => {
+    const graduada = { etapa: "graduada", enPausa: false } as const;
+    expect(proximaCita(new Date("2026-10-10T12:00:00-03:00"), graduada, sinCitas)).toEqual({
+      fecha: "2026-11-02",
+      tipo: "graduada",
+      hora: "22:30",
+    });
+  });
+
+  test("graduada on a first lunes not yet sent is today's", () => {
+    const graduada = { etapa: "graduada", enPausa: false } as const;
+    expect(proximaCita(new Date("2026-11-02T10:00:00-03:00"), graduada, sinCitas)).toEqual({
+      fecha: "2026-11-02",
+      tipo: "graduada",
+      hora: "22:30",
+    });
   });
 });
