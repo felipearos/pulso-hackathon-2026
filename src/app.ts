@@ -48,9 +48,23 @@ export function createApp(ports: Ports): App {
   const receive = (mail: IncomingMail) =>
     receiveMail(store, ports.llm, mail, (fn) => ports.db.transaction(fn)());
   const extract = (mail: IncomingMail) => extractEstadoDeCuenta({ store, llm: ports.llm, db: ports.db }, mail);
+  // fetchNew hands each mail over once, so an S1 Claude could not read is kept
+  // here and read again on the next tick instead of being lost.
+  const porLeer = new Map<string, IncomingMail>();
+  const extractOrKeep = async (mail: IncomingMail) => {
+    if ((await extract(mail)) === null && store.senalForMail(mail.id)?.tipo === "S1") porLeer.set(mail.id, mail);
+    else porLeer.delete(mail.id);
+  };
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
     if (!store.getPatricia().gmailPermitido) return;
+    for (const mail of porLeer.values()) {
+      try {
+        await extractOrKeep(mail);
+      } catch (error) {
+        console.error(`mail: ${mail.id} failed again: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     let mails: IncomingMail[];
     try {
       mails = await ports.mail.fetchNew(allowedSenderDomains());
@@ -61,7 +75,7 @@ export function createApp(ports: Ports): App {
     }
     for (const mail of mails) {
       try {
-        if ((await receive(mail))?.tipo === "S1") await extract(mail);
+        if ((await receive(mail))?.tipo === "S1") await extractOrKeep(mail);
       } catch (error) {
         // One mail that fails must not cost the rest of the batch.
         console.error(`mail: ${mail.id} failed: ${error instanceof Error ? error.message : String(error)}`);

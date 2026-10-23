@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { ESTADO_DE_CUENTA_8_CIFRAS, ESTADO_DE_CUENTA_8_TEXTO } from "../figures/fixtures/estado-de-cuenta-8";
+import { createApp } from "../app";
+import { openDatabase } from "../db";
+import { FakeClock, FakeMail, FakeVoice, FakeWhatsApp } from "../fakes";
+import type { Llm } from "../ports";
 import { createTestApp } from "../testing";
 import { BANCO_ANDINO_MINIMUM_RULE } from "./estado-de-cuenta";
 
@@ -90,6 +94,37 @@ describe("extractEstadoDeCuenta", () => {
     const answering = createAllowedApp(FULL_REPLY);
     answering.app.receiveMail(ec8);
     expect(await answering.app.extractEstadoDeCuenta(ec8)).not.toBeNull();
+  });
+
+  test("an S1 mail Claude could not read is read again on the next tick", async () => {
+    let down = true;
+    const llm: Llm = {
+      async complete() {
+        if (down) throw new Error("claude is down");
+        return JSON.stringify(FULL_REPLY);
+      },
+    };
+    const ports = {
+      clock: new FakeClock(receivedAt),
+      mail: new FakeMail(),
+      whatsapp: new FakeWhatsApp(),
+      llm,
+      voice: new FakeVoice(),
+      db: openDatabase(":memory:"),
+    };
+    const app = createApp(ports);
+    app.store.updatePatricia({ gmailPermitido: true });
+    ports.mail.inject({ id: "ec8", from: bank, subject: "Tu estado de cuenta de octubre", text: ESTADO_DE_CUENTA_8_TEXTO, receivedAt });
+    await app.tick();
+    expect(app.store.extraccionForMail("ec8")).toBeNull();
+
+    down = false;
+    await app.tick();
+    expect(app.store.extraccionForMail("ec8")?.cifras).toEqual(ESTADO_DE_CUENTA_8_CIFRAS);
+    expect(app.store.estadosDeCuenta()).toHaveLength(1);
+
+    await app.tick();
+    expect(app.store.estadosDeCuenta()).toHaveLength(1);
   });
 
   test("a reply that every figure is missing from leaves nine callar-cifra", async () => {
