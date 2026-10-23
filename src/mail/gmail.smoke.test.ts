@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
 import { databasePath } from "../config";
-import { migrate, openDatabase } from "../db";
+import { migrate } from "../db";
 import { systemClock } from "../real-ports";
 import { createGmailMail } from "./gmail";
 import { createGmailAccount } from "./gmail-oauth";
@@ -10,7 +10,7 @@ import { allowedSenderDomains } from "./senders";
 /*
  * Reads the real Gmail, so it runs only on request: GMAIL_SMOKE=1 with the
  * OAuth variables, against a base where Patricia already gave her «Permitir»
- * (open /gmail/permitir on a running app first). The token is copied into an
+ * (open /permitir on a running app first). The token is copied into an
  * in-memory base, so the real base's cursor does not move.
  */
 const env = process.env;
@@ -20,11 +20,11 @@ const ready =
 test.skipIf(!ready)(
   "lists the allowed senders' mail from the connected Gmail",
   async () => {
-    const source = openDatabase(databasePath(env));
-    migrate(source);
+    // Read-only and never migrated: this may be Patricia's live base.
+    const source = new Database(databasePath(env), { readonly: true });
     const row = source.query("SELECT * FROM gmail_cuenta WHERE id = 1").get() as Record<string, unknown> | null;
     source.close();
-    if (!row) throw new Error("no Gmail account in the base: open /gmail/permitir on the running app first");
+    if (!row) throw new Error("no Gmail account in the base: open /permitir on the running app first");
 
     const db = new Database(":memory:", { strict: true });
     migrate(db);

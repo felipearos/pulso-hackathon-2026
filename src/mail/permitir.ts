@@ -3,13 +3,17 @@ import type { Store } from "../patricia/store";
 import type { Clock, Mail } from "../ports";
 
 /*
- * Patricia's one «Permitir»: `/gmail/permitir` sends her to Google's read-only
+ * Patricia's one «Permitir»: `/permitir` sends her to Google's read-only
  * consent page, and `/gmail/callback` is where Google sends her back. The
- * `state` each start issues is single-use and short-lived, so a callback
- * nobody started here cannot connect a stranger's mailbox.
+ * `state` each start issues is single-use and short-lived, so a callback this
+ * server never started (a forged or replayed link) connects nothing. Who may
+ * sign in at all is Google's call: the OAuth app stays in test mode with
+ * Patricia's fictional Gmail as its only test user (#65), so a stranger who
+ * opens the link cannot swap in their own mailbox.
  */
 
-export const PERMITIR_PATH = "/gmail/permitir";
+/** The welcome audio (#46) links Patricia here; keep the two in step. */
+export const PERMITIR_PATH = "/permitir";
 export const CALLBACK_PATH = "/gmail/callback";
 /** How long she has between opening the link and coming back from Google. */
 const STATE_TTL_MS = 15 * 60 * 1000;

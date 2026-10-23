@@ -74,10 +74,13 @@ registrada en Google), se abre en el teléfono con el Gmail ficticio de
 Patricia:
 
 ```
-https://desktop.taild8ed7e.ts.net/gmail/permitir
+https://desktop.taild8ed7e.ts.net/permitir
 ```
 
-Google pide el permiso de solo lectura y vuelve a `/gmail/callback`, que
+La app de Google queda en modo prueba con el Gmail ficticio como único
+usuario de prueba: eso es lo que impide que otra persona que abra el link
+conecte su propio correo en lugar del de Patricia. Google pide el permiso de
+solo lectura y vuelve a `/gmail/callback`, que
 guarda el token en la base (`gmail_cuenta`) y lo renueva solo. Desde ahí la
 app revisa Gmail cada minuto, solo los remitentes de la lista. `bun run reset`
 no borra la conexión. Para probar que lee, en el pc:

@@ -49,6 +49,8 @@ export type GmailAccount = {
   consentUrl(state: string): string;
   /** Trades the callback's code for tokens and stores them; the cursor survives a reconnect. */
   connect(code: string): Promise<void>;
+  /** Whether her «Permitir» stored a token yet. */
+  isConnected(): boolean;
   /** A valid access token, renewed through the refresh token when close to expiry. */
   accessToken(): Promise<string>;
   cursor(): GmailCursor;
@@ -148,6 +150,10 @@ export function createGmailAccount(deps: GmailAccountDeps): GmailAccount {
            access_expires_at = excluded.access_expires_at, conectada_at = excluded.conectada_at`,
         [refreshToken, body.access_token!, expiresAt(body), now.getTime() - FIRST_LOOKBACK_MS, now.toISOString()],
       );
+    },
+
+    isConnected() {
+      return row() !== null;
     },
 
     async accessToken() {

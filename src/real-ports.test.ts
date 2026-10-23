@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createApp } from "./app";
 import { migrate } from "./db";
-import { GmailNotConnectedError } from "./mail/gmail-oauth";
 import type { Ports } from "./ports";
 import { MissingEnvError, realPorts, systemClock } from "./real-ports";
 import { VoiceError } from "./voice/elevenlabs";
@@ -57,11 +56,12 @@ describe("realPorts", () => {
     });
   }
 
-  test("mail rejects until Patricia connects a Gmail account", async () => {
-    const ports = realPorts(memory);
+  test("mail finds nothing new until Patricia connects a Gmail account", async () => {
+    const urls: string[] = [];
+    const ports = realPorts(memory, { fetch: async (input) => (urls.push(String(input)), new Response("{}")) });
     migrate(ports.db);
-    const error = await rejection(ports.mail.fetchNew(["bancoandino.example"]));
-    expect(error).toBeInstanceOf(GmailNotConnectedError);
+    expect(await ports.mail.fetchNew(["bancoandino.example"])).toEqual([]);
+    expect(urls).toEqual([]);
   });
 
   test("voice with every variable set calls ElevenLabs with them", async () => {

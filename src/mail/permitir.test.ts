@@ -2,7 +2,7 @@ import { describe, expect, spyOn, test } from "bun:test";
 import { MissingEnvError } from "../missing-env";
 import { createTestApp } from "../testing";
 
-const START_URL = "http://localhost/gmail/permitir";
+const START_URL = "http://localhost/permitir";
 const CALLBACK_URL = "http://localhost/gmail/callback";
 const STATE_TTL_MS = 15 * 60 * 1000;
 

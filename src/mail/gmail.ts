@@ -123,6 +123,8 @@ export function createGmailMail({ account, fetch: fetchGmail = fetch }: { accoun
 
     async fetchNew(senders) {
       if (senders.length === 0) return [];
+      // Before her «Permitir» there is no inbox to read: nothing new, not a failure.
+      if (!account.isConnected()) return [];
 
       const cursor = account.cursor();
       const token = await account.accessToken();
@@ -138,6 +140,7 @@ export function createGmailMail({ account, fetch: fetchGmail = fetch }: { accoun
         for (const message of result.messages ?? []) {
           if (typeof message.id === "string") ids.push(message.id);
         }
+        // Past MAX_PAGES the oldest matches are left behind; a fictional inbox never gets there.
         pageToken = typeof result.nextPageToken === "string" ? result.nextPageToken : undefined;
         if (!pageToken) break;
       }

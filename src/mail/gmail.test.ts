@@ -16,6 +16,7 @@ function makeAccount(initial: GmailCursor = { ms: START_MS, ids: [] }): {
     account: {
       consentUrl: (state) => `https://accounts.example.test/?state=${state}`,
       connect: async () => {},
+      isConnected: () => true,
       accessToken: async () => "tok",
       cursor: () => ({ ms: current.ms, ids: [...current.ids] }),
       saveCursor: (next) => {
