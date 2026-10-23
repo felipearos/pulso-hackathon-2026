@@ -5,11 +5,13 @@
  */
 import { isOnlyEmoji } from "../escalera/classify";
 import type { Intencion } from "../escalera/policy";
-import type { Cita } from "../patricia/entities";
+import { santiagoDate, santiagoParts } from "../clock/santiago";
+import type { Cita, MensajeEntrante } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { Llm, WhatsApp } from "../ports";
 import { SAFE_TEMPLATE, validateText } from "../validator/validator";
 import { montoEnPantalla } from "../voz/montos";
+import { inicioDeSemana } from "./apartado";
 import {
   propuestaDelJueves,
   respuestaAEleccion,
@@ -42,13 +44,24 @@ export function proponerEnCita(store: Store, cita: Cita): void {
   });
 }
 
-/** The propuesta of the latest programada cita, while Patricia has not answered it. */
-function openPropuesta(store: Store): PropuestaDatos | null {
+/** The madrugada ends at 05:30, exclusive. */
+const MADRUGADA_END = 5 * 60 + 30;
+
+function isMadrugada(at: Date): boolean {
+  const { hour, minute } = santiagoParts(at);
+  return hour * 60 + minute < MADRUGADA_END;
+}
+
+/**
+ * The propuesta of the latest programada cita, while Patricia has not answered
+ * it and it is still this week's: a 👍 the next week answers nothing.
+ */
+function openPropuesta(store: Store, at: Date): PropuestaDatos | null {
   const cita = store
     .citas()
     .filter((c) => c.estado === "programada")
     .at(-1);
-  if (cita === undefined) return null;
+  if (cita === undefined || cita.fecha < santiagoDate(inicioDeSemana(at))) return null;
   const decisions = store.decisions();
   const forCita = (tipo: string) =>
     decisions.filter((d) => d.tipo === tipo && (d.datos as { citaId?: unknown } | null)?.citaId === cita.id);
@@ -70,13 +83,15 @@ function eleccionOf(text: string, intencion: Intencion): EleccionDePago | null {
  */
 export async function answerEleccion(
   deps: { store: Store; llm: Llm; whatsapp: WhatsApp },
-  text: string,
+  mensaje: MensajeEntrante,
   intencion: Intencion,
 ): Promise<void> {
   const { store, llm, whatsapp } = deps;
-  const propuesta = openPropuesta(store);
+  // In the madrugada Luna says no figures and proposes nothing; the propuesta waits for her next answer.
+  if (isMadrugada(mensaje.receivedAt)) return;
+  const propuesta = openPropuesta(store, mensaje.receivedAt);
   if (propuesta === null) return;
-  const eleccion = eleccionOf(text, intencion);
+  const eleccion = eleccionOf(mensaje.text, intencion);
   if (eleccion === null) return;
 
   const draft = respuestaAEleccion(eleccion, propuesta);

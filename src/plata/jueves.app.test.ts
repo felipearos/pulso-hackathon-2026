@@ -107,4 +107,27 @@ describe("the jueves propuesta through the app", () => {
 
     expect(decisionsOf(t, "proponer-plata-apartada")).toEqual([]);
   });
+  test("in the madrugada a 👍 gets no figure; the propuesta waits for her next answer", async () => {
+    const t = setup();
+    await jueves(t);
+
+    t.clock.set(new Date("2026-10-23T01:00:00-03:00"));
+    await t.app.receiveMensaje({ text: "👍", whatsappId: "in-1" });
+    expect(t.whatsapp.outbox).toEqual([]);
+    expect(decisionsOf(t, "respuesta-propuesta")).toEqual([]);
+
+    t.clock.set(new Date("2026-10-23T08:00:00-03:00"));
+    await t.app.receiveMensaje({ text: "👍", whatsappId: "in-2" });
+    expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: `Anotado: $50.000 este mes. ${CIERRE}` }]);
+  });
+
+  test("a 👍 the next week no longer answers last week's propuesta", async () => {
+    const t = setup();
+    await jueves(t);
+
+    t.clock.set(new Date("2026-10-26T10:00:00-03:00"));
+    await t.app.receiveMensaje({ text: "👍", whatsappId: "in-1" });
+    expect(t.whatsapp.outbox).toEqual([]);
+    expect(decisionsOf(t, "respuesta-propuesta")).toEqual([]);
+  });
 });

@@ -194,6 +194,17 @@ mínimo. It is Patricia's money and never leaves her bank; Luna only keeps the
 tally and never claims the money "is" anywhere.
 _Avoid:_ "savings", "ahorro", "fondo".
 
+## Propuesta del jueves
+
+What the jueves cita proposes when the week has plata apartada: pay the pago
+mínimo plus the plata apartada, rounded up to the next 1.000 (41.900 + 8.100
+= 50.000). The motor computes it, never the LLM. Patricia chooses with an
+emoji: 👍 pays the propuesta, 👌 pays the mínimo. On this question 👌 is her
+choice of the mínimo; for the política de etapa it still reads as escuchó.
+Both choices get the same warm reply, never a comparison. A week without
+pedidos pagados has no propuesta and no mention of one.
+_Avoid:_ "meta de ahorro", "desafío".
+
 ## Bolsillo
 
 A category or savings account inside Patricia's own bank where she can move
