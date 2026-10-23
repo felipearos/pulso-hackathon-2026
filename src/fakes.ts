@@ -10,6 +10,7 @@ import type {
   WhatsApp,
 } from "./ports";
 import { senderDomain } from "./mail/senders";
+import { VOZ_PRINCIPAL, type Voz } from "./voice/voces";
 
 export class FakeClock implements Clock {
   private current: Date;
@@ -100,6 +101,8 @@ export class FakeLlm implements Llm {
 
 export class FakeVoice implements Voice {
   readonly calls: string[] = [];
+  /** The voz of each call, in the same order as `calls`. */
+  readonly voces: Voz[] = [];
   private readonly durations: number[];
   private failures: number;
 
@@ -109,8 +112,9 @@ export class FakeVoice implements Voice {
     this.failures = options.failures ?? 0;
   }
 
-  async synthesize(text: string): Promise<SpokenAudio> {
+  async synthesize(text: string, voz?: Voz): Promise<SpokenAudio> {
     this.calls.push(text);
+    this.voces.push(voz ?? VOZ_PRINCIPAL);
     const durationSeconds = this.durations.shift() ?? 3;
     if (this.failures > 0) {
       this.failures--;

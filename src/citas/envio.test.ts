@@ -161,6 +161,19 @@ describe("cita sender", () => {
     await Promise.all([t.app.tick(), t.app.tick()]);
     expect(t.whatsapp.outbox).toHaveLength(1);
   });
+
+  test("a fresh Patricia hears the principal voice", async () => {
+    const t = setup();
+    await tickAt(t, "2026-10-19T22:30");
+    expect(t.voice.voces).toEqual(["principal"]);
+  });
+
+  test("speaks with the voz Patricia chose", async () => {
+    const t = setup();
+    t.app.store.updatePatricia({ voz: "otra" });
+    await tickAt(t, "2026-10-19T22:30");
+    expect(t.voice.voces).toEqual(["otra"]);
+  });
 });
 
 describe("bienvenida", () => {

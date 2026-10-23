@@ -4,6 +4,7 @@ import type { Store } from "../patricia/store";
 import type { Clock, Llm, SpokenAudio, Voice, WhatsApp } from "../ports";
 import { permitirUrl } from "../mail/permitir";
 import type { ValidatedText, ValidatorDecision } from "../validator/validator";
+import { vozDe } from "../voice/voces";
 import { montoEnPalabras, montoEnPantalla } from "../voz/montos";
 import {
   decisionDeCita,
@@ -102,6 +103,7 @@ export function createCitaSender({
     };
 
     const bienvenida = cita.tipo === "bienvenida";
+    const voz = vozDe(store.getPatricia().voz);
     let { guion, source }: { guion: string; source: ValidatedText["source"] | "guion-fijo" } = bienvenida
       ? { guion: GUION_BIENVENIDA, source: "guion-fijo" }
       : await redactarGuion({ llm, decision, recordDecision });
@@ -109,7 +111,7 @@ export function createCitaSender({
     let audio: SpokenAudio;
     let id: string;
     try {
-      audio = await voice.synthesize(guionHablado(guion, decision.cifra));
+      audio = await voice.synthesize(guionHablado(guion, decision.cifra), voz);
       // The guion de bienvenida is fixed: if it ever runs long it goes out as it is.
       if (!bienvenida && audio.durationSeconds > MAX_AUDIO_SECONDS) {
         ({ guion, source } = await redactarGuion({
@@ -119,7 +121,7 @@ export function createCitaSender({
           acortar: { guion, durationSeconds: audio.durationSeconds },
         }));
         acortado = true;
-        audio = await voice.synthesize(guionHablado(guion, decision.cifra));
+        audio = await voice.synthesize(guionHablado(guion, decision.cifra), voz);
       }
       ({ id } = await whatsapp.send({
         kind: "audio",

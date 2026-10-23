@@ -83,6 +83,17 @@ describe("realPorts", () => {
     expect(headers[0]).toMatchObject({ "xi-api-key": "key" });
   });
 
+  test("voice with voz otra calls ElevenLabs with ELEVENLABS_VOICE_ID_OTRA", async () => {
+    const urls: string[] = [];
+    const fetch = async (url: string) => {
+      urls.push(url);
+      return new Response("not audio", { status: 401 });
+    };
+    const env = { ...memory, ELEVENLABS_API_KEY: "key", ELEVENLABS_VOICE_ID: "voice-id", ELEVENLABS_VOICE_ID_OTRA: "otra-id" };
+    await rejection(realPorts(env, { fetch, log: () => {} }).voice.synthesize("Hola", "otra"));
+    expect(urls).toEqual(["https://api.elevenlabs.io/v1/text-to-speech/otra-id?output_format=opus_48000_64"]);
+  });
+
   test("whatsapp with every variable set is the real client", async () => {
     const env = {
       ...memory,

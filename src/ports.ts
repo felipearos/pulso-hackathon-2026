@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import type { Voz } from "./voice/voces";
 
 /**
  * Something that tells the time. The app's `ports.clock` is only the raw time
@@ -63,9 +64,9 @@ export type SpokenAudio = {
   durationSeconds: number;
 };
 
-/** ElevenLabs: turns text into spoken audio. */
+/** ElevenLabs: turns text into spoken audio, in the voz given (the principal voice when none is). */
 export type Voice = {
-  synthesize(text: string): Promise<SpokenAudio>;
+  synthesize(text: string, voz?: Voz): Promise<SpokenAudio>;
 };
 
 /** Everything the app talks to. `main` passes the real ones, tests the fakes. */
