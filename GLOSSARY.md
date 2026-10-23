@@ -129,7 +129,9 @@ The append-only log of everything Luna decided (move the etapa, stay quiet,
 defer a cita or what waits for it, propose plata apartada, read a señal),
 each with the demo clock's time, its tipo, a motivo in Spanish and the input
 it was taken on.
-Nothing in it is ever edited or deleted; the control room shows it.
+Nothing in it is ever edited or deleted; the control room shows it. The one
+exception is the reset (`bun run reset`, `App.reset()`), which empties it along
+with the rest of her history to rehearse the demo from the starting point.
 _Avoid:_ "audit log", "history".
 
 ## Angustia

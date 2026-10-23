@@ -103,6 +103,18 @@ El túnel da otra URL: hay que apuntar el webhook de Meta a ella (unos dos
 minutos). El estado de Patricia parte vacío en el laptop salvo que se copie
 `~/.local/share/pulso/pulso.db`. Ensayarlo una vez antes del sábado.
 
+## Reiniciar a Patricia antes de ensayar o del pitch
+
+`bun run reset` carga la historia ficticia de Patricia (siete estados de cuenta
+sin abrir, el estado de cuenta 8 recién llegado, etapa 1) y deja el reloj de
+demo en el lunes 19 de octubre a las 09:00. Borra el registro de decisiones y
+todo lo que pasó después. En el PC hay que apuntarlo a la base viva, porque
+sin `DATABASE_PATH` reinicia `data/pulso.db`, que no es la de la app:
+
+```bash
+cd ~/pulso-live && DATABASE_PATH=~/.local/share/pulso/pulso.db bun run reset
+```
+
 ## Después del evento
 
 ```bash
