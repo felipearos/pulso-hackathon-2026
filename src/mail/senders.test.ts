@@ -9,6 +9,8 @@ describe("allowedSender", () => {
     ["Tienda Plaza <cuenta@tiendaplaza.example>", "tienda"],
     ["pedidos@catalogoaurora.example", "catalogo"],
     ["  Catálogo Aurora <hola@catalogoaurora.example>  ", "catalogo"],
+    ['"Andino, Banco" <avisos@bancoandino.example>', "banco"],
+    ['"Fraude <evil@fraude.example>" <avisos@bancoandino.example>', "banco"],
   ])("allows %p as %p", (from, kind) => {
     expect(allowedSender(from)?.kind).toBe(kind);
   });
@@ -20,6 +22,12 @@ describe("allowedSender", () => {
     "avisos@bancoandin0.example",
     "Banco Andino <avisos@bancoandino.example.com>",
     "bancoandino.example <avisos@otro.example>",
+    '"Banco <avisos@bancoandino.example>" <evil@fraude.example>',
+    "Banco <avisos@bancoandino.example> <evil@fraude.example>",
+    "avisos@bancoandino.example, evil@fraude.example",
+    "evil@fraude.example <",
+    "evil@fraude.example@bancoandino.example",
+    '"sin cerrar <avisos@bancoandino.example>',
     "amiga@correo.example",
     "sin arroba",
     "",

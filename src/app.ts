@@ -10,7 +10,7 @@ import { handle } from "./server";
 export type App = {
   /** Answers one HTTP request; `Bun.serve` in `main` and tests call it alike. */
   handle(request: Request): Response | Promise<Response>;
-  /** Runs one pass of the scheduler at the clock's current time: reads new mail into señales. */
+  /** Runs one pass of the scheduler at the clock's current time: reads new mail into señales if Patricia allowed it. */
   tick(): Promise<void>;
   /** Turns one mail into at most one señal; Gmail, the fake and the /demo injection all end here. */
   receiveMail(mail: IncomingMail): Senal | null;
@@ -33,6 +33,8 @@ export function createApp(ports: Ports): App {
   return {
     handle,
     tick: async () => {
+      // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
+      if (!store.getPatricia().gmailPermitido) return;
       let mails: IncomingMail[];
       try {
         mails = await ports.mail.fetchNew(allowedSenderDomains());

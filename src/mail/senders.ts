@@ -15,12 +15,20 @@ export function allowedSenderDomains(): string[] {
   return SENDERS.map((r) => r.domain);
 }
 
-/** The domain of `from`, lowercased; `from` is a bare address or `Nombre <addr@dom>`. */
+/**
+ * The domain of `from`, lowercased; `from` is one bare address or `Nombre <addr@dom>`.
+ * Quoted display names are dropped first, so `"x <a@banco>" <b@otro>` reads `otro`;
+ * a header with several mailboxes, or otherwise ambiguous, gives null.
+ */
 export function senderDomain(from: string): string | null {
-  const angled = /<([^<>]*)>/.exec(from);
-  const address = (angled ? angled[1]! : from).trim();
+  const unquoted = from.replace(/"(?:[^"\\]|\\.)*"/g, "");
+  if (unquoted.includes('"') || unquoted.includes(",")) return null;
+  const angled = [...unquoted.matchAll(/<([^<>]*)>/g)];
+  if (angled.length > 1 || (unquoted.match(/[<>]/g)?.length ?? 0) !== angled.length * 2) return null;
+  const address = (angled.length === 1 ? angled[0]![1]! : unquoted).trim();
+  if (/\s/.test(address)) return null;
   const at = address.lastIndexOf("@");
-  if (at < 0) return null;
+  if (at < 0 || address.indexOf("@") !== at) return null;
   return address.slice(at + 1).toLowerCase();
 }
 
