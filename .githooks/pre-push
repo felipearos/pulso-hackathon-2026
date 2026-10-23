@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Tries each pushed branch on top of the latest main before it leaves the
+# checkout. Two PRs that are green apart can break together (one makes a field
+# required, the other builds that type without it); this catches that here
+# instead of in a failed Mergify batch. Installed by `bun install` (prepare).
+set -euo pipefail
+
+root=$(git rev-parse --show-toplevel)
+git fetch --quiet origin main || { echo "pre-push: could not fetch origin/main; skipping the main check" >&2; exit 0; }
+
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+  # Deleting a branch, or pushing main itself: nothing to try.
+  [[ $local_sha =~ ^0+$ || $remote_ref == refs/heads/main ]] && continue
+  # Already on top of main: Buildkite tests exactly this commit.
+  git merge-base --is-ancestor origin/main "$local_sha" && continue
+
+  tmp=$(mktemp -d)
+  trap 'git -C "$root" worktree remove --force "$tmp" >/dev/null 2>&1 || true; rm -rf "$tmp"' EXIT
+  git worktree add --quiet --detach "$tmp" "$local_sha"
+
+  if ! git -C "$tmp" -c user.name=pre-push -c user.email=pre-push@localhost \
+      merge --quiet --no-edit origin/main >/dev/null 2>&1; then
+    echo "pre-push: ${remote_ref#refs/heads/} conflicts with origin/main. Rebase onto origin/main and push again." >&2
+    exit 1
+  fi
+
+  echo "pre-push: ${remote_ref#refs/heads/} is behind main; running typecheck and tests on it merged with origin/main" >&2
+  log="$tmp/.pre-push.log"
+  if ! (cd "$tmp" && bun install --frozen-lockfile --silent && bun run typecheck && bun run test) >"$log" 2>&1; then
+    tail -n 40 "$log" >&2
+    echo "pre-push: ${remote_ref#refs/heads/} breaks once merged with origin/main (output above). Rebase onto origin/main, fix it and push again." >&2
+    exit 1
+  fi
+
+  git -C "$root" worktree remove --force "$tmp"
+  trap - EXIT
+done

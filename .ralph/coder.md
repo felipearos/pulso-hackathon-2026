@@ -4,6 +4,9 @@
 Read AGENTS.md, `docs/case/patricia.md` and the current ticket. Match the
 repository's stack and conventions. Use the vocabulary in `GLOSSARY.md`;
 never a synonym it rules out.
+A field you add to a type other code constructs (store input, fixture,
+port payload) is optional or has a default; other loops' open branches build
+that type too.
 Commits, PRs and GitHub comments are in Spanish (Chile), with the
 Conventional Commits type in English; code, comments and test names in
 English; UI copy and anything Patricia hears in Spanish (Chile).

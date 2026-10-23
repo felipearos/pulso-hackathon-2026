@@ -38,6 +38,15 @@ the operator restores it in a reviewed commit to stop every start again.
   queue only, after inspecting the exact head and addressing review findings.
   Never use `gh pr merge` or bypass a gate. `hold` stops automatic queueing;
   `ready-to-merge` permits the configured early queue path.
+- Many loops build on the same domain types at once. A field added to a type
+  other code constructs (a store input, a fixture, a port payload) starts
+  optional or with a default; make it required only in a later PR, once every
+  caller on `main` sets it. A required field lands green on its own branch and
+  then breaks every open branch that builds that type in the merge queue.
+- `bun install` points git at `.githooks/`. Its `pre-push` merges the pushed
+  branch with `origin/main` and runs typecheck and tests when the branch is
+  behind; when it refuses, rebase onto `origin/main`, fix, and push again.
+  Never skip it with `--no-verify`.
 - `doc` owns supported CI cases; `medi` repairs eligible operator PRs and stops
   at green without merging or enqueueing. Do not broaden either role's scope.
 - Do not apply database migrations, deploy, recover withheld credentials or
