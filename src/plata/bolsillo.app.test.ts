@@ -8,7 +8,7 @@ import {
   SIN_BOLSILLO,
 } from "./bolsillo";
 
-const CATALOGO = "pedidos@catalogoaurora.example";
+const CATALOGO = "pedidos@catalogoejemplo.example";
 const JUEVES = new Date("2026-10-22T22:31:00-03:00");
 const CIERRE = "Gracias por contarme, Patricia.";
 const APORTES = ["$30.000", "$27.000", "$24.000"] as const;

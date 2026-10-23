@@ -3,7 +3,7 @@ import type { IncomingMail } from "../ports";
 import { santiagoDate } from "../clock/santiago";
 import { createTestApp } from "../testing";
 
-const CATALOGO = "pedidos@catalogoaurora.example";
+const CATALOGO = "pedidos@catalogoejemplo.example";
 const JUEVES = new Date("2026-10-22T22:31:00-03:00");
 const CIERRE = "Gracias por contarme, Patricia.";
 

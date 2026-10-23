@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { IncomingMail } from "../ports";
 import { createTestApp } from "../testing";
 
-const CATALOGO = "pedidos@catalogoaurora.example";
+const CATALOGO = "pedidos@catalogoejemplo.example";
 const TIENDA = "avisos@tiendaplaza.example";
 
 let nextId = 1;

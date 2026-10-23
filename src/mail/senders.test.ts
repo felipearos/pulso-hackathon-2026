@@ -7,8 +7,8 @@ describe("allowedSender", () => {
     ["Banco Ficticio <avisos@bancoficticio.example>", "banco"],
     ["AVISOS@BancoFicticio.EXAMPLE", "banco"],
     ["Tienda Plaza <cuenta@tiendaplaza.example>", "tienda"],
-    ["pedidos@catalogoaurora.example", "catalogo"],
-    ["  Catálogo Aurora <hola@catalogoaurora.example>  ", "catalogo"],
+    ["pedidos@catalogoejemplo.example", "catalogo"],
+    ["  Catálogo Ejemplo <hola@catalogoejemplo.example>  ", "catalogo"],
     ['"Ficticio, Banco" <avisos@bancoficticio.example>', "banco"],
     ['"Fraude <evil@fraude.example>" <avisos@bancoficticio.example>', "banco"],
   ])("allows %p as %p", (from, kind) => {
@@ -40,6 +40,6 @@ test("allowedSenderDomains lists the three allowed domains", () => {
   expect(allowedSenderDomains()).toEqual([
     "bancoficticio.example",
     "tiendaplaza.example",
-    "catalogoaurora.example",
+    "catalogoejemplo.example",
   ]);
 });

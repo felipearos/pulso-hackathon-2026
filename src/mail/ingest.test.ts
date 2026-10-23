@@ -19,7 +19,7 @@ describe("receiveMail", () => {
     const { app, mail } = createAllowedApp();
     mail.inject({ id: "s1", from: "Banco Ficticio <avisos@bancoficticio.example>", subject: "Tu estado de cuenta de octubre", receivedAt });
     mail.inject({ id: "s2", from: "avisos@tiendaplaza.example", subject: "Estado de cuenta Tienda Plaza", receivedAt });
-    mail.inject({ id: "s3", from: "pedidos@catalogoaurora.example", subject: "Pagamos tu pedido #1234", receivedAt });
+    mail.inject({ id: "s3", from: "pedidos@catalogoejemplo.example", subject: "Pagamos tu pedido #1234", receivedAt });
     mail.inject({ id: "s4", from: "avisos@bancoficticio.example", subject: "Tu compra en 6 cuotas", receivedAt });
     mail.inject({ id: "s5", from: "avisos@tiendaplaza.example", subject: "¡Recibimos tu pago!", receivedAt });
     await app.tick();

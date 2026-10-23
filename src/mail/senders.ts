@@ -7,7 +7,7 @@ export type Sender = { domain: string; kind: SenderKind };
 export const SENDERS: readonly Sender[] = [
   { domain: "bancoficticio.example", kind: "banco" },
   { domain: "tiendaplaza.example", kind: "tienda" },
-  { domain: "catalogoaurora.example", kind: "catalogo" },
+  { domain: "catalogoejemplo.example", kind: "catalogo" },
 ];
 
 /** The allowed sender domains, for the mail port to filter on. */

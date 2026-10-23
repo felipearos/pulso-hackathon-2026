@@ -4,7 +4,7 @@ import { classifyByRules } from "./rules";
 
 const BANCO = "Banco Ficticio <avisos@bancoficticio.example>";
 const TIENDA = "Tienda Plaza <cuenta@tiendaplaza.example>";
-const CATALOGO = "Catálogo Aurora <hola@catalogoaurora.example>";
+const CATALOGO = "Catálogo Ejemplo <hola@catalogoejemplo.example>";
 
 const cases: [string, string, TipoSenal, string][] = [
   [BANCO, "Recibimos tu pago", "S5", "Remitente del banco y el asunto dice «recibimos tu pago»."],

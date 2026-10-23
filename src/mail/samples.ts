@@ -28,11 +28,11 @@ export const SAMPLE_TIENDA: IncomingMail = {
 
 export const SAMPLE_PEDIDO: IncomingMail = {
   id: "muestra-pedido-catalogo-pagado",
-  from: "Catálogo Aurora <pedidos@catalogoaurora.example>",
+  from: "Catálogo Ejemplo <pedidos@catalogoejemplo.example>",
   subject: "Pagamos tu pedido del catálogo",
   text: "Tu clienta pagó el pedido N° 0000 del catálogo de primavera por $18.500. El pago ya está disponible.",
   receivedAt: new Date("2026-10-23T20:00:00.000-03:00"),
-  links: ["https://catalogoaurora.example/pedidos/confirmacion"],
+  links: ["https://catalogoejemplo.example/pedidos/confirmacion"],
 };
 
 export const SAMPLE_CUOTAS: IncomingMail = {
@@ -55,11 +55,11 @@ export const SAMPLE_PAGO: IncomingMail = {
 
 export const SAMPLE_PUBLICIDAD: IncomingMail = {
   id: "muestra-catalogo-publicidad",
-  from: "Catálogo Aurora <hola@catalogoaurora.example>",
+  from: "Catálogo Ejemplo <hola@catalogoejemplo.example>",
   subject: "Conoce el catálogo de primavera",
   text: "Mira las novedades de esta temporada.",
   receivedAt: new Date("2026-10-23T20:00:00.000-03:00"),
-  links: ["https://catalogoaurora.example/catalogo/primavera"],
+  links: ["https://catalogoejemplo.example/catalogo/primavera"],
 };
 
 export const SAMPLE_FALSO: IncomingMail = {
