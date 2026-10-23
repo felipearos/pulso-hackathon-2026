@@ -40,6 +40,7 @@ export type WhatsAppCloudDeps = {
 
 /** The WhatsApp port plus the window's inbound record and the failure log. */
 export type WhatsAppCloud = WhatsApp & {
+  downloadMedia(mediaId: string): Promise<IncomingMedia>;
   readonly failures: SendLogEntry[];
 };
 

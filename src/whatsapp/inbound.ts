@@ -37,11 +37,11 @@ export type InboundDeps = {
 };
 
 /** Stands in for a nota de voz Luna could not transcribe. */
-export const NOTA_DE_VOZ_SIN_TRANSCRIBIR = "[nota de voz, todavía no se transcribe]";
+export const NOTA_DE_VOZ_SIN_TRANSCRIBIR = "[nota de voz que no se pudo escuchar]";
 
 /** What Luna answers when she could not hear a nota de voz: no reproach, just an easier way to answer. */
 export const NOTA_DE_VOZ_NO_ESCUCHADA =
-  "No alcancé a escuchar bien tu nota de voz. Si quieres, respóndeme con un emoji: 👍 si vas bien, 👎 si hoy no.";
+  "No alcancé a escuchar bien tu nota de voz. Si quieres, respóndeme con un emoji: 👍 si te parece, 👌 si solo la escuchaste.";
 
 /** Stands in for a foto until reading one lands (#51). */
 export const FOTO_SIN_LEER = "[foto, todavía no se lee]";
@@ -80,8 +80,11 @@ export async function receiveInbound(deps: InboundDeps, mensaje: InboundMensaje)
     case "audio": {
       let transcript: string;
       try {
-        const media = await deps.whatsapp.downloadMedia(body.mediaId);
-        transcript = (await deps.voice.transcribe(media.bytes, media.mimeType || body.mimeType || "audio/ogg")).trim();
+        const { whatsapp, voice } = deps;
+        if (!whatsapp.downloadMedia || !voice.transcribe) throw new Error("the ports cannot download or transcribe a nota de voz");
+        const media = await whatsapp.downloadMedia(body.mediaId);
+        // Meta's own type on the webhook first: the download's may be a generic fallback.
+        transcript = (await voice.transcribe(media.bytes, body.mimeType ?? media.mimeType)).trim();
         if (transcript === "") throw new Error("the transcript is empty");
       } catch (cause) {
         const error = cause instanceof Error ? cause.message : String(cause);
@@ -117,11 +120,13 @@ export async function receiveInbound(deps: InboundDeps, mensaje: InboundMensaje)
 
 /**
  * Asks for an emoji by WhatsApp text and logs it. Not stored as a
- * MensajeSaliente: that list holds the citas, and a 👍 to this answer must not
- * count as answering one.
+ * MensajeSaliente: that list holds the citas, so the emoji she sends next
+ * answers the latest cita, as the nota de voz would have. During a pausa Luna
+ * sends nothing: she cannot tell whether the nota de voz ended it.
  */
 async function answerNotaNoEscuchada(deps: InboundDeps): Promise<void> {
   const { store, llm, whatsapp } = deps;
+  if (store.getPatricia().enPausa) return;
   const draft = NOTA_DE_VOZ_NO_ESCUCHADA;
   const validated = await validateText({
     draft,

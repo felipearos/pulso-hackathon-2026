@@ -208,6 +208,33 @@ describe("receiveInbound", () => {
     await expectNotHeard(t, "audio/ogg");
   });
 
+  test("during a pausa, a nota de voz Luna cannot hear gets no answer", async () => {
+    const t = createTestApp({ llm: [TONE_OK], voice: { transcribeFailures: 1 } });
+    t.whatsapp.media.set("media-audio-1", VOICE_NOTE);
+    t.app.store.updatePatricia({ enPausa: true });
+
+    await receiveInbound(deps(t.app, t.db, t), mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType: "audio/ogg" }));
+
+    expect(t.app.store.mensajesEntrantes()[0]?.text).toBe(NOTA_DE_VOZ_SIN_TRANSCRIBIR);
+    expect(t.whatsapp.outbox).toEqual([]);
+    expect(t.app.store.getPatricia().enPausa).toBe(true);
+  });
+
+  test("ports that cannot transcribe keep the nota de voz unread instead of throwing", async () => {
+    const t = createTestApp({ llm: [TONE_OK] });
+    const { synthesize } = t.voice;
+    const voice = { synthesize: synthesize.bind(t.voice) };
+
+    await receiveInbound(
+      { ...deps(t.app, t.db, t), voice },
+      mensaje({ kind: "audio", mediaId: "media-audio-1", mimeType: "audio/ogg" }),
+    );
+
+    expect(t.app.store.mensajesEntrantes()[0]?.text).toBe(NOTA_DE_VOZ_SIN_TRANSCRIBIR);
+    expect(t.whatsapp.downloads).toEqual([]);
+    expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: NOTA_DE_VOZ_NO_ESCUCHADA }]);
+  });
+
   test("a foto is kept unread with its media id", async () => {
     const { app, db } = createTestApp();
 

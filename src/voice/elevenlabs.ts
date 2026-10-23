@@ -139,7 +139,7 @@ export function createElevenLabsTranscriber({
   apiKey,
   fetch: fetchText = fetch,
   log = console.error,
-}: ElevenLabsTranscriberOptions): Pick<Voice, "transcribe"> {
+}: ElevenLabsTranscriberOptions): Required<Pick<Voice, "transcribe">> {
   const fail = failer(apiKey, log);
 
   return {
