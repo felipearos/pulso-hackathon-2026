@@ -18,7 +18,8 @@ import type {
 /**
  * Patricia's state over SQLite. There is one Patricia, so no call takes a user
  * id. Every timestamp written comes from the demo clock (ADR 0002); the
- * decision log only ever grows.
+ * decision log only ever grows, except when the reset puts the whole base back
+ * at the starting point (src/patricia/fixtures.ts).
  */
 export type Store = {
   getPatricia(): Patricia;
