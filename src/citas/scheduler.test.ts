@@ -141,4 +141,14 @@ describe("cita scheduler", () => {
     expect(summary(t)).toEqual([{ fecha: "2026-11-02", tipo: "graduada", estado: "programada" }]);
     expect(t.app.store.decisions().map((d) => d.tipo)).toEqual(["programar-cita"]);
   });
+
+  test("graduada, a first lunes missed in pausa is not made up later in the month", async () => {
+    const t = createTestApp({ now: parseSantiago("2026-11-01T00:00") });
+    t.app.store.setEtapa("graduada", "terminó la escalera");
+    t.app.store.updatePatricia({ enPausa: true });
+    await tickUntil(t, "2026-11-03T09:00");
+    t.app.store.updatePatricia({ enPausa: false });
+    await tickUntil(t, "2026-11-30T23:45");
+    expect(summary(t)).toEqual([{ fecha: "2026-11-02", tipo: "graduada", estado: "callada" }]);
+  });
 });

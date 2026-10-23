@@ -80,13 +80,10 @@ export function createScheduler({ db, store, clock }: { db: Database; store: Sto
       const { etapa, enPausa } = store.getPatricia();
       const citas = store.citas();
 
-      // Graduada, Luna keeps one cita a month: the first lunes of it.
+      // Graduada, Luna keeps one cita a month: the first lunes of it, even if
+      // that one was missed or went callada.
       const graduada = etapa === "graduada";
-      if (graduada) {
-        const mes = fecha.slice(0, 7);
-        const alreadyHad = citas.some((c) => c.tipo === "graduada" && c.estado === "programada" && c.fecha.startsWith(mes));
-        if (slot.tipo !== "lunes" || alreadyHad) return;
-      }
+      if (graduada && (slot.tipo !== "lunes" || parts.day > 7)) return;
       const slotTipo: TipoCita = graduada ? "graduada" : slot.tipo;
 
       if (enPausa) return callar(fecha, slotTipo, etapa, "en pausa: Luna no habla");
