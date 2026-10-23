@@ -117,6 +117,13 @@ answer to the lunes cita. Luna celebrates that she opened it, and when the
 figures differ only says the one she has.
 _Avoid:_ "estado" (that is the estado de cuenta), "semana", "peldaño", "nivel".
 
+## Graduada
+
+After etapa 5, Patricia is graduada. Luna keeps one cita a month, on the first
+lunes, asking «¿lo abres tú o te lo cuento yo?». If Patricia asks Luna to tell
+her, Luna sends the pago mínimo by text and Patricia stays graduada.
+_Avoid:_ "egresada", "terminó".
+
 ## Cita
 
 A moment Luna has set to speak to Patricia, usually the audio de la noche.
