@@ -66,6 +66,31 @@ curl -s https://desktop.taild8ed7e.ts.net/health
 Cambios a los archivos de `deploy/*.service` o `*.timer` solo se aplican al
 correr `deploy/install.sh` de nuevo; el timer no los copia.
 
+## El «Permitir» de Gmail
+
+Una vez, después de que Google Cloud y Doppler estén listos (#65, con
+`GMAIL_REDIRECT_URI` = `https://desktop.taild8ed7e.ts.net/gmail/callback`
+registrada en Google), se abre en el teléfono con el Gmail ficticio de
+Patricia:
+
+```
+https://desktop.taild8ed7e.ts.net/gmail/permitir
+```
+
+Google pide el permiso de solo lectura y vuelve a `/gmail/callback`, que
+guarda el token en la base (`gmail_cuenta`) y lo renueva solo. Desde ahí la
+app revisa Gmail cada minuto, solo los remitentes de la lista. `bun run reset`
+no borra la conexión. Para probar que lee, en el pc:
+
+```bash
+cd ~/pulso-live && GMAIL_SMOKE=1 DATABASE_PATH=~/.local/share/pulso/pulso.db doppler run --config prd -- bun test src/mail/gmail.smoke.test.ts
+```
+
+Si Gmail falla (token vencido o revocado, red), queda una línea en el log y
+una decisión `error-correo` en el registro por cada racha, no una por minuto,
+y el sondeo sigue intentando. Si el token fue revocado, basta abrir de nuevo
+el link de arriba.
+
 ## Si algo falla
 
 **La URL no responde pero `curl 127.0.0.1:3010/health` sí.** Es el funnel:
