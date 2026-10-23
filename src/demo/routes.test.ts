@@ -75,6 +75,14 @@ describe("/demo with the operator token", () => {
     expect(await response.text()).toContain("Sala de control");
   });
 
+  test("the control room page calls every /demo endpoint with the token header", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    const page = await (await get(app, `/demo?token=${TOKEN}`)).text();
+    for (const reference of ["/demo/state", "/demo/moments/", "/demo/reset", "/demo/tick", "x-demo-token"]) {
+      expect(page).toContain(reference);
+    }
+  });
+
   test("state lists the momentos of the guion from configuration", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
     const response = await get(app, "/demo/state", { "x-demo-token": TOKEN });
