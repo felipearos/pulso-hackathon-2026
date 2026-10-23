@@ -40,6 +40,15 @@ Mergify before activation. Verify the exact PR head, all required checks and
 review findings before enqueueing. Never `gh pr merge` or bypass protection.
 
 <!-- ralph:section ENQUEUE -->
+Right before posting it, read `gh pr view <pr> --json mergeable,mergeStateStatus`
+again: this backlog merges every few minutes, and the queue drops a
+conflicting PR on `-conflict` before its build starts. Behind but `MERGEABLE`
+is fine; the queue builds the combination. `CONFLICTING` or `DIRTY`: rebase
+onto `origin/main`, resolve, run the targeted tests and typecheck for the
+files the conflict touched, push at once and hand back `AWAIT_PR <pr> ci`.
+Do not run the full `bun run check` or the review axes again between that
+rebase and its push: that stretch is the window in which main moves again,
+and CI on the rebased head is the gate.
 Post `@mergifyio queue` once on the checked PR using `gh pr comment`.
 Mergify builds main plus the queued changes and squashes only after success.
 The normal automatic path waits thirty minutes; `ready-to-merge` permits
@@ -154,6 +163,10 @@ Split tickets with more than eight acceptance criteria or three or more
 surfaces. Each child must name its owned files or interface, dependencies,
 testable outcome and staffing group. Independent groups may run in parallel;
 shared interfaces must be settled before their dependents are ready.
+Count `src/app.ts`, `src/db.ts`, `src/patricia/store.ts` and `src/testing.ts`
+as surfaces of their own: nearly every loop edits them, and a PR that spans
+several of them keeps conflicting with main while it verifies. Prefer
+children that each change at most one of them.
 
 Two coders per spec: give each spec's open children exactly two staffing
 groups, split along the files they own, so two loops can work the spec at
