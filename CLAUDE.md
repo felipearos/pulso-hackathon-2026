@@ -137,3 +137,6 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | --- | --- | --- |
 | `DATABASE_PATH` | none (unit) | SQLite file; defaults to `data/pulso.db` locally |
 | `HOST` | none (unit) | listen address; unset means all interfaces |
+| `WHATSAPP_TOKEN` | `dev`, `prd` | Meta system-user token for the WhatsApp Cloud API |
+| `WHATSAPP_PHONE_NUMBER_ID` | `dev`, `prd` | the test number's phone number id (not the number itself) |
+| `DEMO_PATRICIA_PHONE` | `dev`, `prd` | the verified phone that plays Patricia, digits only (`569…`); never in a fixture |

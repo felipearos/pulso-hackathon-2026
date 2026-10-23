@@ -1,4 +1,12 @@
-import { handle } from "./server";
+import { nightAudioSender } from "./demo/night-audio";
+import { createHandler } from "./server";
+
+const nightAudio = Bun.file(new URL("../assets/night-audio-test.ogg", import.meta.url));
+const handle = createHandler({
+  demoPage: Bun.file(new URL("./demo/page.html", import.meta.url)),
+  nightAudio,
+  sendNightAudio: nightAudioSender(process.env, nightAudio),
+});
 
 const port = Number(process.env.PORT ?? 3000);
 const server = Bun.serve({ hostname: process.env.HOST, port, fetch: handle });
