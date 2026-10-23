@@ -4,9 +4,10 @@ import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
 import type { EtapaMove } from "./escalera/policy";
 import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
+import { extractEstadoDeCuenta } from "./mail/estado-de-cuenta";
 import { receiveMail } from "./mail/ingest";
 import { allowedSenderDomains } from "./mail/senders";
-import type { Senal } from "./patricia/entities";
+import type { Extraccion, Senal } from "./patricia/entities";
 import { resetPatricia } from "./patricia/fixtures";
 import { createStore, type Store } from "./patricia/store";
 import type { IncomingMail, Ports } from "./ports";
@@ -23,6 +24,8 @@ export type App = {
   tick(): Promise<void>;
   /** Turns one mail into at most one señal; Gmail, the fake and the /demo injection all end here. */
   receiveMail(mail: IncomingMail): Promise<Senal | null>;
+  /** Reads an S1 mail's estado de cuenta; Gmail and the /demo injection both end here after `receiveMail`. */
+  extractEstadoDeCuenta(mail: IncomingMail): Promise<Extraccion | null>;
   /** Patricia's persisted state and the decision log. */
   store: Store;
   /** The demo clock: every domain time read goes through it (ADR 0002). */
@@ -44,6 +47,7 @@ export function createApp(ports: Ports): App {
   // The señal and its decision land together or not at all.
   const receive = (mail: IncomingMail) =>
     receiveMail(store, ports.llm, mail, (fn) => ports.db.transaction(fn)());
+  const extract = (mail: IncomingMail) => extractEstadoDeCuenta({ store, llm: ports.llm, db: ports.db }, mail);
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
     if (!store.getPatricia().gmailPermitido) return;
@@ -57,7 +61,7 @@ export function createApp(ports: Ports): App {
     }
     for (const mail of mails) {
       try {
-        await receive(mail);
+        if ((await receive(mail))?.tipo === "S1") await extract(mail);
       } catch (error) {
         // One mail that fails must not cost the rest of the batch.
         console.error(`mail: ${mail.id} failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -82,6 +86,7 @@ export function createApp(ports: Ports): App {
       await sender.tick();
     },
     receiveMail: receive,
+    extractEstadoDeCuenta: extract,
     store,
     clock,
     receiveMensaje: (input) => receiveMensaje({ store, llm: ports.llm }, input),

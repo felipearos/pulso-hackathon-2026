@@ -28,7 +28,7 @@ describe("receiveMail", () => {
       ["s4", "S4"],
       ["s5", "S5"],
     ]);
-    const decisions = app.store.decisions();
+    const decisions = app.store.decisions().filter((d) => d.tipo === "senal");
     expect(decisions.map((d) => d.tipo)).toEqual(["senal", "senal", "senal", "senal", "senal"]);
     for (const d of decisions) expect(d.motivo).toContain("Remitente");
     expect(decisions[0]!.datos).toEqual({
@@ -148,7 +148,7 @@ describe("receiveMail", () => {
     mail.inject({ id: "dup", from: "avisos@bancoandino.example", subject: "Estado de cuenta", receivedAt });
     await app.tick();
     expect(app.store.senales()).toHaveLength(1);
-    expect(app.store.decisions()).toHaveLength(1);
+    expect(app.store.decisions().filter((d) => d.tipo === "senal")).toHaveLength(1);
   });
 
   test("the same ambiguous mail calls Claude only once", async () => {
