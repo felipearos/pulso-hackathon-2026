@@ -21,8 +21,8 @@ injected; a missing variable is a blocker to report, never a value to invent.
 <!-- ralph:section VERIFY -->
 Run targeted `bun run test <paths>`, then `bun run typecheck`, `bun run lint`
 and `bun run build`. The orchestrator also owns any required full-suite run.
-These are script contracts to implement after the event begins, not evidence
-that the new app already exists. Missing commands or environment block work.
+The scripts live in package.json; `bun run check` runs all four in CI order.
+A missing environment variable blocks work; never stub it.
 Before heavy local commands on the shared host, check the host fence below.
 
 Language: everything written to GitHub is in Spanish (Chile): commit
