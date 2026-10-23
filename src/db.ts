@@ -136,6 +136,20 @@ export const migrations: Migration[] = [
     // The mensaje saliente a programada cita went out as; null until it is sent.
     sql: `ALTER TABLE citas ADD COLUMN mensaje_saliente_id INTEGER REFERENCES mensajes_salientes (id);`,
   },
+  {
+    version: 7,
+    name: "extracciones",
+    // What the extractor read from the mail an estado de cuenta came in; one per mail.
+    sql: `
+      CREATE TABLE extracciones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        estado_de_cuenta_id INTEGER NOT NULL REFERENCES estados_de_cuenta (id),
+        mail_id TEXT NOT NULL UNIQUE,
+        cifras TEXT NOT NULL,
+        extracted_at TEXT NOT NULL
+      );
+    `,
+  },
 ];
 
 /** Opens the SQLite file, creating its directory, or an in-memory database for `:memory:`. */

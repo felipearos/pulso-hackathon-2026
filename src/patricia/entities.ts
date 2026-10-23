@@ -5,6 +5,7 @@
  */
 
 import type { Etapa, Intencion } from "../escalera/policy";
+import type { CifrasExtraidas } from "../figures/extractor";
 import type { Statement } from "../figures/payoff";
 
 export type { Etapa, Intencion };
@@ -53,6 +54,15 @@ export type EstadoDeCuenta = {
   cifras: Statement | null;
   pagoMinimo: number | null;
   receivedAt: Date;
+};
+
+/** What the extractor read from the mail an estado de cuenta came in. */
+export type Extraccion = {
+  id: number;
+  estadoDeCuentaId: number;
+  mailId: string;
+  cifras: CifrasExtraidas;
+  extractedAt: Date;
 };
 
 /** A message sent to Patricia on WhatsApp. */
@@ -109,6 +119,8 @@ export type TipoDecision =
   | "quedarse"
   /** Luna chose not to speak tonight. */
   | "callar"
+  /** A figure the extractor did not find or doubted: Luna keeps it to herself. */
+  | "callar-cifra"
   /** Luna moved a cita, or the pendientes the madrugada holds back, to later. */
   | "diferir"
   /** Luna proposed setting plata apartada. */

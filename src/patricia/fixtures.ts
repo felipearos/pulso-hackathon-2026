@@ -161,6 +161,8 @@ export const RESET_TABLES = [
   "pendientes",
   "citas",
   "etapa_cambios",
+  // extracciones references estados_de_cuenta, so it empties first.
+  "extracciones",
   "estados_de_cuenta",
   "senales",
   "mensajes_salientes",

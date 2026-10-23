@@ -63,6 +63,21 @@ describe("anthropicLlm", () => {
     });
   });
 
+  test("a request's model and max tokens override the client's defaults", async () => {
+    let capturedBody = "";
+    const llm = anthropicLlm({
+      apiKey: "test-api-key",
+      model: "claude-test-model",
+      fetch: mockFetch(async (_input, init) => {
+        capturedBody = init?.body as string;
+        return Response.json({ content: [{ type: "text", text: "{}" }] });
+      }),
+    });
+
+    await llm.complete({ model: "claude-opus-5-5", prompt: "Lee", maxTokens: 1024, timeoutMs: 60_000 });
+    expect(JSON.parse(capturedBody)).toMatchObject({ model: "claude-opus-5-5", max_tokens: 1024 });
+  });
+
   test("includes an HTTP error status and body without exposing the API key", async () => {
     const apiKey = "secret-test-key";
     const llm = anthropicLlm({

@@ -5,6 +5,7 @@ import type {
   Cita,
   Decision,
   EstadoDeCuenta,
+  Extraccion,
   Etapa,
   EtapaCambio,
   MensajeEntrante,
@@ -42,6 +43,9 @@ export type Store = {
   plataApartada(): PlataApartada;
   /** The señal a mail already became; null if it never was seen. */
   senalForMail(mailId: string): Senal | null;
+  addExtraccion(input: Omit<Extraccion, "id" | "extractedAt">): Extraccion;
+  /** The extraction a mail already became; null if it never was extracted. */
+  extraccionForMail(mailId: string): Extraccion | null;
   addMensajeSaliente(input: Omit<MensajeSaliente, "id" | "sentAt">): MensajeSaliente;
   mensajesSalientes(): MensajeSaliente[];
   addMensajeEntrante(input: Omit<MensajeEntrante, "id" | "receivedAt">): MensajeEntrante;
@@ -91,6 +95,14 @@ type EstadoDeCuentaRow = {
   cifras: string | null;
   pago_minimo: number | null;
   received_at: string;
+};
+
+type ExtraccionRow = {
+  id: number;
+  estado_de_cuenta_id: number;
+  mail_id: string;
+  cifras: string;
+  extracted_at: string;
 };
 
 type SenalRow = {
@@ -176,6 +188,16 @@ function toEstadoDeCuenta(row: EstadoDeCuentaRow): EstadoDeCuenta {
   };
 }
 
+function toExtraccion(row: ExtraccionRow): Extraccion {
+  return {
+    id: row.id,
+    estadoDeCuentaId: row.estado_de_cuenta_id,
+    mailId: row.mail_id,
+    cifras: JSON.parse(row.cifras),
+    extractedAt: new Date(row.extracted_at),
+  };
+}
+
 function toSenal(row: SenalRow): Senal {
   return {
     id: row.id,
@@ -254,6 +276,11 @@ export function createStore(db: Database, clock: Clock): Store {
      RETURNING *`,
   );
   const selectEstadosDeCuenta = db.query<EstadoDeCuentaRow, []>("SELECT * FROM estados_de_cuenta ORDER BY id");
+  const insertExtraccion = db.query<ExtraccionRow, Record<string, string | number>>(
+    `INSERT INTO extracciones (estado_de_cuenta_id, mail_id, cifras, extracted_at)
+     VALUES ($estadoDeCuentaId, $mailId, $cifras, $extractedAt) RETURNING *`,
+  );
+  const selectExtraccionForMail = db.query<ExtraccionRow, [string]>("SELECT * FROM extracciones WHERE mail_id = ?");
   const insertSenal = db.query<SenalRow, Record<string, string | number | null>>(
     `INSERT INTO senales (tipo, mail_id, mail_from, subject, monto, received_at)
      VALUES ($tipo, $mailId, $from, $subject, $monto, $receivedAt) RETURNING *`,
@@ -388,6 +415,21 @@ export function createStore(db: Database, clock: Clock): Store {
     senalForMail(mailId) {
       const row = selectSenalForMail.get(mailId);
       return row ? toSenal(row) : null;
+    },
+
+    addExtraccion(input) {
+      const row = insertExtraccion.get({
+        estadoDeCuentaId: input.estadoDeCuentaId,
+        mailId: input.mailId,
+        cifras: JSON.stringify(input.cifras),
+        extractedAt: now(),
+      });
+      return toExtraccion(row!);
+    },
+
+    extraccionForMail(mailId) {
+      const row = selectExtraccionForMail.get(mailId);
+      return row ? toExtraccion(row) : null;
     },
 
     addMensajeSaliente(input) {
