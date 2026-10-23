@@ -141,6 +141,10 @@ export type TipoDecision =
   | "respuesta-bolsillo"
   /** Patricia named her bolsillo, which is how Luna calls the plata apartada. */
   | "nombrar-bolsillo"
+  /** Patricia said a bare no to the open propuesta; Luna recorded it and did not answer. */
+  | "rechazar-propuesta"
+  /** Two «no» to a propuesta since the last estado de cuenta del banco: Luna does not repeat it. */
+  | "callar-propuesta"
   /** She went into pausa: she asked for it, or 14 days passed without a reply. */
   | "pausa"
   /** She came back from a pausa: the etapa she returns to and why. */
