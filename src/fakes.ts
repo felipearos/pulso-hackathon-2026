@@ -59,10 +59,15 @@ export class FakeMail implements Mail {
 
 export class FakeWhatsApp implements WhatsApp {
   readonly outbox: OutgoingWhatsApp[] = [];
+  readonly inbound: Date[] = [];
 
   async send(message: OutgoingWhatsApp): Promise<{ id: string }> {
     this.outbox.push(message);
     return { id: `wamid-${this.outbox.length}` };
+  }
+
+  recordInbound(at: Date): void {
+    this.inbound.push(new Date(at.getTime()));
   }
 }
 
