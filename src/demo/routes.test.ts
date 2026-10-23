@@ -3,7 +3,8 @@ import { santiagoParts } from "../clock/santiago";
 import { PATRICIA_START } from "../patricia/fixtures";
 import type { App } from "../app";
 import type { TipoSenal } from "../patricia/entities";
-import { createTestApp } from "../testing";
+import { createTestApp, type TestApp } from "../testing";
+import type { Hold } from "../fakes";
 
 const TOKEN = "operador-secreto-de-prueba";
 
@@ -237,5 +238,161 @@ describe("/sala sample mails", () => {
       expect([kind, response.status]).toEqual([kind, 400]);
     }
     expect(app.store.senales()).toEqual([]);
+  });
+});
+
+describe("/sala reset while a tick is running", () => {
+  const LUN = "/sala/momentos/lun-2230";
+  const JUE = "/sala/momentos/jue-2230";
+
+  /** Patricia right after a reset, with no tick since. */
+  const freshSnapshot = async () => {
+    const { app } = createTestApp();
+    await app.reset();
+    return snapshot(app);
+  };
+
+  /** The app reset and at Monday 22:30, the night of the bienvenida. */
+  const atBienvenida = async () => {
+    const t = createTestApp({ demoToken: TOKEN });
+    await t.app.reset();
+    t.app.clock.set(new Date("2026-10-20T01:30:00Z"));
+    return t;
+  };
+
+  /** The app past the bienvenida and at Thursday 22:30, a cita the redactor writes. */
+  const atJueves = async () => {
+    const t = createTestApp({ demoToken: TOKEN });
+    await t.app.reset();
+    expect((await post(t.app, LUN)).status).toBe(200);
+    t.app.clock.set(new Date("2026-10-23T01:30:00Z"));
+    return t;
+  };
+
+  /**
+   * Starts a tick that stops at `hold`, asks for a reset while it waits, then
+   * releases it. Returns the outbox length when the reset answered.
+   */
+  const raceReset = async (t: TestApp, hold: Hold, startTick: () => Promise<unknown> = () => t.app.tick()) => {
+    const ticking = startTick();
+    await hold.reached;
+    let outboxAtReset = -1;
+    const resetting = Promise.resolve(post(t.app, "/sala/reset")).then((response) => {
+      outboxAtReset = t.whatsapp.outbox.length;
+      return response;
+    });
+    hold.release();
+    const [ticked, reset] = await Promise.all([ticking, resetting]);
+    return { ticked, reset, outboxAtReset };
+  };
+
+  test("nothing from the old story arrives after the reset answered", async () => {
+    const t = await atBienvenida();
+    const hold = t.voice.holdSynthesis();
+    const { ticked, reset, outboxAtReset } = await raceReset(t, hold);
+    expect(ticked).toBeUndefined();
+    expect(reset.status).toBe(200);
+    expect(t.whatsapp.outbox.length).toBeGreaterThan(0);
+    expect(t.whatsapp.outbox.length).toBe(outboxAtReset);
+  });
+
+  test("a tick asked for through /sala/tick answers 200 when a reset lands in it", async () => {
+    const t = await atBienvenida();
+    const hold = t.voice.holdSynthesis();
+    const { ticked, reset, outboxAtReset } = await raceReset(t, hold, async () => post(t.app, "/sala/tick"));
+    expect((ticked as Response).status).toBe(200);
+    expect(reset.status).toBe(200);
+    expect(t.whatsapp.outbox.length).toBe(outboxAtReset);
+  });
+
+  test("a tick held in the redactor writes nothing into the new story", async () => {
+    const t = await atJueves();
+    const sentBefore = t.whatsapp.outbox.length;
+    const hold = t.llm.hold("Escribe el guion");
+    const { reset } = await raceReset(t, hold);
+    expect(reset.status).toBe(200);
+    expect(t.whatsapp.outbox.length).toBeGreaterThan(sentBefore);
+    expect(snapshot(t.app)).toEqual(await freshSnapshot());
+  });
+
+  test("a tick held in the voice writes nothing into the new story", async () => {
+    const t = await atBienvenida();
+    const hold = t.voice.holdSynthesis();
+    const { reset } = await raceReset(t, hold);
+    expect(reset.status).toBe(200);
+    expect(snapshot(t.app)).toEqual(await freshSnapshot());
+  });
+
+  test("a tick held sending the «Permitir» link writes nothing into the new story", async () => {
+    const t = await atBienvenida();
+    const hold = t.whatsapp.hold("text");
+    const { reset, outboxAtReset } = await raceReset(t, hold);
+    expect(reset.status).toBe(200);
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio", "text"]);
+    expect(t.whatsapp.outbox.length).toBe(outboxAtReset);
+    expect(snapshot(t.app)).toEqual(await freshSnapshot());
+  });
+
+  test("ticks asked for while the reset waits run on the new story", async () => {
+    const t = await atBienvenida();
+    const hold = t.voice.holdSynthesis();
+    const ticking = t.app.tick();
+    await hold.reached;
+    let outboxAtReset = -1;
+    const resetting = Promise.resolve(post(t.app, "/sala/reset")).then((response) => {
+      outboxAtReset = t.whatsapp.outbox.length;
+      return response;
+    });
+    const tickRequest = post(t.app, "/sala/tick");
+    const momentoRequest = post(t.app, LUN);
+    hold.release();
+    const [, reset, tickResponse, momentoResponse] = await Promise.all([
+      ticking,
+      resetting,
+      tickRequest,
+      momentoRequest,
+    ]);
+    expect(reset.status).toBe(200);
+    expect(tickResponse.status).toBe(200);
+    expect(momentoResponse.status).toBe(200);
+    // The held bienvenida went out before the reset answered. The momento's
+    // jump ran after the reset, so what followed is the new story's own bienvenida.
+    const after = t.whatsapp.outbox.slice(outboxAtReset);
+    expect(after.map((m) => m.kind)).toContain("audio");
+    expect(after.map((m) => m.kind)).toEqual(t.app.store.mensajesSalientes().map((m) => m.kind));
+    expect(t.app.store.citaOn("2026-10-19")).toMatchObject({ mensajeSalienteId: expect.any(Number) });
+  });
+
+  test("after a reset that waited on a tick the app still sends its citas", async () => {
+    const t = await atBienvenida();
+    const hold = t.voice.holdSynthesis();
+    await raceReset(t, hold);
+    const sentBefore = t.whatsapp.outbox.length;
+    expect((await post(t.app, LUN)).status).toBe(200);
+    expect(t.whatsapp.outbox.slice(sentBefore).map((m) => m.kind)).toContain("audio");
+    expect(t.app.store.citaOn("2026-10-19")).toMatchObject({ mensajeSalienteId: expect.any(Number) });
+  });
+
+  test("two resets in a row with no tick running are each done before they return", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    await post(app, LUN);
+    const fresh = await freshSnapshot();
+    void app.reset();
+    app.clock.set(new Date("2026-10-23T01:30:00Z"));
+    void app.reset();
+    expect(snapshot(app)).toEqual(fresh);
+    expect(app.clock.now()).toEqual(PATRICIA_START);
+  });
+
+  test("a reset with no tick running is done before it returns", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    await app.reset();
+    await post(app, LUN);
+    await post(app, JUE);
+    const fresh = await freshSnapshot();
+    expect(snapshot(app)).not.toEqual(fresh);
+    const resetting = app.reset();
+    expect(snapshot(app)).toEqual(fresh);
+    await resetting;
   });
 });
