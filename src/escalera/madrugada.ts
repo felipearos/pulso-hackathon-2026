@@ -11,13 +11,6 @@
 export const MADRUGADA_TEXT =
   "Aquí estoy, Patty. De noche todo se ve más grande. Ya anoté lo que te preocupa, y lo vemos juntas en nuestra próxima cita. Ahora no tienes que resolver nada. Intenta descansar.";
 
-/** Every later answer the same night: shorter, so three notes do not repeat one script. */
+/** Every later answer the same night: shorter, so three notes do not repeat the same words. */
 export const MADRUGADA_TEXT_OTRA_VEZ =
   "Te escucho, Patty. Lo anoté también, no se pierde nada. Con la luz del día todo pesa menos. Intenta descansar.";
-
-/**
- * A calm Spanish voice says about two and a half words a second; at two, the
- * slowest ElevenLabs takes, forty words still fit in the 20 seconds a madrugada
- * note may last.
- */
-export const MADRUGADA_MAX_WORDS = 40;

@@ -5,6 +5,8 @@
  * what the previous ones left on screen.
  */
 
+import { MADRUGADA_TEXT } from "../escalera/madrugada";
+
 export const MOMENT_IDS = [
   "monday-email",
   "monday-night",
@@ -184,7 +186,7 @@ const MOMENTS: Moment[] = [
         at: "02:30",
         kind: "voice",
         duration: "0:15",
-        text: "Aquí estoy, Patty. Es normal que de noche todo se vea más grande. Ya anoté lo que te preocupa. No tienes que resolver nada ahora: mañana a las diez y media lo vemos juntas. Que duermas bien.",
+        text: MADRUGADA_TEXT,
       },
     ],
     decisions: [
