@@ -15,6 +15,8 @@ export type Intencion =
   | { kind: "listened" }
   /** 👍 or an equivalent answer to the cita. */
   | { kind: "accepted" }
+  /** She told Luna she bought something in cuotas. */
+  | { kind: "installmentPurchase" }
   | { kind: "minimum" }
   | { kind: "angustia"; value: Angustia }
   | { kind: "doesNotWantToSee" }
@@ -75,6 +77,8 @@ function stayReason(senal: Senal | undefined): string {
       return citaEtapa === null
         ? "se queda: respondió sin una cita"
         : `se queda: respondió una cita de la etapa ${citaEtapa}`;
+    case "installmentPurchase":
+      return "se queda: contó una compra en cuotas";
     case "listened":
       return "se queda: solo escuchó";
     case "angustia":
