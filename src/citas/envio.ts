@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { santiagoDate, santiagoParts } from "../clock/santiago";
 import { estadoDeCuenta8Pdf } from "../figures/fixtures/estado-de-cuenta-8-pdf";
-import { imagenDifuminada } from "../figures/imagen-difuminada";
+import { imagenDifuminada, type ImagenDifuminada } from "../figures/imagen-difuminada";
 import type { Cita } from "../patricia/entities";
 import { pagoRecibidoEstaSemana } from "../plata/apartado";
 import { aCompraEnCuotas, comprasEnCuotas as comprasRegistradas } from "../plata/cuotas";
@@ -80,6 +80,8 @@ export function createCitaSender({
   // Read from the base, not memory, so a restart between the audio and the image still sends the image.
   const imagenOwed = (cita: Cita): boolean =>
     cita.etapa === 3 &&
+    cita.tipo !== "bienvenida" &&
+    cita.tipo !== "bienvenida-de-vuelta" &&
     cita.mensajeSalienteId !== null &&
     !imagenCallada.has(cita.id) &&
     !store.mensajesSalientes().some((m) => m.kind === "image" && m.id > cita.mensajeSalienteId!);
@@ -87,9 +89,10 @@ export function createCitaSender({
   const sendImagen = async (cita: Cita, cifra: CifraPermitida | null): Promise<void> => {
     if (cita.etapa !== 3 || cifra?.kind !== "pago-minimo") return;
     const caption = CAPTION_IMAGEN;
-    let imagen: Awaited<ReturnType<typeof imagenDifuminada>>;
+    let imagen: ImagenDifuminada | null;
     let id: string;
     try {
+      // The fictional estado de cuenta 8 is the only PDF the app keeps: a cifra not on it withholds the image.
       imagen = await imagenDifuminada(estadoDeCuenta8Pdf(), montoEnPantalla(cifra.monto));
       if (imagen === null) {
         imagenCallada.add(cita.id);
