@@ -10,9 +10,10 @@ import type { Cita, MensajeEntrante } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { Llm, WhatsApp } from "../ports";
 import { SAFE_TEMPLATE, validateText } from "../validator/validator";
+import { isMadrugada } from "../whatsapp-cloud";
 import { montoEnPantalla } from "../voz/montos";
 import { inicioDeSemana } from "./apartado";
-import { isMadrugada, preguntarBolsillo } from "./bolsillo";
+import { preguntarBolsillo } from "./bolsillo";
 import {
   propuestaDelJueves,
   respuestaAEleccion,
@@ -51,7 +52,6 @@ export function proponerEnCita(store: Store, cita: Cita): void {
     },
   });
 }
-
 
 /**
  * The propuesta of the latest programada cita, while Patricia has not answered

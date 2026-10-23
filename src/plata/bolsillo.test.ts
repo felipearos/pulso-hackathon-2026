@@ -36,11 +36,10 @@ describe("respuestaBolsilloDe", () => {
 describe("nombreDeBolsillo", () => {
   test.each([
     ["  «Para   la mamá»  ", "Para la mamá"],
-    ['"Plata   para 2027"', "Plata para 2027"],
+    ['"Plata   para  el viaje"', "Plata para el viaje"],
     ["'Mis cuotas'", "Mis cuotas"],
     ["Gastos\tde\nla casa", "Gastos de la casa"],
     ["  Mi ahorro  ", "Mi ahorro"],
-    ["123", "123"],
   ] as const)("cleans %p to %p", (text, name) => {
     expect(nombreDeBolsillo(text)).toBe(name);
   });
@@ -53,6 +52,10 @@ describe("nombreDeBolsillo", () => {
     "💰💸",
     "---",
     "a".repeat(41),
+    "123",
+    "Viaje 2027",
+    "Urgente",
+    "Para tu deuda",
   ])("rejects unusable name %p", (text) => {
     expect(nombreDeBolsillo(text)).toBeNull();
   });

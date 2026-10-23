@@ -21,6 +21,8 @@ const LLM_REPLIES: Array<[string, string]> = [
   ["👎", '{"intencion":"other"}'],
   ["🤷", '{"intencion":"other"}'],
   ["Para la mamá", '{"intencion":"other"}'],
+  ['"sí"', '{"intencion":"other"}'],
+  ["Viaje 2027", '{"intencion":"other"}'],
 ];
 
 let nextId = 1;
@@ -206,5 +208,33 @@ describe("the bolsillo through the app", () => {
     expect(t.app.store.getPatricia().bolsillo).toBeNull();
     expect(decisionsOf(t, "nombrar-bolsillo")).toEqual([]);
     expectNoMovementQuestion(t);
+  });
+
+  test("a second «sí» or a name with a figure is not the name; the next plain one is", async () => {
+    const t = setup();
+    const cita = await jueves(t);
+    await askBolsillo(t, cita.id);
+    await t.app.receiveMensaje({ text: "👍", whatsappId: "in-si" });
+
+    await t.app.receiveMensaje({ text: "sí", whatsappId: "in-si-otra-vez" });
+    await t.app.receiveMensaje({ text: "Viaje 2027", whatsappId: "in-cifra" });
+    expect(t.app.store.getPatricia().bolsillo).toBeNull();
+    expect(outboxTexts(t).at(-1)).toBe(PEDIR_NOMBRE);
+
+    await t.app.receiveMensaje({ text: "Para la mamá", whatsappId: "in-nombre" });
+    expect(t.app.store.getPatricia().bolsillo).toBe("Para la mamá");
+  });
+
+  test("the name still lands after a later cita is programada", async () => {
+    const t = setup();
+    const cita = await jueves(t);
+    await askBolsillo(t, cita.id);
+    await t.app.receiveMensaje({ text: "👍", whatsappId: "in-si" });
+
+    await nextThursday(t);
+    await t.app.receiveMensaje({ text: "Para la mamá", whatsappId: "in-nombre" });
+
+    expect(t.app.store.getPatricia().bolsillo).toBe("Para la mamá");
+    expect(outboxTexts(t).at(-1)).toBe(bolsilloNombrado("Para la mamá"));
   });
 });

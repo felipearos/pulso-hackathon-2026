@@ -249,15 +249,21 @@ mínimo plus the plata apartada, rounded up to the next 1.000 (41.900 + 8.100
 = 50.000). The motor computes it, never the LLM. Patricia chooses with an
 emoji: 👍 pays the propuesta, 👌 pays the mínimo. On this question 👌 is her
 choice of the mínimo; for the política de etapa it still reads as escuchó.
-Both choices get the same warm reply, never a comparison. A week without
-pedidos pagados has no propuesta and no mention of one.
+Both choices get the same warm reply, never a comparison; the one addition
+is the recordatorio del bolsillo on a 👍, when she has a named bolsillo. A
+week without pedidos pagados has no propuesta and no mention of one.
 _Avoid:_ "meta de ahorro", "desafío".
 
 ## Bolsillo
 
 A category or savings account inside Patricia's own bank where she can move
 the plata apartada herself, if her bank offers one and she says she has it.
-She names it, and that name is how Luna calls the plata apartada.
+She names it, and that name is how Luna calls the plata apartada. Luna asks
+once in Patricia's life, right after her first answer to a propuesta del
+jueves (👍 sí · 👎 no · 🤷 no sé); 👎 or 🤷, or no answer before the next
+cita, and she never asks again. With a named bolsillo, her 👍 to the
+propuesta gets the recordatorio: pass the plata apartada to it tomorrow,
+when she pays. Luna never asks whether she did.
 _Avoid:_ "cuenta aparte", "wallet".
 
 ## Madrugada

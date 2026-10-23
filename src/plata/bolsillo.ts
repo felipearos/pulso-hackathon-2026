@@ -1,11 +1,11 @@
 /** Bolsillo replies and texts. Luna never moves money or asks whether Patricia moved it. */
 
-import { santiagoParts } from "../clock/santiago";
 import type { Intencion } from "../escalera/policy";
 import type { MensajeEntrante } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { Llm, WhatsApp } from "../ports";
-import { SAFE_TEMPLATE, validateText } from "../validator/validator";
+import { checkText, SAFE_TEMPLATE, validateText } from "../validator/validator";
+import { isMadrugada } from "../whatsapp-cloud";
 
 export type RespuestaBolsillo = "si" | "no" | "no-sabe";
 
@@ -45,7 +45,11 @@ export function respuestaBolsilloDe(text: string): RespuestaBolsillo | null {
   }
 }
 
-/** Returns a short name Patricia gave her bolsillo, or null when it is not usable. */
+/**
+ * Returns a short name Patricia gave her bolsillo, or null when it is not
+ * usable. A name with a digit or a word the validador forbids is refused:
+ * every text that carries it would fall to the plantilla segura.
+ */
 export function nombreDeBolsillo(text: string): string | null {
   let nombre = text.trim();
   const quotePairs = [["«", "»"], ["\"", "\""], ["'", "'"]] as const;
@@ -58,7 +62,8 @@ export function nombreDeBolsillo(text: string): string | null {
 
   nombre = nombre.replace(/\s+/gu, " ");
   if (nombre.length === 0 || [...nombre.normalize("NFC")].length > 40) return null;
-  if (!/[\p{L}\p{N}]/u.test(nombre)) return null;
+  if (!/\p{L}/u.test(nombre)) return null;
+  if (checkText(nombre, []).length > 0) return null;
   return nombre;
 }
 
@@ -74,13 +79,8 @@ export function bolsilloNombrado(nombre: string): string {
 type BolsilloDeps = { store: Store; llm: Llm; whatsapp: WhatsApp };
 type RespuestaDatos = { citaId?: unknown; respuesta?: unknown };
 
-/** The madrugada ends at 05:30, exclusive. */
-const MADRUGADA_END = 5 * 60 + 30;
-
-export function isMadrugada(at: Date): boolean {
-  const { hour, minute } = santiagoParts(at);
-  return hour * 60 + minute < MADRUGADA_END;
-}
+/** How long after her «sí» Luna still reads a message as the bolsillo's name. */
+const NAMING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 function citaProgramadaMasReciente(store: Store) {
   return store.citas().filter((cita) => cita.estado === "programada").at(-1);
@@ -91,15 +91,21 @@ function citaIdDe(decision: { datos: unknown }): number | null {
   return typeof citaId === "number" ? citaId : null;
 }
 
-/** Citas whose bolsillo reply is being processed, so concurrent messages cannot handle it twice. */
-const answeringBolsillo = new WeakMap<Store, Set<number>>();
+/** Steps of the bolsillo being answered, so two messages arriving together are taken once. */
+const answeringBolsillo = new WeakMap<Store, Set<string>>();
 
-function reserveBolsillo(store: Store, citaId: number): (() => void) | null {
-  const reserved = answeringBolsillo.get(store) ?? new Set<number>();
+/** Runs `answer` unless the same step is already being answered; true either way, the message was the bolsillo's. */
+async function withReserved(store: Store, step: string, answer: () => Promise<void>): Promise<boolean> {
+  const reserved = answeringBolsillo.get(store) ?? new Set<string>();
   answeringBolsillo.set(store, reserved);
-  if (reserved.has(citaId)) return null;
-  reserved.add(citaId);
-  return () => reserved.delete(citaId);
+  if (reserved.has(step)) return true;
+  reserved.add(step);
+  try {
+    await answer();
+  } finally {
+    reserved.delete(step);
+  }
+  return true;
 }
 
 async function sendBolsilloText(
@@ -143,18 +149,11 @@ export async function preguntarBolsillo(deps: BolsilloDeps, citaId: number): Pro
   });
 }
 
-function nombreNoPermitido(intencion: Intencion): boolean {
-  return (
-    intencion.kind === "crisis" ||
-    intencion.kind === "pause" ||
-    intencion.kind === "doesNotWantToSee" ||
-    intencion.kind === "askWhy" ||
-    intencion.kind === "askWhatRead" ||
-    intencion.kind === "angustia"
-  );
-}
-
-/** Reads the one open bolsillo question or its name, without starting a cita. */
+/**
+ * Reads Patricia's answer to the open bolsillo question, then the name after
+ * her «sí». Returns whether the message was hers to take, so the same 👍 is
+ * never also read as a choice on the propuesta. No cita, no MensajeSaliente.
+ */
 export async function answerBolsillo(
   deps: BolsilloDeps,
   mensaje: MensajeEntrante,
@@ -167,63 +166,52 @@ export async function answerBolsillo(
   const decisions = store.decisions();
   const pregunta = decisions.filter((decision) => decision.tipo === "preguntar-bolsillo").at(-1);
   if (pregunta === undefined) return false;
-  const citaId = citaIdDe(pregunta);
-  if (citaId === null || citaProgramadaMasReciente(store)?.id !== citaId) return false;
+  const respuesta = decisions.filter((decision) => decision.tipo === "respuesta-bolsillo").at(-1);
 
-  const respuesta = decisions
-    .filter((decision) => decision.tipo === "respuesta-bolsillo" && citaIdDe(decision) === citaId)
-    .at(-1);
   if (respuesta === undefined) {
+    // Open only while its cita is the latest; once a later one is programada it is never asked again.
+    const citaId = citaIdDe(pregunta);
+    if (citaId === null || citaProgramadaMasReciente(store)?.id !== citaId) return false;
     const eleccion = respuestaBolsilloDe(mensaje.text);
     if (eleccion === null) return false;
-    const release = reserveBolsillo(store, citaId);
-    if (release === null) return false;
-    try {
-      const motivo =
-        eleccion === "si" ? "tiene bolsillo" : eleccion === "no" ? "no tiene bolsillo" : "no sabe si tiene bolsillo";
-      store.recordDecision({
-        tipo: "respuesta-bolsillo",
-        motivo,
-        datos: { citaId, respuesta: eleccion, text: mensaje.text },
-      });
-      await sendBolsilloText(
+    return withReserved(store, "respuesta", async () => {
+      const sent = await sendBolsilloText(
         deps,
         eleccion === "si" ? PEDIR_NOMBRE : SIN_BOLSILLO,
         "could not send the reply to the bolsillo question",
       );
-      return true;
-    } finally {
-      release();
-    }
+      // Unsent, she was never asked for a name: her next answer tries again.
+      if (sent === null) return;
+      store.recordDecision({
+        tipo: "respuesta-bolsillo",
+        motivo: MOTIVOS[eleccion],
+        datos: { citaId, respuesta: eleccion, text: mensaje.text, whatsappId: sent.whatsappId },
+      });
+    });
   }
 
-  if (
-    (respuesta.datos as RespuestaDatos | null)?.respuesta !== "si" ||
-    store.getPatricia().bolsillo !== null ||
-    decisions.some((decision) => decision.tipo === "nombrar-bolsillo") ||
-    nombreNoPermitido(intencion)
-  ) {
-    return false;
-  }
-
+  const naming =
+    (respuesta.datos as RespuestaDatos | null)?.respuesta === "si" &&
+    mensaje.receivedAt.getTime() - respuesta.at.getTime() <= NAMING_WINDOW_MS &&
+    store.getPatricia().bolsillo === null &&
+    !decisions.some((decision) => decision.tipo === "nombrar-bolsillo");
+  // Only a plain message is a name: not a 👍, a «sí», a question, a crisis or an angustia.
+  if (!naming || intencion.kind !== "other" || respuestaBolsilloDe(mensaje.text) !== null) return false;
   const nombre = nombreDeBolsillo(mensaje.text);
   if (nombre === null) return false;
-  const release = reserveBolsillo(store, citaId);
-  if (release === null) return false;
-  try {
+  return withReserved(store, "nombre", async () => {
     store.updatePatricia({ bolsillo: nombre });
     store.recordDecision({
       tipo: "nombrar-bolsillo",
       motivo: `le puso «${nombre}» a su bolsillo`,
-      datos: { citaId, nombre },
+      datos: { citaId: citaIdDe(respuesta), nombre },
     });
-    await sendBolsilloText(
-      deps,
-      bolsilloNombrado(nombre),
-      "could not send the bolsillo name confirmation",
-    );
-    return true;
-  } finally {
-    release();
-  }
+    await sendBolsilloText(deps, bolsilloNombrado(nombre), "could not send the bolsillo name confirmation");
+  });
 }
+
+const MOTIVOS: Readonly<Record<RespuestaBolsillo, string>> = {
+  si: "tiene bolsillo",
+  no: "no tiene bolsillo",
+  "no-sabe": "no sabe si tiene bolsillo",
+};
