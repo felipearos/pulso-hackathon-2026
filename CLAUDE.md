@@ -62,6 +62,7 @@ The app runs on Felipe's desktop, which stays on through the delivery, as a
 systemd user service. It needs an always-on process because it polls Gmail,
 runs the night scheduler and answers the Meta webhook even when every laptop
 at the venue is closed. Agents never deploy by hand (see `AGENTS.md`).
+The operations runbook (Spanish, for the team) is `docs/deploy.md`.
 
 - `pulso.service` runs `bun src/main.ts` from `~/pulso-live`, a checkout kept
   on `origin/main`, on `127.0.0.1:3010`, with secrets from Doppler `prd`.
