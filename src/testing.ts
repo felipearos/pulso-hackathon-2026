@@ -1,9 +1,10 @@
 import { createApp, type App } from "./app";
 import { openDatabase } from "./db";
+import type { Database } from "bun:sqlite";
 import { FakeClock, FakeLlm, FakeMail, FakeVoice, FakeWhatsApp } from "./fakes";
 
-/** Monday 20 October 2026, 09:00 in Santiago: the default start of a test. */
-export const TEST_START = new Date("2026-10-20T09:00:00-03:00");
+/** Monday 19 October 2026, 09:00 in Santiago: the default start of a test. */
+export const TEST_START = new Date("2026-10-19T09:00:00-03:00");
 
 export type TestApp = {
   app: App;
@@ -12,7 +13,7 @@ export type TestApp = {
   whatsapp: FakeWhatsApp;
   llm: FakeLlm;
   voice: FakeVoice;
-  db: ReturnType<typeof openDatabase>;
+  db: Database;
 };
 
 /**

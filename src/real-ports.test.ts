@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createApp } from "./app";
 import type { Ports } from "./ports";
 import { MissingEnvError, realPorts, systemClock } from "./real-ports";
 
@@ -25,9 +26,16 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
 }
 
 describe("realPorts", () => {
-  test("builds with an empty env without throwing", () => {
+  test("builds with no service variables set", () => {
     const ports = realPorts(memory);
     expect(ports.db.query("SELECT 1 AS one").get()).toEqual({ one: 1 });
+  });
+
+  test("the app on real ports answers health with no service variables set", async () => {
+    const app = createApp(realPorts(memory));
+    const response = await app.handle(new Request("http://localhost/health"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "ok" });
   });
 
   test("the system clock returns a date", () => {

@@ -12,7 +12,7 @@ export type Migration = { version: number; name: string; sql: string };
  */
 export const migrations: Migration[] = [];
 
-/** Opens the SQLite file, creating its directory, or an in-memory base for `:memory:`. */
+/** Opens the SQLite file, creating its directory, or an in-memory database for `:memory:`. */
 export function openDatabase(path: string): Database {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const db = new Database(path, { create: true, strict: true });
@@ -22,7 +22,7 @@ export function openDatabase(path: string): Database {
 }
 
 /**
- * Applies the steps the base has not seen yet, each in its own transaction,
+ * Applies the steps the database has not seen yet, each in its own transaction,
  * and records them in `schema_migrations`. Running it again is a no-op.
  */
 export function migrate(db: Database, steps: readonly Migration[] = migrations): number[] {
