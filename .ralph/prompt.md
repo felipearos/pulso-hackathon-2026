@@ -155,6 +155,16 @@ surfaces. Each child must name its owned files or interface, dependencies,
 testable outcome and staffing group. Independent groups may run in parallel;
 shared interfaces must be settled before their dependents are ready.
 
+Two coders per spec: give each spec's open children exactly two staffing
+groups, split along the files they own, so two loops can work the spec at
+once without touching the same code. Never more than two groups per spec,
+since the frontier runs one ticket per group. Use one group only when every
+child shares the same files or interface. Every open child needs a group:
+one child without `## Staffing group` makes the whole tree a single group.
+Regroup an already staffed tree that has one group and two or more
+independent open children, leaving the groups of claimed tickets as they
+are.
+
 Write every issue title, body, acceptance criterion and triage comment in
 Spanish (Chile), using the terms in `GLOSSARY.md`.
 
