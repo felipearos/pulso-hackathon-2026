@@ -2,6 +2,7 @@ import type { Database } from "bun:sqlite";
 import { santiagoDate, santiagoParts } from "../clock/santiago";
 import type { Etapa, Pendiente, TipoCita } from "../patricia/entities";
 import type { Store } from "../patricia/store";
+import { proponerEnCita } from "../plata/jueves";
 import type { Clock } from "../ports";
 
 export type Scheduler = {
@@ -59,6 +60,7 @@ export function createScheduler({ db, store, clock }: { db: Database; store: Sto
         motivo,
         datos: { citaId: cita.id, tipo, fecha, pendienteIds },
       });
+      if (cita.tipo === "jueves") proponerEnCita(store, cita);
     })();
   };
 
