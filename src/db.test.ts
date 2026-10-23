@@ -63,6 +63,7 @@ describe("migrate", () => {
     expect(() => migrate(second, [clash, steps[1]!])).toThrow(/"notes".*"webhook"/);
     expect(second.query<{ version: number }, []>("SELECT version FROM schema_migrations").all()).toEqual([{ version: 1 }]);
     expect(() => second.run("SELECT tag FROM notes")).toThrow();
+    expect(() => second.run("SELECT 1 FROM webhook")).toThrow();
     second.close();
   });
 

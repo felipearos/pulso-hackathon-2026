@@ -144,6 +144,7 @@ export function openDatabase(path: string): Database {
 /**
  * Applies the steps the database has not seen yet, each in its own transaction,
  * and records them in `schema_migrations`. Running it again is a no-op.
+ * Throws, applying nothing, when a version is recorded under another step's name.
  */
 export function migrate(db: Database, steps: readonly Migration[] = migrations): number[] {
   db.run("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL)");
