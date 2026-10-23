@@ -12,8 +12,10 @@ export type EleccionDePago = "propuesta" | "minimo";
 
 const MIL = 1000;
 
-/** Shared by both replies so neither choice sounds warmer than the other. */
-const CIERRE = "Gracias por contarme, Patricia.";
+/** Shared by both replies so neither choice sounds warmer than the other; calls her by her `nombre`. */
+function cierre(nombre: string): string {
+  return `Gracias por contarme, ${nombre}.`;
+}
 
 /** The propuesta for this week, or null when there is nothing to propose sobre el mínimo. */
 export function propuestaDelJueves({
@@ -37,10 +39,15 @@ export function textoPropuesta(p: Propuesta, bolsillo: string | null = null): st
 }
 
 /** Luna's reply to Patricia's choice; equally warm either way, never comparing the two. */
-export function respuestaAEleccion(eleccion: EleccionDePago, p: Propuesta, bolsillo: string | null = null): string {
+export function respuestaAEleccion(
+  eleccion: EleccionDePago,
+  p: Propuesta,
+  nombre: string,
+  bolsillo: string | null = null,
+): string {
   const anotado = eleccion === "propuesta" ? montoEnPantalla(p.monto) : "el mínimo";
   const recordatorio = eleccion === "propuesta" && bolsillo !== null
     ? ` Mañana, cuando pagues, pasa lo apartado a «${bolsillo}».`
     : "";
-  return `Anotado: ${anotado} este mes.${recordatorio} ${CIERRE}`;
+  return `Anotado: ${anotado} este mes.${recordatorio} ${cierre(nombre)}`;
 }

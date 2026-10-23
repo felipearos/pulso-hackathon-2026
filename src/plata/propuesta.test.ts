@@ -36,8 +36,8 @@ describe("textoPropuesta", () => {
 });
 
 describe("respuestaAEleccion", () => {
-  const propuesta = respuestaAEleccion("propuesta", CASO);
-  const minimo = respuestaAEleccion("minimo", CASO);
+  const propuesta = respuestaAEleccion("propuesta", CASO, "Patricia");
+  const minimo = respuestaAEleccion("minimo", CASO, "Patricia");
 
   test("both replies are the expected text", () => {
     expect(propuesta).toBe("Anotado: $50.000 este mes. Gracias por contarme, Patricia.");
@@ -45,12 +45,16 @@ describe("respuestaAEleccion", () => {
   });
 
   test("reminds Patricia where to move the plata apartada only after the propuesta choice", () => {
-    expect(respuestaAEleccion("propuesta", CASO, "Para la mamá")).toBe(
+    expect(respuestaAEleccion("propuesta", CASO, "Patricia", "Para la mamá")).toBe(
       "Anotado: $50.000 este mes. Mañana, cuando pagues, pasa lo apartado a «Para la mamá». Gracias por contarme, Patricia.",
     );
-    expect(respuestaAEleccion("minimo", CASO, "Para la mamá")).toBe(
+    expect(respuestaAEleccion("minimo", CASO, "Patricia", "Para la mamá")).toBe(
       "Anotado: el mínimo este mes. Gracias por contarme, Patricia.",
     );
+  });
+
+  test("the closing calls her by her nombre", () => {
+    expect(respuestaAEleccion("minimo", CASO, "Paty")).toBe("Anotado: el mínimo este mes. Gracias por contarme, Paty.");
   });
 
   test("both replies share the same closing", () => {

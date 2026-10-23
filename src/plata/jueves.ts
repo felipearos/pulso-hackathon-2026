@@ -194,8 +194,8 @@ async function reply(
   eleccion: EleccionDePago,
 ): Promise<void> {
   const { store, llm, whatsapp } = deps;
-  const bolsillo = store.getPatricia().bolsillo;
-  const draft = respuestaAEleccion(eleccion, propuesta, bolsillo);
+  const { nombre, bolsillo } = store.getPatricia();
+  const draft = respuestaAEleccion(eleccion, propuesta, nombre, bolsillo);
   const validated = await validateText({
     draft,
     allowedFigures: [propuesta.monto],

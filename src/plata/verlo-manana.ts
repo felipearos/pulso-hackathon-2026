@@ -8,9 +8,13 @@ import type { Llm, WhatsApp } from "../ports";
 import { SAFE_TEMPLATE, validateText, type ValidatedText } from "../validator/validator";
 import { isMadrugada } from "../whatsapp-cloud";
 
-export const PROPUESTA_VERLO_MANANA =
-  "Te escucho, Patricia. ¿Y si lo vemos mañana en la noche, con calma? Si mañana lo sigues queriendo, lo decides tú.";
-export const RESPUESTA_CUIDADO = "Claro, Patricia, eso va primero. Aquí estoy si me necesitas.";
+/** Both fixed texts call her by her `nombre`. */
+export function propuestaVerloManana(nombre: string): string {
+  return `Te escucho, ${nombre}. ¿Y si lo vemos mañana en la noche, con calma? Si mañana lo sigues queriendo, lo decides tú.`;
+}
+export function respuestaCuidado(nombre: string): string {
+  return `Claro, ${nombre}, eso va primero. Aquí estoy si me necesitas.`;
+}
 
 type PurchaseReplyDeps = { store: Store; llm: Llm; whatsapp: WhatsApp };
 type SentText = ValidatedText & { whatsappId: string };
@@ -78,8 +82,9 @@ export async function answerCompraEnCuotas(
   if (isMadrugada(mensaje.receivedAt) || deps.store.getPatricia().enPausa) return false;
 
   const { store } = deps;
+  const { nombre } = store.getPatricia();
   if (mentionsCare(mensaje.text)) {
-    const sent = await sendFixedText(deps, RESPUESTA_CUIDADO, "could not send the care reply about a cuotas purchase");
+    const sent = await sendFixedText(deps, respuestaCuidado(nombre), "could not send the care reply about a cuotas purchase");
     if (sent !== null) {
       store.recordDecision({
         tipo: "acompanar-compra",
@@ -102,7 +107,7 @@ export async function answerCompraEnCuotas(
   try {
     const sent = await sendFixedText(
       deps,
-      PROPUESTA_VERLO_MANANA,
+      propuestaVerloManana(nombre),
       "could not send the proposal to see a cuotas purchase tomorrow",
     );
     // The plantilla segura proposes nothing, so it opens no window.

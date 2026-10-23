@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parseSantiago } from "../clock/santiago";
 import { createTestApp, type TestApp } from "../testing";
-import { CRISIS_TEXT } from "./crisis";
+import { crisisText } from "./crisis";
 import { madrugadaText, madrugadaTextOtraVez } from "./madrugada";
 
 const WORRY = "No puedo dormir pensando en la tarjeta";
@@ -111,7 +111,7 @@ describe("Luna in the madrugada through the app", () => {
 
     await t.app.receiveMensaje({ text: "no quiero vivir", whatsappId: "in-1" });
 
-    expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: CRISIS_TEXT }]);
+    expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: crisisText("Patricia") }]);
     expect(madrugadaDecisions(t)).toHaveLength(0);
   });
 

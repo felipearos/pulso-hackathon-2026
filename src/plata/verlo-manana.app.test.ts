@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { createTestApp, type TestApp } from "../testing";
-import { RESPUESTA_CUIDADO, PROPUESTA_VERLO_MANANA } from "./verlo-manana";
+import { propuestaVerloManana, respuestaCuidado } from "./verlo-manana";
+
+// The texts the fixture Patricia, nombre «Patricia», gets.
+const PROPUESTA_VERLO_MANANA = propuestaVerloManana("Patricia");
+const RESPUESTA_CUIDADO = respuestaCuidado("Patricia");
 
 const START = new Date("2026-10-21T20:00:00-03:00");
 const LLM_REPLIES: Array<[string, string]> = [
