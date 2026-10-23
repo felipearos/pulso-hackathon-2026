@@ -2,6 +2,7 @@ import type { Senal } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { IncomingMail, Llm } from "../ports";
 import { aporteDePedido, montoDePedido } from "../plata/apartado";
+import { compraEnCuotas, esPlataDeCarino } from "../plata/cuotas";
 import { montoEnPantalla } from "../voz/montos";
 import { classifyByLlm } from "./llm-classify";
 import { classifyByRules, type Classification } from "./rules";
@@ -33,10 +34,18 @@ export function storeMail(store: Store, mail: IncomingMail, classification: Clas
   const pedido = classification.tipo === "S3" ? pedidoPagado(mail) : null;
   // The señal goes first: a duplicate fails here and never reaches the decision log.
   const senal = store.addSenal({ tipo: classification.tipo, origen, monto: pedido?.monto ?? null });
+  // An S4 is only registered: Luna never comments on a compra en cuotas.
+  const compra = classification.tipo === "S4" ? compraRegistrada(mail.subject, senal.receivedAt) : null;
+  const extra = pedido?.motivo ?? compra?.motivo ?? null;
   store.recordDecision({
     tipo: "senal",
-    motivo: pedido === null ? classification.motivo : `${classification.motivo} ${pedido.motivo}`,
-    datos: { ...origen, tipo: classification.tipo, ...(pedido === null ? {} : { monto: pedido.monto, aporte: pedido.aporte }) },
+    motivo: extra === null ? classification.motivo : `${classification.motivo} ${extra}`,
+    datos: {
+      ...origen,
+      tipo: classification.tipo,
+      ...(pedido === null ? {} : { monto: pedido.monto, aporte: pedido.aporte }),
+      ...(compra === null ? {} : compra.datos),
+    },
   });
   return senal;
 }
@@ -52,6 +61,27 @@ function pedidoPagado(mail: IncomingMail): { monto: number | null; aporte: numbe
     monto,
     aporte,
     motivo: `El pedido fue de ${montoEnPantalla(monto)}; su 10 % (${montoEnPantalla(aporte)}) suma a la plata apartada de la semana.`,
+  };
+}
+
+/** What an S4 subject says about its compra en cuotas, for the decision log, and why. */
+function compraRegistrada(
+  subject: string,
+  compradaEn: Date,
+): { datos: { cuotas?: number; comercio?: string | null; plataDeCarino: boolean }; motivo: string } {
+  const compra = compraEnCuotas(subject);
+  const plataDeCarino = esPlataDeCarino(subject, compradaEn);
+  const carino = plataDeCarino ? " Es diciembre y parece un regalo: queda como plata de cariño." : "";
+  if (compra === null) {
+    return {
+      datos: { plataDeCarino },
+      motivo: `El correo no dice en cuántas cuotas; Luna la anota igual y no la comenta.${carino}`,
+    };
+  }
+  const donde = compra.comercio === null ? "" : ` en ${compra.comercio}`;
+  return {
+    datos: { cuotas: compra.cuotas, comercio: compra.comercio, plataDeCarino },
+    motivo: `Compra en ${compra.cuotas} ${compra.cuotas === 1 ? "cuota" : "cuotas"}${donde}; Luna la anota y no la comenta.${carino}`,
   };
 }
 

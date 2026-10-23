@@ -56,6 +56,15 @@ Instalments. She buys in cuotas when anxious («Total, son cuotas chicas»),
 both at banks and at retail stores; retail concentrates most of the mora in
 Chile.
 
+## Plata de cariño
+
+A compra en cuotas made in December that looks like a gift («Ropa para tu
+nieto», a juguetería). It is marked as plata de cariño, without judgement:
+Luna registers it like any other compra en cuotas and never scolds it.
+Detected by the clock's month and gift words in the subject
+(`src/plata/cuotas.ts`).
+_Avoid:_ "gasto innecesario", "gasto impulsivo".
+
 ## Mora
 
 Being behind on a payment. Almost 3 in 10 people of Patricia's age are in
