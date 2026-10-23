@@ -42,6 +42,7 @@ function app(
     demoPage: new Blob(["<h1>Luna · sala de control</h1>"]),
     landingPage: new Blob(["<h1>Mira tus cuentas sin angustia.</h1>"]),
     soonPage: new Blob(["<h1>Esto está por llegar.</h1>"]),
+    landingImages: { "taza-te.webp": new Blob(["webp"]) },
     nightAudio: new Blob(["ogg"]),
     sendNightAudio: async () => {
       sends++;
@@ -88,6 +89,17 @@ describe("handle", () => {
       expect(page.headers.get("Content-Type")).toContain("text/html");
       expect(await page.text()).toContain("Esto está por llegar.");
     }
+  });
+
+  test("serves the landing's photos as webp and nothing else under /img", async () => {
+    const { get } = app();
+    const photo = await get("/img/taza-te.webp");
+    expect(photo.status).toBe(200);
+    expect(photo.headers.get("Content-Type")).toBe("image/webp");
+    expect(await photo.text()).toBe("webp");
+    expect((await get("/img/otra.webp")).status).toBe(404);
+    expect((await get("/img/CREDITOS.md")).status).toBe(404);
+    expect((await get("/img/../server.ts")).status).toBe(404);
   });
 
   test("answers 404 when posting to the root", async () => {

@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { recibirRespuestaBienvenida } from "./citas/bienvenida-respuestas";
 import { createCitaSender } from "./citas/envio";
 import { createScheduler } from "./citas/scheduler";
@@ -56,6 +57,12 @@ const demoPage = Bun.file(new URL("./demo/page.html", import.meta.url));
 // The landing and its coming-soon page ship with the repo the same way.
 const landingPage = Bun.file(new URL("./web/pages/landing.html", import.meta.url));
 const soonPage = Bun.file(new URL("./web/pages/pronto.html", import.meta.url));
+const landingImageDir = new URL("./web/pages/img/", import.meta.url);
+const landingImages = Object.fromEntries(
+  readdirSync(landingImageDir)
+    .filter((name) => name.endsWith(".webp"))
+    .map((name) => [name, Bun.file(new URL(name, landingImageDir))]),
+);
 const nightAudio = Bun.file(new URL("../assets/night-audio-test.ogg", import.meta.url));
 
 /** How many times an S2's link is tried before Luna gives that mail up. */
@@ -205,6 +212,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     demoPage,
     landingPage,
     soonPage,
+    landingImages,
     nightAudio,
     sendNightAudio: nightAudioSender(canal, nightAudio),
     operatorKey: options.demoOperatorKey,

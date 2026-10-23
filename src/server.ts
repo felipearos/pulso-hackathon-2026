@@ -9,6 +9,8 @@ export interface Deps {
   landingPage: Blob;
   /** Stands in for `/empezar` and `/entrar` until sign-up and sign-in exist. */
   soonPage: Blob;
+  /** The landing's photos by file name, served on `/img/<name>`; nothing outside this map is reachable. */
+  landingImages: Record<string, Blob>;
   nightAudio: Blob;
   sendNightAudio: () => Promise<NightAudioResult>;
   /** The operator's key for the routes that move the clock; unset leaves the room view-only. */
@@ -25,6 +27,8 @@ export const OPERATOR_KEY_HEADER = "x-demo-key";
 
 /** The routes the landing links to, answered with the coming-soon page for now. */
 const SOON_PATHS = new Set(["/empezar", "/entrar"]);
+
+const IMAGE_ROUTE = /^\/img\/([a-z0-9-]+\.webp)$/;
 
 const HTML = { "Content-Type": "text/html; charset=utf-8" };
 
@@ -56,6 +60,12 @@ export function createHandler(deps: Deps): (request: Request) => Promise<Respons
       if (pathname === "/health") return Response.json({ status: "ok" });
       if (pathname === "/") return new Response(deps.landingPage, { headers: HTML });
       if (SOON_PATHS.has(pathname)) return new Response(deps.soonPage, { headers: HTML });
+      const image = IMAGE_ROUTE.exec(pathname)?.[1];
+      if (image && Object.hasOwn(deps.landingImages, image)) {
+        return new Response(deps.landingImages[image], {
+          headers: { "Content-Type": "image/webp", "Cache-Control": "public, max-age=86400" },
+        });
+      }
       if (pathname === "/demo") return new Response(deps.demoPage, { headers: HTML });
       if (pathname === "/demo/state") return Response.json(snapshotAt(moment));
       if (pathname === NIGHT_AUDIO_URL) {
