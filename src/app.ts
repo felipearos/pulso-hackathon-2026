@@ -113,7 +113,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
       // Mail first, so tonight's cita is decided with every señal already in.
       await pollMail();
       // Fourteen days without a reply silence Luna before tonight's slot is decided.
-      pauseIfSilent(store, clock.now());
+      pauseIfSilent(ports.db, store, clock.now());
       scheduler.tick();
       await sender.tick();
     },

@@ -7,8 +7,8 @@ import { returnFromPausa } from "./pausa";
 import { answerPregunta, lastAnswerAt } from "./preguntas";
 import { decideEtapa, type Angustia, type Etapa, type EtapaInput, type EtapaMove, type Intencion } from "./policy";
 
-/** `db`, when given, lets a pausa or a return land with its decision in one transaction. */
-export type RespuestaDeps = { store: Store; llm: Llm; whatsapp: WhatsApp; db?: Database };
+/** `db` lets a pausa or a return land with its decision in one transaction. */
+export type RespuestaDeps = { store: Store; llm: Llm; whatsapp: WhatsApp; db: Database };
 
 export type MensajeInput = { text: string; whatsappId: string | null };
 
@@ -61,6 +61,14 @@ function buildInput(store: Store, intencion: Intencion): EtapaInput {
   };
 }
 
+function isDownOrCrisis(intencion: Intencion): boolean {
+  return (
+    intencion.kind === "crisis" ||
+    intencion.kind === "doesNotWantToSee" ||
+    (intencion.kind === "angustia" && intencion.value >= 4)
+  );
+}
+
 /**
  * Takes one message from Patricia (text or voice-note transcript), classifies
  * it, lets the política de etapa decide and stores the move with its decision.
@@ -72,10 +80,11 @@ function buildInput(store: Store, intencion: Intencion): EtapaInput {
 export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): Promise<EtapaMove> {
   const { store, llm, db } = deps;
   const intencion = await classifyIntencion(input.text, llm);
-  const etapaInput = buildInput(store, intencion);
-  const atomically = (fn: () => void) => (db ? db.transaction(fn)() : fn());
+  const atomically = (fn: () => void) => db.transaction(fn)();
 
   const { enPausa, etapa } = store.getPatricia();
+  // Read before the message is stored; a return reads it again after the etapa is recalculated.
+  const inputBefore = enPausa ? null : buildInput(store, intencion);
   const mensaje = store.addMensajeEntrante({ text: input.text, intencion, whatsappId: input.whatsappId });
   const now = mensaje.receivedAt;
 
@@ -108,12 +117,16 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
         datos: { desde: desde.toISOString(), missedCycles, from, to },
       });
     });
-    if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
-      await answerPregunta(deps, intencion.kind);
+    // A crisis, a high angustia or «no quiero ver» still go through the política, from the etapa she returns to.
+    if (!isDownOrCrisis(intencion)) {
+      if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
+        await answerPregunta(deps, intencion.kind);
+      }
+      return { kind: rank(to) < rank(from) ? "down" : "stay", from, to, reason };
     }
-    return { kind: rank(to) < rank(from) ? "down" : "stay", from, to, reason };
   }
 
+  const etapaInput = inputBefore ?? buildInput(store, intencion);
   const move = decideEtapa(etapaInput);
   // The whole input the política read, so the control room can show why.
   const datos = { text: input.text, input: etapaInput, move };

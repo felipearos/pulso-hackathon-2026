@@ -10,6 +10,7 @@ const LLM: Array<[string, string]> = [
   ["Escribe el guion", "Hola, Patricia. Qué bueno escucharte de nuevo. Estás al día. ¿Cómo estás hoy?"],
   ["pausa", '{"intencion":"pause"}'],
   ["hola", '{"intencion":"hello"}'],
+  ["estoy súper mal", '{"intencion":"angustia","valor":5}'],
 ];
 
 function setup(): TestApp {
@@ -149,6 +150,7 @@ describe("pausa", () => {
 
     expect(t.whatsapp.outbox).toEqual([]);
     expect(t.app.store.pendientes().map((p) => p.tipo)).toEqual(["bienvenida-de-vuelta"]);
+    expect(ofTipo(t, "diferir").map((d) => d.motivo)).toEqual(["diferido por madrugada"]);
     await tickUntil(t, "2026-10-29T22:30");
     expect(t.app.store.citaOn("2026-10-29")).toMatchObject({ tipo: "bienvenida-de-vuelta", estado: "programada" });
     expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
@@ -165,5 +167,18 @@ describe("pausa", () => {
     expect(t.app.store.getPatricia().enPausa).toBe(true);
     expect(t.app.store.decisions()).toHaveLength(before);
     expect(ofTipo(t, "vuelta")).toEqual([]);
+  });
+
+  test("a return with angustia 5 still goes down one more etapa through the política", async () => {
+    const t = setup();
+    toEtapa4(t);
+    await t.app.receiveMensaje({ text: "pausa", whatsappId: null });
+    t.clock.advance(35 * DAY_MS);
+
+    const move = await t.app.receiveMensaje({ text: "estoy súper mal", whatsappId: null });
+
+    expect(ofTipo(t, "vuelta")).toHaveLength(1);
+    expect(move).toMatchObject({ kind: "down", from: 3, to: 2 });
+    expect(t.app.store.getPatricia()).toMatchObject({ etapa: 2, enPausa: false });
   });
 });

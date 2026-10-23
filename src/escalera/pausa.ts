@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import type { Etapa } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import { etapaOnReturn } from "./policy";
@@ -21,17 +22,19 @@ export function lastContactAt(store: Store): Date | null {
  * contact. Luna sends nothing: the pausa itself is the answer. A graduada
  * hears from Luna once a month, so two quiet weeks are her normal rhythm.
  */
-export function pauseIfSilent(store: Store, now: Date): void {
+export function pauseIfSilent(db: Database, store: Store, now: Date): void {
   const { enPausa, etapa } = store.getPatricia();
   if (enPausa || etapa === "graduada") return;
   const last = lastContactAt(store);
   if (last === null || now.getTime() - last.getTime() < SILENCE_MS) return;
-  store.updatePatricia({ enPausa: true });
-  store.recordDecision({
-    tipo: "pausa",
-    motivo: "en pausa: 14 días sin respuesta",
-    datos: { desde: last.toISOString() },
-  });
+  db.transaction(() => {
+    store.updatePatricia({ enPausa: true });
+    store.recordDecision({
+      tipo: "pausa",
+      motivo: "en pausa: 14 días sin respuesta",
+      datos: { desde: last.toISOString() },
+    });
+  })();
 }
 
 /** When the current pausa started: the `desde` of the latest pausa decision, or `fallback` if there is none. */
