@@ -1,7 +1,9 @@
-import { handle } from "./server";
+import { createApp } from "./app";
+import { realPorts } from "./real-ports";
 
+const app = createApp(realPorts());
 const port = Number(process.env.PORT ?? 3000);
-const server = Bun.serve({ hostname: process.env.HOST, port, fetch: handle });
+const server = Bun.serve({ hostname: process.env.HOST, port, fetch: app.handle });
 console.log(`listening on ${server.url}`);
 
 // systemd stops the app with SIGTERM on every deploy. Finishing in-flight
