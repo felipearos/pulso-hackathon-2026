@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { ESTADO_DE_CUENTA_8_CIFRAS, ESTADO_DE_CUENTA_8_TEXTO } from "../figures/fixtures/estado-de-cuenta-8";
 import { createApp } from "../app";
 import { openDatabase } from "../db";
-import { FakeClock, FakeMail, FakeVoice, FakeWhatsApp } from "../fakes";
+import { FakeClock, FakeMail, FakeVoice, FakeWeb, FakeWhatsApp } from "../fakes";
 import type { Llm } from "../ports";
 import { createTestApp } from "../testing";
 import { BANCO_ANDINO_MINIMUM_RULE } from "./estado-de-cuenta";
@@ -110,6 +110,7 @@ describe("extractEstadoDeCuenta", () => {
       whatsapp: new FakeWhatsApp(),
       llm,
       voice: new FakeVoice(),
+      web: new FakeWeb(),
       db: openDatabase(":memory:"),
     };
     const app = createApp(ports);
