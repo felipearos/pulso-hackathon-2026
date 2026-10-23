@@ -17,8 +17,8 @@ export class MissingEnvError extends Error {
 }
 
 /**
- * The system clock. This adapter is the one place allowed to read system time
- * (ADR 0002); ticket #22 replaces it with the SQLite demo clock.
+ * The system clock: the time source the reloj de demo runs on, and the one
+ * place allowed to read system time (ADR 0002).
  */
 export const systemClock: Clock = {
   now: () => new Date(),
