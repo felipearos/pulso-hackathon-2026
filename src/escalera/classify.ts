@@ -98,7 +98,7 @@ function parseIntencion(reply: string): Intencion {
   }
 }
 
-function isOnlyEmoji(message: string, emoji: "👍" | "👌"): boolean {
+export function isOnlyEmoji(message: string, emoji: "👍" | "👌"): boolean {
   const modifier = "[🏻-🏿]";
   const pattern = emoji === "👍" ? new RegExp(`^(?:👍️?${modifier}?)+$`, "u") : new RegExp(`^(?:👌️?${modifier}?)+$`, "u");
   return pattern.test(message.trim());

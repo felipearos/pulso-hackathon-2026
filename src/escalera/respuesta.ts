@@ -1,4 +1,5 @@
 import type { Store } from "../patricia/store";
+import { answerEleccion } from "../plata/jueves";
 import type { Llm, WhatsApp } from "../ports";
 import { classifyIntencion } from "./classify";
 import { answerPregunta, lastAnswerAt } from "./preguntas";
@@ -60,14 +61,15 @@ function buildInput(store: Store, intencion: Intencion): EtapaInput {
 /**
  * Takes one message from Patricia (text or voice-note transcript), classifies
  * it, lets the política de etapa decide and stores the move with its decision.
- * Luna replies only to «¿por qué?» and «¿qué leíste?», after the move is stored.
+ * Luna replies only to «¿por qué?» and «¿qué leíste?», and to her choice on the
+ * jueves propuesta (src/plata/jueves.ts), after the move is stored.
  */
 export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): Promise<EtapaMove> {
   const { store, llm } = deps;
   const intencion = await classifyIntencion(input.text, llm);
   const etapaInput = buildInput(store, intencion);
 
-  store.addMensajeEntrante({ text: input.text, intencion, whatsappId: input.whatsappId });
+  const mensaje = store.addMensajeEntrante({ text: input.text, intencion, whatsappId: input.whatsappId });
 
   const move = decideEtapa(etapaInput);
   // The whole input the política read, so the control room can show why.
@@ -90,5 +92,6 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
   if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
     await answerPregunta(deps, intencion.kind);
   }
+  await answerEleccion(deps, mensaje, intencion);
   return move;
 }
