@@ -252,6 +252,9 @@ choice of the mínimo; for the política de etapa it still reads as escuchó.
 Both choices get the same warm reply, never a comparison; the one addition
 is the recordatorio del bolsillo on a 👍, when she has a named bolsillo. A
 week without pedidos pagados has no propuesta and no mention of one.
+Two «no» to it (👌 or a bare no, which gets no reply) and Luna stops
+proposing it until the next estado de cuenta del banco arrives; the silence is
+written to the registro de decisiones.
 _Avoid:_ "meta de ahorro", "desafío".
 
 ## Bolsillo
