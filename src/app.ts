@@ -8,6 +8,7 @@ import type { EtapaMove } from "./escalera/policy";
 import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
 import { extractEstadoDeCuenta, linkDelEstadoDeCuenta } from "./mail/estado-de-cuenta";
 import { receiveMail } from "./mail/ingest";
+import { createPermitir } from "./mail/permitir";
 import { allowedSenderDomains } from "./mail/senders";
 import type { Extraccion, Senal } from "./patricia/entities";
 import { resetPatricia } from "./patricia/fixtures";
@@ -90,6 +91,10 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
       intentosS2.delete(mail.id);
     }
   };
+  // How many polls in a row failed. The poll keeps trying every tick, but only
+  // the first failure of a run is logged and recorded, so a Gmail outage left
+  // alone all night writes two lines, not one per minute.
+  let failedPolls = 0;
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
     if (!store.getPatricia().gmailPermitido) return;
@@ -104,9 +109,21 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     try {
       mails = await ports.mail.fetchNew(allowedSenderDomains());
     } catch (error) {
-      // Error policy, backoff and its decision belong to ticket #27.
-      console.error(`mail: fetchNew failed: ${error instanceof Error ? error.message : String(error)}`);
+      failedPolls += 1;
+      if (failedPolls === 1) {
+        const message = errorMessage(error);
+        console.error(`mail: fetchNew failed, retrying every tick quietly: ${message}`);
+        store.recordDecision({
+          tipo: "error-correo",
+          motivo: "No pude leer el Gmail de Patricia; sigo intentando en cada vuelta sin repetir el aviso",
+          datos: { error: message },
+        });
+      }
       return;
+    }
+    if (failedPolls > 0) {
+      console.error(`mail: fetchNew is back after ${failedPolls} failed polls`);
+      failedPolls = 0;
     }
     for (const mail of mails) {
       try {
@@ -114,7 +131,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
         if (tipo === "S1" || tipo === "S2") await extractOrKeep(mail);
       } catch (error) {
         // One mail that fails must not cost the rest of the batch.
-        console.error(`mail: ${mail.id} failed: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(`mail: ${mail.id} failed: ${errorMessage(error)}`);
       }
     }
   };
@@ -127,13 +144,15 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     voice: ports.voice,
     whatsapp: ports.whatsapp,
   });
+  const permitir = createPermitir({ mail: ports.mail, store, clock: ports.clock });
+  const routes = createHandler({
+    demoPage,
+    nightAudio,
+    sendNightAudio: nightAudioSender(ports.whatsapp, nightAudio),
+    operatorKey: options.demoOperatorKey,
+  });
   return {
-    handle: createHandler({
-      demoPage,
-      nightAudio,
-      sendNightAudio: nightAudioSender(ports.whatsapp, nightAudio),
-      operatorKey: options.demoOperatorKey,
-    }),
+    handle: (request) => permitir.handle(request) ?? routes(request),
     tick: async () => {
       // Mail first, so tonight's cita is decided with every señal already in.
       await pollMail();
@@ -149,4 +168,8 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     receiveMensaje: (input) => receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp, db: ports.db }, input),
     reset: () => resetPatricia(ports.db, clock),
   };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

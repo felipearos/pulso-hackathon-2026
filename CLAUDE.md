@@ -143,6 +143,8 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `HOST` | none (unit) | listen address; unset means all interfaces |
 | `GMAIL_CLIENT_ID` | dev, prd | mail port: Gmail OAuth client |
 | `GMAIL_CLIENT_SECRET` | dev, prd | mail port: Gmail OAuth client |
+| `GMAIL_REDIRECT_URI` | dev, prd | mail port: the OAuth callback registered in Google, `<public URL>/gmail/callback` (prd: `https://desktop.taild8ed7e.ts.net/gmail/callback`, dev: `http://localhost:3000/gmail/callback`) |
+| `GMAIL_SMOKE` | none (command line) | set it for one run to let the Gmail smoke test read the real inbox of the base's connected account |
 | `WHATSAPP_ACCESS_TOKEN` | dev, prd | whatsapp port: Meta WhatsApp Cloud token |
 | `WHATSAPP_PHONE_NUMBER_ID` | dev, prd | whatsapp port: sending number in Meta |
 | `WHATSAPP_RECIPIENT_PHONE` | dev, prd | whatsapp port: Patricia's number, international form |

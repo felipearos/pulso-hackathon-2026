@@ -136,7 +136,11 @@ export type TipoDecision =
   /** She went into pausa: she asked for it, or 14 days passed without a reply. */
   | "pausa"
   /** She came back from a pausa: the etapa she returns to and why. */
-  | "vuelta";
+  | "vuelta"
+  /** Patricia gave her «Permitir» and Luna may read her Gmail. */
+  | "permitir-correo"
+  /** Reading Gmail failed; one entry per run of failed polls, not per poll. */
+  | "error-correo";
 
 /** One entry of the append-only decision log. */
 export type Decision = {
