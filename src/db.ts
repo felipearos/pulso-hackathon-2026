@@ -150,12 +150,25 @@ export function openDatabase(path: string): Database {
 /**
  * Applies the steps the database has not seen yet, each in its own transaction,
  * and records them in `schema_migrations`. Running it again is a no-op.
+ * Throws, applying nothing, when a version is recorded under another step's name.
  */
 export function migrate(db: Database, steps: readonly Migration[] = migrations): number[] {
   db.run("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL)");
-  const done = new Set(
-    db.query<{ version: number }, []>("SELECT version FROM schema_migrations").all().map((row) => row.version),
+  const done = new Map(
+    db
+      .query<{ version: number; name: string }, []>("SELECT version, name FROM schema_migrations")
+      .all()
+      .map((row) => [row.version, row.name]),
   );
+  // Two steps sharing a version would otherwise skip the second one silently.
+  for (const step of steps) {
+    const recorded = done.get(step.version);
+    if (recorded !== undefined && recorded !== step.name) {
+      throw new Error(
+        `migration ${step.version} is recorded as "${recorded}" but the step with that version is "${step.name}"`,
+      );
+    }
+  }
   const applied: number[] = [];
   for (const step of [...steps].sort((a, b) => a.version - b.version)) {
     if (done.has(step.version)) continue;
