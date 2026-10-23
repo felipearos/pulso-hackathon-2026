@@ -3,7 +3,7 @@ import type { IncomingMail } from "../ports";
 
 /**
  * One fictional mail of each kind Patricia gets, with the case's figures.
- * Every sender, link and amount is invented; domains use `.example` (RFC 2606).
+ * Every sender, link and monto is invented; domains use `.example` (RFC 2606).
  */
 
 export const SAMPLE_BANCO: IncomingMail = {
@@ -39,7 +39,7 @@ export const SAMPLE_CUOTAS: IncomingMail = {
   id: "muestra-compra-en-cuotas",
   from: "Banco Andino <avisos@bancoandino.example>",
   subject: "Confirmamos tu compra en 6 cuotas",
-  text: "Compra en Tienda Plaza por $38.000 con tu Tarjeta Andina Visa terminada en 0000, en 6 cuotas de $6.334.",
+  text: "Compra en Tienda Ejemplo por $38.000 con tu Tarjeta Andina Visa terminada en 0000, en 6 cuotas de $6.334.",
   receivedAt: new Date("2026-10-23T20:00:00.000-03:00"),
   links: ["https://bancoandino.example/movimientos/compra"],
 };

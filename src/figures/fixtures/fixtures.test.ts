@@ -29,8 +29,8 @@ function months(result: Payoff): number {
   return result.months;
 }
 
-/** How a figure is printed on the estados de cuenta: «$41.900». */
-function impreso(pesos: number): string {
+/** How a monto is printed on the estados de cuenta: «$41.900». */
+function printed(pesos: number): string {
   return `$${pesos.toLocaleString("es-CL")}`;
 }
 
@@ -39,9 +39,9 @@ describe.each(FIXTURES)("%s", (_name, texto, cifras, rule, pdf) => {
     expect(minimumPayment(cifras.totalFacturado!, rule)).toBe(cifras.pagoMinimo!);
   });
 
-  test("prints every amount it says the extractor reads", () => {
+  test("prints every monto it says the extractor reads", () => {
     for (const pesos of [cifras.pagoMinimo!, cifras.totalFacturado!, cifras.cupo!, ...cifras.pagosAnteriores!.map((p) => p.monto)]) {
-      expect(texto).toContain(impreso(pesos));
+      expect(texto).toContain(printed(pesos));
     }
   });
 
@@ -68,11 +68,13 @@ describe("the case's figures", () => {
     expect(months(figures.fixedPayment)).toBe(17);
   });
 
-  test("estado de cuenta 9 follows the 8th after paying 50.000: the rest plus a month of interest", () => {
+  test("estado de cuenta 9 follows the 8th after paying 50.000: the rest, a month of interest and the new cuotas", () => {
     const eight = ESTADO_DE_CUENTA_8_CIFRAS;
     const nine = ESTADO_DE_CUENTA_9_CIFRAS;
+    // First cuota of the story's compras: 45.000 in 3 and 38.000 in 6, the odd peso on the first.
+    const newCuotas = 15_000 + 6_334;
 
-    expect(nine.totalFacturado).toBe(Math.round((eight.totalFacturado! - 50_000) * (1 + eight.tasaMensual!)));
+    expect(nine.totalFacturado).toBe(Math.round((eight.totalFacturado! - 50_000) * (1 + eight.tasaMensual!)) + newCuotas);
     expect(nine.pagosAnteriores!.at(-1)).toEqual({ monto: 50_000, aTiempo: true });
     expect(nine.fechaCierre).toBe("2026-11-15");
   });
