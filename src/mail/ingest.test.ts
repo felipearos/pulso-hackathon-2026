@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { createTestApp } from "../testing";
+import { SAMPLE_MAILS } from "./samples";
 
 const receivedAt = new Date("2026-10-19T08:00:00-03:00");
 
 /** The test app with Patricia's «Permitir» given, so `tick` reads the mail port. */
-function createAllowedApp() {
-  const testApp = createTestApp();
+function createAllowedApp(options: Parameters<typeof createTestApp>[0] = {}) {
+  const testApp = createTestApp(options);
   testApp.app.store.updatePatricia({ gmailPermitido: true });
   return testApp;
 }
@@ -38,22 +39,94 @@ describe("receiveMail", () => {
     });
   });
 
-  test("a catalogue promo is stored as ignorado with its decision", async () => {
-    const { app, mail } = createAllowedApp();
-    mail.inject({ id: "promo", from: "ofertas@catalogoaurora.example", subject: "Nueva campaña de otoño", receivedAt });
+  test.each([
+    {
+      id: "ambiguous-bank",
+      from: "Banco Andino <avisos@bancoandino.example>",
+      subject: "Información importante de tu tarjeta",
+      text: "El monto facturado fue $89.000 y el pago mínimo es $12.000.",
+      tipo: "S1",
+    },
+    {
+      id: "ambiguous-store",
+      from: "Tienda Plaza <cuenta@tiendaplaza.example>",
+      subject: "Tu documento del mes",
+      text: "Ya puedes revisar el resumen mensual de tu cuenta de Tienda Plaza.",
+      tipo: "S2",
+    },
+    {
+      id: "ambiguous-installment",
+      from: "Banco Andino <avisos@bancoandino.example>",
+      subject: "Movimiento aprobado en Farmacia Sol",
+      text: "Registramos una compra que se pagará en cuatro pagos mensuales.",
+      tipo: "S4",
+    },
+  ] as const)("asks Claude to classify the ambiguous $tipo mail", async ({ id, from, subject, text, tipo }) => {
+    const { app, mail, llm } = createAllowedApp({ llm: [[subject, `{"tipo":"${tipo}","confianza":0.91}`]] });
+    mail.inject({ id, from, subject, text, receivedAt });
     await app.tick();
-    expect(app.store.senales().map((s) => s.tipo)).toEqual(["ignorado"]);
-    expect(app.store.decisions()).toHaveLength(1);
-    expect(app.store.decisions()[0]!.motivo).not.toBe("");
+
+    expect(llm.calls).toHaveLength(1);
+    expect(app.store.senales().map((senal) => senal.tipo)).toEqual([tipo]);
+    expect(app.store.decisions()[0]!.motivo).toContain("Claude");
+    expect(app.store.decisions()[0]!.datos).toEqual(expect.objectContaining({ tipo }));
   });
 
-  test("a mail the rules cannot tell is stored as ignorado with a motivo saying so", () => {
-    const { app } = createAllowedApp();
-    const senal = app.receiveMail({
-      id: "x", from: "avisos@bancoandino.example", subject: "Actualiza tus datos", text: "", receivedAt, links: [],
+  test("an LLM failure leaves an ambiguous mail ignored with the fallback motivo", async () => {
+    const { app, mail, llm } = createAllowedApp();
+    mail.inject({
+      id: "llm-failure",
+      from: "avisos@bancoandino.example",
+      subject: "Movimiento de octubre",
+      text: "Hay novedades en tu cuenta.",
+      receivedAt,
     });
-    expect(senal?.tipo).toBe("ignorado");
-    expect(app.store.decisions()[0]!.motivo).toContain("reglas no supieron");
+    await app.tick();
+
+    expect(llm.calls).toHaveLength(1);
+    expect(app.store.senales()[0]?.tipo).toBe("ignorado");
+    expect(app.store.decisions()[0]?.motivo).toContain("Claude no supo clasificarlo con confianza");
+  });
+
+  test("a low-confidence LLM result leaves an ambiguous mail ignored", async () => {
+    const subject = "Movimiento especial de octubre";
+    const { app, mail, llm } = createAllowedApp({
+      llm: [[subject, '{"tipo":"S1","confianza":0.2}']],
+    });
+    mail.inject({ id: "low-confidence", from: "avisos@bancoandino.example", subject, receivedAt });
+    await app.tick();
+
+    expect(llm.calls).toHaveLength(1);
+    expect(app.store.senales()[0]?.tipo).toBe("ignorado");
+    expect(app.store.decisions()[0]?.motivo).toContain("Claude no supo clasificarlo con confianza");
+  });
+
+  test("stores a suspicious sample as S7 without asking Claude", async () => {
+    const { app, mail, llm } = createAllowedApp();
+    mail.inject({ ...SAMPLE_MAILS.falso, links: [...SAMPLE_MAILS.falso.links] });
+    await app.tick();
+
+    expect(app.store.senales()).toHaveLength(1);
+    expect(app.store.senales()[0]).toMatchObject({
+      tipo: "S7",
+      origen: {
+        mailId: SAMPLE_MAILS.falso.id,
+        from: SAMPLE_MAILS.falso.from,
+        subject: SAMPLE_MAILS.falso.subject,
+      },
+    });
+    expect(app.store.decisions()[0]?.motivo).toContain("No abrimos sus links");
+    expect(llm.calls).toEqual([]);
+  });
+
+  test("classifies a catalogue promo as ignored without asking Claude", async () => {
+    const { app, mail, llm } = createAllowedApp();
+    mail.inject({ ...SAMPLE_MAILS.publicidad, links: [...SAMPLE_MAILS.publicidad.links] });
+    await app.tick();
+
+    expect(app.store.senales().map((senal) => senal.tipo)).toEqual(["ignorado"]);
+    expect(app.store.decisions()).toHaveLength(1);
+    expect(llm.calls).toEqual([]);
   });
 
   test("off-list and look-alike senders store nothing and record nothing", async () => {
@@ -61,7 +134,7 @@ describe("receiveMail", () => {
     mail.inject({ from: "amiga@correo.example", subject: "Estado de cuenta", receivedAt });
     mail.inject({ from: "avisos@bancoandino.example.fraude.example", subject: "Estado de cuenta", receivedAt });
     await app.tick();
-    expect(app.receiveMail({
+    expect(await app.receiveMail({
       id: "direct", from: "avisos@bancoandin0.example", subject: "Estado de cuenta", text: "", receivedAt, links: [],
     })).toBeNull();
     expect(app.store.senales()).toEqual([]);
@@ -78,12 +151,22 @@ describe("receiveMail", () => {
     expect(app.store.decisions()).toHaveLength(1);
   });
 
-  test("calling the entry twice with the same mail returns the same señal", () => {
-    const { app } = createAllowedApp();
-    const incoming = { id: "twice", from: "avisos@tiendaplaza.example", subject: "Recibimos tu pago", text: "", receivedAt, links: [] };
-    const first = app.receiveMail(incoming);
-    const second = app.receiveMail(incoming);
-    expect(second).toEqual(first);
+  test("the same ambiguous mail calls Claude only once", async () => {
+    const subject = "Información mensual de tu tarjeta";
+    const { app, mail, llm } = createAllowedApp({ llm: [[subject, '{"tipo":"S1","confianza":0.9}']] });
+    const incoming = {
+      id: "llm-dup",
+      from: "avisos@bancoandino.example",
+      subject,
+      text: "El monto facturado está disponible.",
+      receivedAt,
+    };
+    mail.inject(incoming);
+    await app.tick();
+    mail.inject(incoming);
+    await app.tick();
+
+    expect(llm.calls).toHaveLength(1);
     expect(app.store.senales()).toHaveLength(1);
     expect(app.store.decisions()).toHaveLength(1);
   });

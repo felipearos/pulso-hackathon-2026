@@ -16,7 +16,7 @@ export type App = {
   /** Runs one pass at the clock's current time: reads new mail into señales if Patricia allowed it, then fixes the cita. */
   tick(): Promise<void>;
   /** Turns one mail into at most one señal; Gmail, the fake and the /demo injection all end here. */
-  receiveMail(mail: IncomingMail): Senal | null;
+  receiveMail(mail: IncomingMail): Promise<Senal | null>;
   /** Patricia's persisted state and the decision log. */
   store: Store;
   /** The demo clock: every domain time read goes through it (ADR 0002). */
@@ -34,7 +34,8 @@ export function createApp(ports: Ports): App {
   const clock = createDemoClock(ports.db, ports.clock);
   const store = createStore(ports.db, clock);
   // The señal and its decision land together or not at all.
-  const receive = (mail: IncomingMail) => ports.db.transaction(() => receiveMail(store, mail))();
+  const receive = (mail: IncomingMail) =>
+    receiveMail(store, ports.llm, mail, (fn) => ports.db.transaction(fn)());
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
     if (!store.getPatricia().gmailPermitido) return;
@@ -48,7 +49,7 @@ export function createApp(ports: Ports): App {
     }
     for (const mail of mails) {
       try {
-        receive(mail);
+        await receive(mail);
       } catch (error) {
         // One mail that fails must not cost the rest of the batch.
         console.error(`mail: ${mail.id} failed: ${error instanceof Error ? error.message : String(error)}`);
