@@ -67,6 +67,34 @@ describe("answerPregunta", () => {
     expect(app.store.decisions().at(-1)?.datos).toMatchObject({ sourceDecisionId: bienvenida.id });
   });
 
+  test.each([
+    ["jueves", "Te escribí porque tocaba nuestra cita del jueves, la que acordamos para mirar tus cuentas con calma."],
+    ["domingo", "Te escribí porque tocaba nuestra cita del domingo, la que acordamos para mirar tus cuentas con calma."],
+    ["bienvenida-de-vuelta", "Te escribí para darte la bienvenida de vuelta, nada más."],
+    ["graduada", "Te escribí porque tocaba nuestra cita del mes, para ver cómo sigues."],
+  ])("«¿por qué?» after a %s cita answers with its sentence", async (tipo, sentence) => {
+    const { app, clock, whatsapp } = createTestApp({ llm: llmTable() });
+    programarCita(app, tipo);
+    clock.advance(MINUTE);
+
+    await app.receiveMensaje({ text: WHY, whatsappId: null });
+
+    expect(whatsapp.outbox).toEqual([{ kind: "text", text: sentence }]);
+  });
+
+  test("«¿por qué?» after Luna proposed plata apartada says so", async () => {
+    const { app, clock, whatsapp } = createTestApp({ llm: llmTable() });
+    const propuesta = app.store.recordDecision({ tipo: "proponer-plata-apartada", motivo: "propuso apartar", datos: {} });
+    clock.advance(MINUTE);
+
+    await app.receiveMensaje({ text: WHY, whatsappId: null });
+
+    expect(whatsapp.outbox).toEqual([
+      { kind: "text", text: "Te escribí para proponerte dejar un poquito de plata apartada." },
+    ]);
+    expect(app.store.decisions().at(-1)?.datos).toMatchObject({ sourceDecisionId: propuesta.id });
+  });
+
   test("«¿por qué?» before Luna spoke on her own says so", async () => {
     const { app, whatsapp } = createTestApp({ llm: llmTable() });
 
@@ -93,8 +121,6 @@ describe("answerPregunta", () => {
 
     const text = "Leí solo correos de bancoandino.example y tiendaplaza.example. Nada más.";
     expect(whatsapp.outbox).toEqual([{ kind: "text", text }]);
-    expect(text).not.toContain("Estado de cuenta");
-    expect(text).not.toContain("cuotas");
     expect(app.store.decisions().at(-1)?.motivo).toBe("respondió qué leyó");
   });
 

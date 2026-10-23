@@ -5,7 +5,7 @@
  */
 
 import { senderDomain } from "../mail/senders";
-import type { Decision } from "../patricia/entities";
+import type { Decision, TipoCita } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { Llm, WhatsApp } from "../ports";
 import { SAFE_TEMPLATE, validateText } from "../validator/validator";
@@ -17,13 +17,17 @@ export type DraftedAnswer = { text: string; sourceDecisionId: number | null };
 const NOT_WRITTEN_YET = "Todavía no te he escrito por mi cuenta; solo te respondo cuando me hablas.";
 const NOTHING_READ = "Todavía no he leído ningún correo tuyo.";
 
-const CITA_REASONS: Readonly<Record<string, string>> = {
-  lunes: "Te escribí porque tocaba nuestra cita del lunes, la que acordamos para mirar tus cuentas con calma.",
-  jueves: "Te escribí porque tocaba nuestra cita del jueves, la que acordamos para mirar tus cuentas con calma.",
-  domingo: "Te escribí porque tocaba nuestra cita del domingo, la que acordamos para mirar tus cuentas con calma.",
+const weekCita = (day: string) =>
+  `Te escribí porque tocaba nuestra cita del ${day}, la que acordamos para mirar tus cuentas con calma.`;
+
+/** One sentence per cita tipo, so a new TipoCita cannot go without one. */
+const CITA_REASONS: Readonly<Record<TipoCita, string>> = {
+  lunes: weekCita("lunes"),
+  jueves: weekCita("jueves"),
+  domingo: weekCita("domingo"),
   bienvenida: "Te escribí para darte la bienvenida, nada más.",
   "bienvenida-de-vuelta": "Te escribí para darte la bienvenida de vuelta, nada más.",
-  graduada: "Te escribí porque es nuestra cita del mes, para ver cómo sigues.",
+  graduada: "Te escribí porque tocaba nuestra cita del mes, para ver cómo sigues.",
 };
 
 const PLATA_APARTADA_REASON = "Te escribí para proponerte dejar un poquito de plata apartada.";
@@ -37,7 +41,7 @@ function citaTipoOf(datos: unknown): string | null {
 function reasonFor(decision: Decision): string | null {
   if (decision.tipo === "proponer-plata-apartada") return PLATA_APARTADA_REASON;
   const tipo = citaTipoOf(decision.datos);
-  return tipo !== null && Object.hasOwn(CITA_REASONS, tipo) ? CITA_REASONS[tipo]! : null;
+  return tipo !== null && Object.hasOwn(CITA_REASONS, tipo) ? CITA_REASONS[tipo as TipoCita] : null;
 }
 
 function draftWhy(store: Store): DraftedAnswer {
