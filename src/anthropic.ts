@@ -1,6 +1,23 @@
-import type { Llm, LlmRequest } from "./ports";
+import type { Llm, LlmImage, LlmRequest } from "./ports";
 
 export const HAIKU_MODEL = "claude-haiku-5-5";
+
+/** The user message content: the plain prompt, or each image before the prompt. */
+function userContent(prompt: string, images: readonly LlmImage[] | undefined) {
+  if (!images || images.length === 0) return prompt;
+  return [
+    ...images.map((image) => ({
+      type: "image",
+      source: {
+        type: "base64",
+        // Anthropic takes the bare type: `image/jpeg; charset=…` is refused.
+        media_type: (image.mimeType.split(";")[0] ?? "").trim().toLowerCase(),
+        data: Buffer.from(image.bytes).toString("base64"),
+      },
+    })),
+    { type: "text", text: prompt },
+  ];
+}
 
 /** Creates a Claude messages client. */
 export function anthropicLlm(options: {
@@ -17,7 +34,7 @@ export function anthropicLlm(options: {
         model: request.model ?? options.model ?? HAIKU_MODEL,
         max_tokens: request.maxTokens ?? 256,
         ...(request.system === undefined ? {} : { system: request.system }),
-        messages: [{ role: "user", content: request.prompt }],
+        messages: [{ role: "user", content: userContent(request.prompt, request.images) }],
       };
       const response = await fetchFn("https://api.anthropic.com/v1/messages", {
         method: "POST",

@@ -1,8 +1,10 @@
 import type { MensajeInput } from "../escalera/respuesta";
 import type { EtapaMove } from "../escalera/policy";
+import { type CifrasExtraidas, extractCifrasDeFoto } from "../figures/extractor";
 import type { Store } from "../patricia/store";
 import type { Llm, Voice, WhatsApp } from "../ports";
 import { SAFE_TEMPLATE, validateText } from "../validator/validator";
+import { montoEnPantalla } from "../voz/montos";
 import type { InboundMensaje } from "./webhook";
 
 /**
@@ -11,12 +13,13 @@ import type { InboundMensaje } from "./webhook";
  * A text and an emoji follow the flujo normal: the clasificador de intención
  * reads them and the política de etapa decides, which is `receiveMensaje` in
  * `src/escalera/respuesta.ts`. A nota de voz is transcribed and its transcript
- * takes the same flujo normal. A foto has no reading yet (#51), so it is kept
- * unread: the entrante is still there, with no intención, and so is its line
- * in the registro de decisiones.
+ * takes the same flujo normal. A foto is read with Claude's vision and its
+ * cifras go into the flujo normal with a stand-in text, where Luna compares its
+ * pago mínimo with the estado de cuenta she has.
  *
- * It answers nothing, except when a nota de voz cannot be transcribed: then it
- * is kept unread too, and Luna asks calmly for an emoji instead.
+ * It answers nothing, except when a nota de voz cannot be transcribed or a foto
+ * cannot be read: then it is kept unread, with no intención but with its line
+ * in the registro de decisiones, and Luna answers calmly with an easier way.
  */
 
 export type InboundDeps = {
@@ -29,10 +32,10 @@ export type InboundDeps = {
    * decision already do.
    */
   inTransaction<T>(write: () => T): T;
-  /** Downloads a nota de voz and sends the answer when it cannot be heard. */
+  /** Downloads a nota de voz or a foto and sends the answer when it cannot be heard or read. */
   whatsapp: WhatsApp;
   voice: Voice;
-  /** The validador's tone review of that answer. */
+  /** Reads a foto, and the validador's tone review of that answer. */
   llm: Llm;
 };
 
@@ -43,8 +46,18 @@ export const NOTA_DE_VOZ_SIN_TRANSCRIBIR = "[nota de voz que no se pudo escuchar
 export const NOTA_DE_VOZ_NO_ESCUCHADA =
   "No alcancé a escuchar bien tu nota de voz. Si quieres, respóndeme con un emoji: 👍 si te parece, 👌 si solo la escuchaste.";
 
-/** Stands in for a foto until reading one lands (#51). */
-export const FOTO_SIN_LEER = "[foto, todavía no se lee]";
+/** Stands in for a foto Luna could not read. */
+export const FOTO_SIN_LEER = "[foto que no se pudo leer]";
+
+/** What Luna answers when she could not read a foto, or found no pago mínimo on it. */
+export const FOTO_NO_LEIDA = "No alcancé a ver bien tu foto. Si quieres, mándamela de nuevo, con más luz y mostrando el pago mínimo.";
+
+/** Stands in, as the entrante, for a foto Luna read. */
+export function textoFotoLeida(cifras: CifrasExtraidas): string {
+  return cifras.pagoMinimo === null
+    ? "[foto del estado de cuenta, sin pago mínimo legible]"
+    : `[foto del estado de cuenta: pago mínimo ${montoEnPantalla(cifras.pagoMinimo)}]`;
+}
 
 /** Stands in for any message kind Luna has no reading for. */
 export const MENSAJE_NO_ENTENDIDO = "[mensaje que Luna todavía no entiende]";
@@ -101,11 +114,27 @@ export async function receiveInbound(deps: InboundDeps, mensaje: InboundMensaje)
       return;
     }
     case "image": {
-      recordUnread(FOTO_SIN_LEER, `entrante: ${FOTO_SIN_LEER}`, {
-        kind: body.kind,
-        mediaId: body.mediaId,
-        mimeType: body.mimeType,
-      });
+      let cifras: CifrasExtraidas;
+      try {
+        const { whatsapp, llm } = deps;
+        if (!whatsapp.downloadMedia) throw new Error("the whatsapp port cannot download a foto");
+        const media = await whatsapp.downloadMedia(body.mediaId);
+        const read = await extractCifrasDeFoto({ bytes: media.bytes, mimeType: body.mimeType ?? media.mimeType }, llm);
+        if (read === null) throw new Error("the extractor could not read it");
+        cifras = read;
+      } catch (cause) {
+        const error = cause instanceof Error ? cause.message : String(cause);
+        console.error(`whatsapp: foto ${body.mediaId} could not be read: ${error}`);
+        recordUnread(FOTO_SIN_LEER, `entrante: ${FOTO_SIN_LEER} (no se pudo leer: ${error})`, {
+          kind: body.kind,
+          mediaId: body.mediaId,
+          mimeType: body.mimeType,
+          error,
+        });
+        await answerFotoNoLeida(deps);
+        return;
+      }
+      await deps.mensaje({ text: textoFotoLeida(cifras), whatsappId, arrival: { from, kind: body.kind }, foto: { cifras } });
       return;
     }
     case "other": {
@@ -118,16 +147,40 @@ export async function receiveInbound(deps: InboundDeps, mensaje: InboundMensaje)
   }
 }
 
+type AnswerDeps = { store: Store; llm: Llm; whatsapp: WhatsApp };
+
 /**
  * Asks for an emoji by WhatsApp text and logs it. Not stored as a
  * MensajeSaliente: that list holds the citas, so the emoji she sends next
  * answers the latest cita, as the nota de voz would have. During a pausa Luna
  * sends nothing: she cannot tell whether the nota de voz ended it.
  */
-async function answerNotaNoEscuchada(deps: InboundDeps): Promise<void> {
+async function answerNotaNoEscuchada(deps: AnswerDeps): Promise<void> {
+  await answerCalmly(deps, {
+    draft: NOTA_DE_VOZ_NO_ESCUCHADA,
+    motivo: "pidió un emoji porque no pudo escuchar la nota de voz",
+    what: "nota de voz",
+  });
+}
+
+/**
+ * Asks for the foto again when Luna could not read it, or found no pago
+ * mínimo on it. Like the nota de voz answer, not a cita, and silent during
+ * a pausa.
+ */
+export async function answerFotoNoLeida(deps: AnswerDeps): Promise<void> {
+  await answerCalmly(deps, {
+    draft: FOTO_NO_LEIDA,
+    motivo: "pidió el pago mínimo por escrito porque no pudo leer la foto",
+    what: "foto",
+  });
+}
+
+/** Validates, sends and logs one answer whose wording is fixed by code; nothing during a pausa. */
+async function answerCalmly(deps: AnswerDeps, answer: { draft: string; motivo: string; what: string }): Promise<void> {
   const { store, llm, whatsapp } = deps;
   if (store.getPatricia().enPausa) return;
-  const draft = NOTA_DE_VOZ_NO_ESCUCHADA;
+  const { draft } = answer;
   const validated = await validateText({
     draft,
     allowedFigures: [],
@@ -142,13 +195,13 @@ async function answerNotaNoEscuchada(deps: InboundDeps): Promise<void> {
   try {
     ({ id: whatsappId } = await whatsapp.send({ kind: "text", text: validated.text }));
   } catch (cause) {
-    console.error("Could not send the answer to Patricia's nota de voz", cause);
+    console.error(`Could not send the answer to Patricia's ${answer.what}`, cause);
     return;
   }
 
   store.recordDecision({
     tipo: "mensaje",
-    motivo: "pidió un emoji porque no pudo escuchar la nota de voz",
+    motivo: answer.motivo,
     datos: { text: validated.text, source: validated.source, whatsappId },
   });
 }

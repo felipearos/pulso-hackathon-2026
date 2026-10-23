@@ -1,4 +1,4 @@
-import type { Llm } from "../ports";
+import type { Llm, LlmImage } from "../ports";
 import type { CompraEnCuotas } from "./buena-noticia";
 
 /** One past payment as the estado de cuenta lists it. */
@@ -40,8 +40,7 @@ const MAX_TOKENS = 1500;
 
 // The model copies figures as printed; the code does the arithmetic (percent to
 // fraction, cuotas left), so the model never computes a number.
-const SYSTEM_PROMPT = `Lees el texto de un estado de cuenta (de un banco o de una tienda, en cualquier formato) y copias sus cifras.
-Responde SOLO un objeto JSON con exactamente estas claves:
+const REGLAS = `Responde SOLO un objeto JSON con exactamente estas claves:
 {"pagoMinimo":<entero>,"totalFacturado":<entero>,"cupo":<entero>,"tasaMensualPorcentaje":<número>,"fechaVencimiento":"AAAA-MM-DD","fechaCierre":"AAAA-MM-DD","mora":<entero>,"pagosAnteriores":[{"monto":<entero>,"aTiempo":<true|false>}],"comprasEnCuotas":[{"descripcion":"<texto>","cuotaActual":<entero>,"cuotasTotales":<entero>}]}
 Reglas:
 - Copia cada cifra exactamente como está impresa. Nunca calcules, redondees ni deduzcas una cifra. Si no la encuentras o dudas, usa null.
@@ -52,10 +51,21 @@ Reglas:
 - mora es el monto en mora en pesos; usa 0 solo si el texto dice explícitamente que no hay nada en mora (por ejemplo «Monto en mora: $0»); usa null si el texto no lo dice.
 - pagosAnteriores va del más antiguo al más reciente; aTiempo es true si se pagó en o antes de su vencimiento.
 - comprasEnCuotas copia la cuota impresa: «cuota 4 de 6» es cuotaActual 4 y cuotasTotales 6.
-- Si una lista no aparece en el texto, usa null.
-Ejemplo de un estado de cuenta sin ninguna cifra legible:
+- Si una lista no aparece en el texto, usa null.`;
+
+const CIERRE = `Ejemplo de un estado de cuenta sin ninguna cifra legible:
 {"pagoMinimo":null,"totalFacturado":null,"cupo":null,"tasaMensualPorcentaje":null,"fechaVencimiento":null,"fechaCierre":null,"mora":null,"pagosAnteriores":null,"comprasEnCuotas":null}
 No agregues explicaciones, formato Markdown ni texto fuera del JSON.`;
+
+const SYSTEM_PROMPT = `Lees el texto de un estado de cuenta (de un banco o de una tienda, en cualquier formato) y copias sus cifras.
+${REGLAS}
+${CIERRE}`;
+
+// A photo can blur or cut a figure; the model leaves it null rather than guess.
+const FOTO_SYSTEM_PROMPT = `Lees el texto o la foto de un estado de cuenta (de un banco o de una tienda, en cualquier formato) y copias sus cifras.
+${REGLAS}
+- Una cifra borrosa, cortada o ilegible en la foto es null.
+${CIERRE}`;
 
 function pesos(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
@@ -130,6 +140,24 @@ function parseReply(reply: string): Record<string, unknown> | null {
   }
 }
 
+/** Checks every field of Claude's reply; a doubtful one becomes null without discarding the others. */
+function cifras(reply: string): CifrasExtraidas | null {
+  const raw = parseReply(reply);
+  if (!raw) return null;
+
+  return {
+    pagoMinimo: pesos(raw.pagoMinimo),
+    totalFacturado: pesos(raw.totalFacturado),
+    cupo: pesos(raw.cupo),
+    tasaMensual: tasa(raw.tasaMensualPorcentaje),
+    fechaVencimiento: fecha(raw.fechaVencimiento),
+    fechaCierre: fecha(raw.fechaCierre),
+    mora: pesos(raw.mora),
+    pagosAnteriores: lista(raw.pagosAnteriores, pagoAnterior),
+    comprasEnCuotas: lista(raw.comprasEnCuotas, compraEnCuotas),
+  };
+}
+
 /**
  * Reads the figures of one estado de cuenta with Claude. Every field is checked
  * in code; a doubtful one becomes null without discarding the others. Never
@@ -153,19 +181,31 @@ export async function extractCifras(
   } catch {
     return null;
   }
+  return cifras(reply);
+}
 
-  const raw = parseReply(reply);
-  if (!raw) return null;
-
-  return {
-    pagoMinimo: pesos(raw.pagoMinimo),
-    totalFacturado: pesos(raw.totalFacturado),
-    cupo: pesos(raw.cupo),
-    tasaMensual: tasa(raw.tasaMensualPorcentaje),
-    fechaVencimiento: fecha(raw.fechaVencimiento),
-    fechaCierre: fecha(raw.fechaCierre),
-    mora: pesos(raw.mora),
-    pagosAnteriores: lista(raw.pagosAnteriores, pagoAnterior),
-    comprasEnCuotas: lista(raw.comprasEnCuotas, compraEnCuotas),
-  };
+/**
+ * Reads the same figures from a foto of an estado de cuenta: a screen capture
+ * of the tienda's portal or a photo of the paper one. Never throws, like
+ * `extractCifras`.
+ */
+export async function extractCifrasDeFoto(
+  foto: LlmImage,
+  llm: Llm,
+  options?: { timeoutMs?: number },
+): Promise<CifrasExtraidas | null> {
+  let reply: string;
+  try {
+    reply = await llm.complete({
+      model: EXTRACTOR_MODEL,
+      system: FOTO_SYSTEM_PROMPT,
+      prompt: "Foto de un estado de cuenta: copia sus cifras.",
+      images: [foto],
+      maxTokens: MAX_TOKENS,
+      timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    });
+  } catch {
+    return null;
+  }
+  return cifras(reply);
 }

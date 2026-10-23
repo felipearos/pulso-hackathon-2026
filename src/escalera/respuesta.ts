@@ -1,9 +1,15 @@
 import type { Database } from "bun:sqlite";
+import type { CifrasExtraidas } from "../figures/extractor";
+import { answerMinimoContado, guardarFotoComoEstadoDeCuenta } from "../figures/minimo-contado";
+import type { MensajeEntrante } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import { answerBolsillo } from "../plata/bolsillo";
 import { answerEleccion } from "../plata/jueves";
 import { answerCompraEnCuotas } from "../plata/verlo-manana";
 import type { Llm, WhatsApp } from "../ports";
+import { findFigures } from "../validator/validator";
+import { answerFotoNoLeida } from "../whatsapp/inbound";
+import { isMadrugada } from "../whatsapp-cloud";
 import { classifyIntencion } from "./classify";
 import { sendCrisisText } from "./crisis";
 import { returnFromPausa } from "./pausa";
@@ -19,10 +25,12 @@ export type MensajeInput = {
   /**
    * How it reached Luna, when it came in over WhatsApp. The registro de
    * decisiones keeps it, so the control room can tell a message Patricia typed
-   * from an emoji she reacted with or a nota de voz she spoke (its transcript
-   * is the text), and from whose number any of them arrived.
+   * from an emoji she reacted with, a nota de voz she spoke (its transcript
+   * is the text) or a foto she sent, and from whose number any of them arrived.
    */
-  arrival?: { from: string; kind: "text" | "reaction" | "audio"; toWhatsappId?: string | null };
+  arrival?: { from: string; kind: "text" | "reaction" | "audio" | "image"; toWhatsappId?: string | null };
+  /** The cifras read on a foto of an estado de cuenta; the text then only stands in for it. */
+  foto?: { cifras: CifrasExtraidas };
 };
 
 function rank(etapa: Etapa): number {
@@ -67,6 +75,22 @@ function answersDomingo(store: Store): boolean {
   return store.citas().find((cita) => cita.mensajeSalienteId === audio?.id)?.tipo === "domingo";
 }
 
+/**
+ * Whether Luna's latest message is the lunes cita, which asks her in etapa 5 to
+ * open the bank's estado de cuenta and tell its pago mínimo.
+ */
+function answersLunes(store: Store): boolean {
+  // An image follows its cita's audio: the cita is still the audio's.
+  const mensaje = store.mensajesSalientes().findLast((m) => m.kind !== "image");
+  if (mensaje === undefined) return false;
+  return store.citas().find((cita) => cita.mensajeSalienteId === mensaje.id)?.tipo === "lunes";
+}
+
+/** The first figure in a text that can be a pago mínimo: «el mínimo es 40.100» is 40100. */
+function minimoEn(text: string): number | null {
+  return findFigures(text).find((figure) => figure >= 1000) ?? null;
+}
+
 function buildInput(store: Store, intencion: Intencion): EtapaInput {
   let lastAngustia: Angustia | null = null;
   for (const mensaje of store.mensajesEntrantes()) {
@@ -97,11 +121,16 @@ function isDown(intencion: Intencion): boolean {
 }
 
 /**
- * Takes one message from Patricia (text or voice-note transcript), classifies
- * it, lets the política de etapa decide and stores the move with its decision.
- * Luna replies only to «¿por qué?» and «¿qué leíste?», and to her choice on the
- * jueves propuesta (src/plata/jueves.ts), the bolsillo question, and a compra en cuotas
- * (src/plata/verlo-manana.ts), after the move is stored.
+ * Takes one message from Patricia (text, voice-note transcript or the cifras
+ * of a foto), classifies it, lets the política de etapa decide and stores the
+ * move with its decision. A foto of her estado de cuenta is not classified: it
+ * does what the cita asked, so it is accepted.
+ * Luna replies only to «¿por qué?» and «¿qué leíste?», to her choice on the
+ * jueves propuesta (src/plata/jueves.ts), the bolsillo question, a compra en
+ * cuotas (src/plata/verlo-manana.ts), and to the
+ * pago mínimo she brings: a foto's (the tienda's in etapa 4, the bank's
+ * otherwise), or the one she tells in etapa 5 answering the lunes cita. All of
+ * them after the move is stored, and the mínimo never in the madrugada.
  * «Pausa» silences Luna; any other message during a pausa ends it with a
  * bienvenida de vuelta, one etapa down per estado de cuenta cycle she missed.
  * A crisis puts her in pausa and Luna sends the crisis text at once, at any
@@ -109,10 +138,14 @@ function isDown(intencion: Intencion): boolean {
  */
 export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): Promise<EtapaMove> {
   const { store, llm, db } = deps;
-  const intencion = await classifyIntencion(input.text, llm, { angustiaEsperada: answersDomingo(store) });
+  const intencion: Intencion = input.foto
+    ? { kind: "accepted" }
+    : await classifyIntencion(input.text, llm, { angustiaEsperada: answersDomingo(store) });
   const atomically = (fn: () => void) => db.transaction(fn)();
 
   const { enPausa, etapa } = store.getPatricia();
+  // The bank's mínimo she tells in etapa 5, answering the lunes cita.
+  const minimoContado = !enPausa && !input.foto && etapa === 5 && answersLunes(store) ? minimoEn(input.text) : null;
   // Read before the message is stored; a return reads it again after the etapa is recalculated.
   const inputBefore = enPausa ? null : buildInput(store, intencion);
   const mensaje = store.addMensajeEntrante({ text: input.text, intencion, whatsappId: input.whatsappId });
@@ -207,9 +240,42 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
   if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
     await answerPregunta(deps, intencion.kind);
   }
+  if (input.foto) {
+    // Stored at any hour; only the answer waits out the madrugada.
+    await answerFoto(deps, mensaje, input.foto.cifras, etapa === 4 ? "tienda" : "banco", !isMadrugada(now));
+    return move;
+  }
+  if (minimoContado !== null) {
+    if (!isMadrugada(now)) await answerMinimoContado(deps, { origen: "banco", contado: minimoContado, fuente: "texto" });
+    return move;
+  }
   const purchaseHandled = await answerCompraEnCuotas(deps, mensaje, intencion);
   if (!purchaseHandled && !(await answerBolsillo(deps, mensaje, intencion))) {
     await answerEleccion(deps, mensaje, intencion);
   }
   return move;
+}
+
+/**
+ * Answers a foto of an estado de cuenta of that origen: the tienda's in etapa
+ * 4, the bank's otherwise (a paper one, or the one etapa 5 asks her to open).
+ * With no stored estado de cuenta of that origen to compare it with, the foto
+ * becomes one, even when Luna does not `answer` (the madrugada).
+ */
+async function answerFoto(
+  deps: RespuestaDeps,
+  mensaje: MensajeEntrante,
+  cifras: CifrasExtraidas,
+  origen: "banco" | "tienda",
+  answer: boolean,
+): Promise<void> {
+  const { store } = deps;
+  const contado = cifras.pagoMinimo;
+  if (contado === null) {
+    if (answer) await answerFotoNoLeida(deps);
+    return;
+  }
+  const guardado = store.estadosDeCuenta().some((estado) => estado.origen === origen && estado.pagoMinimo !== null);
+  if (!guardado) guardarFotoComoEstadoDeCuenta(deps, { origen, cifras, whatsappId: mensaje.whatsappId });
+  if (answer) await answerMinimoContado(deps, { origen, contado, fuente: "foto", guardadaRecien: !guardado });
 }

@@ -105,7 +105,10 @@ _Avoid:_ "plan", "programme", "levels".
 
 One step of the escalera (etapa 1 «Mira Luna» … etapa 5 «Lo abre ella»,
 then graduada). Luna decides when Patricia moves up or back, and checks
-which etapa she is in when she returns.
+which etapa she is in when she returns. In etapa 4 Patricia brings the
+tienda's pago mínimo in a foto; in etapa 5 the bank's, in a foto or told in
+answer to the lunes cita. Luna celebrates that she opened it, and when the
+figures differ only says the one she has.
 _Avoid:_ "estado" (that is the estado de cuenta), "semana", "peldaño", "nivel".
 
 ## Cita
@@ -168,8 +171,12 @@ Anything Patricia sends Luna over WhatsApp: a text, an emoji she types, an
 emoji she reacts to Luna's audio with, a nota de voz or a foto. Every one is
 kept (`mensajes_entrantes`), with its intención once Luna can read it. A nota
 de voz is transcribed and read as a text; one that cannot be transcribed is
-kept unread and Luna asks for an emoji instead. A foto is kept unread until
-reading one lands. Reacting with an emoji
+kept unread and Luna asks for an emoji instead. A foto is read with Claude's
+vision and counts as accepting the cita: its pago mínimo is compared with the
+stored estado de cuenta (the tienda's in etapa 4, the bank's otherwise), or
+stored as a new one when there is none. A foto with no legible pago mínimo
+still counts as accepting; one that cannot be downloaded or read is kept
+unread. Either way Luna asks calmly for the foto again. Reacting with an emoji
 counts the same as typing it. Meta may deliver one twice, so each is taken in
 once, by its own id.
 _Avoid:_ "inbound message", "reply".
