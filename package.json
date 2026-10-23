@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "bun src/main.ts",
+    "reset": "bun src/patricia/reset-cli.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --deny-warnings src",
