@@ -142,7 +142,7 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | --- | --- | --- |
 | `DATABASE_PATH` | none (unit) | SQLite file; defaults to `data/pulso.db` locally |
 | `HOST` | none (unit) | listen address; unset means all interfaces |
-| `PUBLIC_BASE_URL` | none (optional) | public base of the «Permitir» link the bienvenida sends; defaults to the Funnel URL |
+| `PUBLIC_BASE_URL` | none (optional) | public base of the «Permitir» link the bienvenida sends and of the jurado QR (`/sala/qr/jurado`); defaults to the Funnel URL |
 | `GMAIL_CLIENT_ID` | dev, prd | mail port: Gmail OAuth client |
 | `GMAIL_CLIENT_SECRET` | dev, prd | mail port: Gmail OAuth client |
 | `GMAIL_REDIRECT_URI` | dev, prd | mail port: the OAuth callback registered in Google, `<public URL>/gmail/callback` (prd: `https://desktop.taild8ed7e.ts.net/gmail/callback`, dev: `http://localhost:3000/gmail/callback`) |
