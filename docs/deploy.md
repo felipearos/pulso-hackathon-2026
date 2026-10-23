@@ -11,7 +11,7 @@ programador de noches y responde el webhook de Meta) y el pc lo hace gratis.
 | --- | --- |
 | URL pública | `https://desktop.taild8ed7e.ts.net` |
 | Healthcheck | `https://desktop.taild8ed7e.ts.net/health` → `{"status":"ok"}` |
-| Webhook de Meta | `https://desktop.taild8ed7e.ts.net/<ruta>` cuando exista la ruta |
+| Webhook de Meta | `https://desktop.taild8ed7e.ts.net/webhook/whatsapp` |
 | Proceso | servicio systemd de usuario `pulso.service`, en `127.0.0.1:3010` |
 | Código en vivo | `~/pulso-live`, un checkout que sigue a `origin/main` |
 | Estado de Patricia | `~/.local/share/pulso/pulso.db` (SQLite, fuera del checkout) |
@@ -93,6 +93,52 @@ Si Gmail falla (token vencido o revocado, red), queda una línea en el log y
 una decisión `error-correo` en el registro por cada racha, no una por minuto,
 y el sondeo sigue intentando. Si el token fue revocado, basta abrir de nuevo
 el link de arriba.
+
+## WhatsApp: la app de Meta
+
+La app de Meta usa el número de prueba de WhatsApp Cloud, con el teléfono de
+Patricia agregado como destinatario. El webhook está suscrito al campo
+`messages` en `https://desktop.taild8ed7e.ts.net/webhook/whatsapp`.
+
+Las variables están en Doppler `dev` y `prd`: `WHATSAPP_ACCESS_TOKEN` (token
+de usuario del sistema, sin vencimiento), `WHATSAPP_PHONE_NUMBER_ID`,
+`WHATSAPP_RECIPIENT_PHONE`, `WHATSAPP_APP_SECRET` y `WHATSAPP_VERIFY_TOKEN`.
+Para comprobar el webhook desde afuera:
+
+```bash
+doppler run --config prd -- bash -c 'curl -s "https://desktop.taild8ed7e.ts.net/webhook/whatsapp?hub.mode=subscribe&hub.verify_token=$WHATSAPP_VERIFY_TOKEN&hub.challenge=4242"'
+# → 4242. Con otro token responde 403; un POST sin firma, 401.
+```
+
+Reaccionar con 👍 al audio de Luna cuenta igual que escribir 👍: sirve para
+probar el canal de entrada sin escribir nada.
+
+### La ventana de 24 horas y la plantilla `audio_noche`
+
+Meta acepta mensajes libres (el audio, el texto, la imagen) solo durante las
+24 horas siguientes al último mensaje de Patricia. Fuera de esa ventana, la
+cita sale como la plantilla aprobada `audio_noche` en vez del audio, y la
+siguiente cita, ya con la ventana abierta, lleva el audio. El nombre y el
+idioma de la plantilla se cambian con `WHATSAPP_TEMPLATE_NAME` y
+`WHATSAPP_TEMPLATE_LANGUAGE` (por defecto `audio_noche` y `es`).
+
+La ventana vive en memoria: **cada deploy la cierra**, aunque Patricia haya
+escrito hace cinco minutos. Se abre de nuevo con el próximo mensaje de ella.
+
+### Plan B: Patricia escribe «hola Luna»
+
+Si la plantilla no está aprobada para el sábado, no hace falta: antes del
+ensayo y antes del pitch, desde el teléfono de Patricia se escribe **«hola
+Luna»** al número de prueba. Eso abre la ventana por 24 horas y Luna responde
+al saludo. Desde ahí todo sale como audio, sin plantilla.
+
+Hay que escribirlo **después del último merge**, porque el deploy cierra la
+ventana. A partir de las 13:00 del sábado nadie mergea, así que un «hola Luna»
+entre las 13:00 y las 14:00 la deja abierta durante todos los pitches.
+
+Sin plantilla y con la ventana cerrada, Meta rechaza la cita: queda en el log
+como `whatsapp send failed` y no le llega nada a Patricia. Si eso pasa en
+vivo, escribir «hola Luna» antes de seguir con el guion de /sala.
 
 ## Si algo falla
 
