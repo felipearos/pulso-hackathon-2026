@@ -4,6 +4,9 @@ import { SAMPLE_MAILS } from "./samples";
 
 const receivedAt = new Date("2026-10-19T08:00:00-03:00");
 
+// An S1 also gets its estado de cuenta read by the extractor; only the classifying calls count here.
+const classifyCalls = (calls: { prompt: string }[]) => calls.filter((call) => !call.prompt.startsWith("Estado de cuenta:"));
+
 /** The test app with Patricia's «Permitir» given, so `tick` reads the mail port. */
 function createAllowedApp(options: Parameters<typeof createTestApp>[0] = {}) {
   const testApp = createTestApp(options);
@@ -66,7 +69,7 @@ describe("receiveMail", () => {
     mail.inject({ id, from, subject, text, receivedAt });
     await app.tick();
 
-    expect(llm.calls).toHaveLength(1);
+    expect(classifyCalls(llm.calls)).toHaveLength(1);
     expect(app.store.senales().map((senal) => senal.tipo)).toEqual([tipo]);
     expect(app.store.decisions()[0]!.motivo).toContain("Claude");
     expect(app.store.decisions()[0]!.datos).toEqual(expect.objectContaining({ tipo }));
@@ -83,7 +86,7 @@ describe("receiveMail", () => {
     });
     await app.tick();
 
-    expect(llm.calls).toHaveLength(1);
+    expect(classifyCalls(llm.calls)).toHaveLength(1);
     expect(app.store.senales()[0]?.tipo).toBe("ignorado");
     expect(app.store.decisions()[0]?.motivo).toContain("Claude no supo clasificarlo con confianza");
   });
@@ -96,7 +99,7 @@ describe("receiveMail", () => {
     mail.inject({ id: "low-confidence", from: "avisos@bancoandino.example", subject, receivedAt });
     await app.tick();
 
-    expect(llm.calls).toHaveLength(1);
+    expect(classifyCalls(llm.calls)).toHaveLength(1);
     expect(app.store.senales()[0]?.tipo).toBe("ignorado");
     expect(app.store.decisions()[0]?.motivo).toContain("Claude no supo clasificarlo con confianza");
   });
@@ -168,7 +171,7 @@ describe("receiveMail", () => {
     const again = await app.receiveMail({ ...incoming, links: [] });
 
     expect(again).toEqual(app.store.senales()[0]!);
-    expect(llm.calls).toHaveLength(1);
+    expect(classifyCalls(llm.calls)).toHaveLength(1);
     expect(app.store.senales()).toHaveLength(1);
     expect(app.store.decisions()).toHaveLength(1);
   });

@@ -92,7 +92,7 @@ describe("extractEstadoDeCuenta", () => {
     expect(callarCifra(app.store.decisions())).toHaveLength(0);
 
     const answering = createAllowedApp(FULL_REPLY);
-    answering.app.receiveMail(ec8);
+    await answering.app.receiveMail(ec8);
     expect(await answering.app.extractEstadoDeCuenta(ec8)).not.toBeNull();
   });
 
