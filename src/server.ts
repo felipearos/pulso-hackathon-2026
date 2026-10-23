@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NIGHT_AUDIO_URL, isMomentId, snapshotAt, type MomentId } from "./demo/moments";
 import type { NightAudioResult } from "./demo/night-audio";
+import type { Webhook } from "./whatsapp/webhook";
 
 export interface Deps {
   demoPage: Blob;
@@ -8,7 +9,12 @@ export interface Deps {
   sendNightAudio: () => Promise<NightAudioResult>;
   /** The operator's key for the routes that move the clock; unset leaves the room view-only. */
   operatorKey: string | undefined;
+  /** Meta's webhook, answered on `/webhook/whatsapp`. */
+  webhook: Webhook;
 }
+
+/** Where Meta is subscribed; the app answers both its challenge and its deliveries there. */
+const WEBHOOK_PATH = "/webhook/whatsapp";
 
 /** The header the control room sends its operator key in. */
 export const OPERATOR_KEY_HEADER = "x-demo-key";
@@ -28,7 +34,14 @@ export function createHandler(deps: Deps): (request: Request) => Promise<Respons
   let moment: MomentId | "start" = "start";
 
   return async (request) => {
-    const { pathname } = new URL(request.url);
+    const url = new URL(request.url);
+    const { pathname } = url;
+
+    // Meta first: its challenge and its deliveries carry no operator key.
+    if (pathname === WEBHOOK_PATH) {
+      if (request.method === "GET") return deps.webhook.verify(url);
+      if (request.method === "POST") return deps.webhook.receive(request);
+    }
 
     if (request.method === "GET") {
       if (pathname === "/health") return Response.json({ status: "ok" });
