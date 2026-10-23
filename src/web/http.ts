@@ -26,6 +26,7 @@ export function createHttpWeb(options: { fetch?: Fetch; timeoutMs?: number; maxB
         });
 
         if (response.status >= 300 && response.status < 400) {
+          await response.body?.cancel();
           const location = response.headers.get("location");
           if (!location) throw new Error(`web: redirect ${response.status} without a location from ${current.href}`);
           if (redirects >= MAX_REDIRECTS) throw new Error(`web: more than ${MAX_REDIRECTS} redirects from ${url}`);
@@ -47,12 +48,32 @@ export function createHttpWeb(options: { fetch?: Fetch; timeoutMs?: number; maxB
         if (Number.isFinite(declared) && declared > maxBytes) {
           throw new Error(`web: ${current.href} is ${declared} bytes, over the ${maxBytes} limit`);
         }
-        const body = new Uint8Array(await response.arrayBuffer());
-        if (body.byteLength > maxBytes) {
-          throw new Error(`web: ${current.href} is ${body.byteLength} bytes, over the ${maxBytes} limit`);
-        }
+        const body = await readCapped(response, maxBytes, current.href);
         return { contentType: response.headers.get("content-type") ?? "", body };
       }
     },
   };
+}
+
+/** The body, read in chunks and abandoned as soon as it passes `maxBytes`, so a huge page never sits in memory. */
+async function readCapped(response: Response, maxBytes: number, href: string): Promise<Uint8Array> {
+  if (!response.body) return new Uint8Array();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  const reader = response.body.getReader();
+  for (let read = await reader.read(); !read.done; read = await reader.read()) {
+    size += read.value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new Error(`web: ${href} is over the ${maxBytes} limit`);
+    }
+    chunks.push(read.value);
+  }
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
 }

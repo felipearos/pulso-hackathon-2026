@@ -70,7 +70,10 @@ export type Voice = {
 
 export type WebDocument = { contentType: string; body: Uint8Array };
 
-/** The web: downloads the page or PDF a mail links to, only from `domains` (allowed link domains); any other URL, or a redirect out of them, is refused. */
+/**
+ * The web: downloads the page or PDF a mail links to, only from `domains`
+ * (allowed link domains); any other URL, or a redirect out of them, is refused.
+ */
 export type Web = { fetchDocument(url: string, domains: readonly string[]): Promise<WebDocument> };
 
 /** Everything the app talks to. `main` passes the real ones, tests the fakes. */
@@ -81,7 +84,10 @@ export type Ports = {
   whatsapp: WhatsApp;
   llm: Llm;
   voice: Voice;
-  /** Where Luna downloads what a mail links to, only from allowed link domains. */
-  web: Web;
+  /**
+   * Where Luna downloads what a mail links to, only from allowed link domains.
+   * Optional while other branches still build `Ports` without it: unset refuses every link.
+   */
+  web?: Web;
   db: Database;
 };

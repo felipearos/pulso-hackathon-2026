@@ -318,3 +318,32 @@ describe("linkDelEstadoDeCuenta", () => {
     expect(linkDelEstadoDeCuenta(mail)?.href).toBe(statementUrl);
   });
 });
+
+describe("an S2 whose link keeps failing", () => {
+  test("is tried five times and then given up", async () => {
+    const { app, mail, web } = createTiendaApp(TIENDA_REPLY, {});
+    injectTienda(mail, "tp-dead");
+    for (let i = 0; i < 8; i++) await app.tick();
+
+    expect(web.calls).toHaveLength(5);
+    expect(app.store.estadosDeCuenta()).toEqual([]);
+  });
+
+  test("with no web port, nothing is stored and the app keeps running", async () => {
+    const ports = {
+      clock: new FakeClock(receivedAt),
+      mail: new FakeMail(),
+      whatsapp: new FakeWhatsApp(),
+      llm: { complete: async () => JSON.stringify(TIENDA_REPLY) },
+      voice: new FakeVoice(),
+      db: openDatabase(":memory:"),
+    };
+    const app = createApp(ports);
+    app.store.updatePatricia({ gmailPermitido: true });
+    injectTienda(ports.mail, "tp-noweb");
+    await app.tick();
+
+    expect(app.store.senalForMail("tp-noweb")?.tipo).toBe("S2");
+    expect(app.store.estadosDeCuenta()).toEqual([]);
+  });
+});
