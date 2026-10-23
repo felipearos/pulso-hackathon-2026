@@ -610,3 +610,76 @@ describe("/sala state: etapa, decisiones, origen de la cifra, próxima cita", ()
     expect(["22:30", "21:30"]).toContain(proxima!.hora);
   });
 });
+
+describe("/sala metricas", () => {
+  type Metricas = {
+    noches: { conInvitacion: number; escuchadas: number; sinPresion: number };
+    apartadoDeLaSemana: number;
+    pagosSobreElMinimo: { sobreElMinimo: number; pagos: number; meta: { sobre: number; de: number } };
+  };
+  const metricas = async (app: App) => {
+    const response = await get(app, "/sala/state", { "x-demo-token": TOKEN });
+    expect(response.status).toBe(200);
+    return ((await response.json()) as { metricas: Metricas }).metricas;
+  };
+  const at = (t: TestApp, iso: string) => t.clock.set(new Date(iso));
+  const sendCita = (t: TestApp, fecha: string, tipo: "lunes" | "jueves" | "domingo", sentAt: string) => {
+    at(t, sentAt);
+    const cita = t.app.store.addCita({ fecha, tipo, estado: "programada", etapa: 1, motivo: "sembrada", pendienteIds: [] })!;
+    const mensaje = t.app.store.addMensajeSaliente({ kind: "audio", text: "Hola", durationSeconds: 30, whatsappId: null });
+    t.app.store.markCitaSent(cita.id, mensaje.id);
+  };
+  const senal = (t: TestApp, tipo: TipoSenal, monto: number, receivedAt: string) => {
+    at(t, receivedAt);
+    t.app.store.addSenal({
+      tipo,
+      monto,
+      origen: { mailId: `mail-${tipo}-${receivedAt}`, from: "Tienda Ficticia <avisos@tienda.example>", subject: "Aviso" },
+    });
+  };
+
+  test("a fresh app answers every counter at zero", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    expect(await metricas(app)).toEqual({
+      noches: { conInvitacion: 0, escuchadas: 0, sinPresion: 0 },
+      apartadoDeLaSemana: 0,
+      pagosSobreElMinimo: { sobreElMinimo: 0, pagos: 0, meta: { sobre: 2, de: 3 } },
+    });
+  });
+
+  test("counts the week's invitation nights, the heard ones and the unheard one Luna left alone", async () => {
+    const t = createTestApp({ demoToken: TOKEN });
+    sendCita(t, "2026-10-19", "lunes", "2026-10-19T22:30:00-03:00");
+    at(t, "2026-10-19T22:45:00-03:00");
+    t.app.store.addMensajeEntrante({ text: "👌", intencion: { kind: "listened" }, whatsappId: null });
+    sendCita(t, "2026-10-22", "jueves", "2026-10-22T22:30:00-03:00");
+    at(t, "2026-10-22T22:50:00-03:00");
+    t.app.store.addMensajeEntrante({ text: "👍", intencion: { kind: "accepted" }, whatsappId: null });
+    sendCita(t, "2026-10-25", "domingo", "2026-10-25T21:30:00-03:00");
+    at(t, "2026-10-25T23:30:00-03:00");
+
+    expect((await metricas(t.app)).noches).toEqual({ conInvitacion: 3, escuchadas: 2, sinPresion: 1 });
+  });
+
+  test("shows this week's apartado and the pagos against the estado de cuenta's mínimo", async () => {
+    const t = createTestApp({ demoToken: TOKEN });
+    at(t, "2026-10-19T10:00:00-03:00");
+    t.app.store.addEstadoDeCuenta({
+      origen: "banco",
+      ciclo: 8,
+      fechaCierre: "2026-10-15",
+      fechaVencimiento: "2026-11-05",
+      cifras: null,
+      pagoMinimo: 18_500,
+    });
+    senal(t, "S5", 30_000, "2026-10-20T12:00:00-03:00");
+    senal(t, "S5", 18_500, "2026-10-21T12:00:00-03:00");
+    // After the week's last pago, so the «Recibimos tu pago» does not reset it.
+    senal(t, "S3", 25_000, "2026-10-22T12:00:00-03:00");
+    at(t, "2026-10-23T09:00:00-03:00");
+
+    const body = await metricas(t.app);
+    expect(body.apartadoDeLaSemana).toBe(2_500);
+    expect(body.pagosSobreElMinimo).toEqual({ sobreElMinimo: 1, pagos: 2, meta: { sobre: 2, de: 3 } });
+  });
+});
