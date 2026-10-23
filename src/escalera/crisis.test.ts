@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { parseSantiago } from "../clock/santiago";
 import { createTestApp, type TestApp } from "../testing";
 import type { OutgoingWhatsApp, WhatsApp } from "../ports";
+import { createWhatsAppCloud } from "../whatsapp-cloud";
 import { CRISIS_TEXT, sendCrisisText } from "./crisis";
+import { receiveMensaje } from "./respuesta";
 
 const MINUTE_MS = 60 * 1000;
 const STEP_MS = 15 * MINUTE_MS;
@@ -165,5 +167,43 @@ describe("crisis protocol", () => {
     const mensaje = ofTipo(t, "mensaje").at(-1);
     expect(mensaje?.motivo).toBe("no se pudo enviar el texto del protocolo de crisis");
     expect(mensaje?.datos).toEqual({ crisis: true, text: CRISIS_TEXT, whatsappId: null, attempts: 3 });
+  });
+
+  test("a crisis from WhatsApp reaches Meta as the crisis text, not the template", async () => {
+    const t = setup();
+    t.clock.set(parseSantiago("2026-10-21T02:00"));
+    const bodies: Array<Record<string, unknown>> = [];
+    const whatsapp = createWhatsAppCloud({
+      env: {
+        WHATSAPP_ACCESS_TOKEN: "test-token",
+        WHATSAPP_PHONE_NUMBER_ID: "555000111",
+        WHATSAPP_RECIPIENT_PHONE: "56900000000",
+      },
+      clock: t.clock,
+      fetch: (async (_input: string | URL | Request, init?: RequestInit) => {
+        bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return Response.json({ messages: [{ id: "wamid-crisis" }] });
+      }) as typeof fetch,
+      sleep: async () => {},
+      log: () => {},
+    });
+
+    await receiveMensaje(
+      { store: t.app.store, llm: t.llm, whatsapp, db: t.db },
+      { text: CRISIS, whatsappId: "wamid-in-1" },
+    );
+
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({ type: "text", text: { body: CRISIS_TEXT } });
+  });
+
+  test("only a message that came through WhatsApp opens the 24 h window", async () => {
+    const t = setup();
+
+    await t.app.receiveMensaje({ text: "hola", whatsappId: null });
+    expect(t.whatsapp.inbound).toEqual([]);
+
+    await t.app.receiveMensaje({ text: "hola", whatsappId: "wamid-in-1" });
+    expect(t.whatsapp.inbound).toEqual([t.clock.now()]);
   });
 });
