@@ -30,6 +30,8 @@ describe("receiveMensaje", () => {
     expect(decision?.motivo).toBe(reason);
     expect(decision?.datos).toEqual({
       text: "👍",
+      // The registro ties the decisión back to the message that caused it.
+      whatsappId: "wamid-in-1",
       input: {
         etapa: 1,
         senales: [{ intencion: { kind: "accepted" }, citaEtapa: 1 }],

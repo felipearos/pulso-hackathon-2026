@@ -152,6 +152,17 @@ describe("resetPatricia", () => {
     expect(app.store.decisions()).toHaveLength(1);
   });
 
+  test("a reset keeps the meta deliveries already taken in", () => {
+    const { app } = createTestApp();
+    expect(app.store.claimWhatsappId("wamid.ANTES")).toBe(true);
+
+    app.reset();
+
+    // Meta may still retry that delivery after the reset; it must stay a retry,
+    // or the fresh story would take in a message from the old one.
+    expect(app.store.claimWhatsappId("wamid.ANTES")).toBe(false);
+  });
+
   test("every table is either wiped or deliberately kept by a reset", () => {
     const { db } = resetApp();
     const classified = new Set<string>([...RESET_TABLES, ...KEPT_TABLES]);
