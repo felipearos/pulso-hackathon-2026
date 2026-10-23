@@ -55,10 +55,10 @@ describe("compras en cuotas through the app", () => {
       comercio: "Farmacia Ejemplo",
       plataDeCarino: false,
     });
-    expect(conCuotas!.motivo).toContain("Compra en 3 cuotas en Farmacia Ejemplo; Luna la anota y no la comenta.");
+    expect(conCuotas!.motivo).toContain("Compra en 3 cuotas en Farmacia Ejemplo; Luna la anota y no le escribe por esto.");
     expect(sinCuotas!.datos).toMatchObject({ tipo: "S4", plataDeCarino: false });
     expect(sinCuotas!.datos).not.toHaveProperty("cuotas");
-    expect(sinCuotas!.motivo).toContain("El correo no dice en cuántas cuotas; Luna la anota igual y no la comenta.");
+    expect(sinCuotas!.motivo).toContain("El correo no dice en cuántas cuotas; Luna la anota igual y no le escribe por esto.");
   });
 
   test("a December gift is plata de cariño; the same subject in November or a non-gift in December is not", async () => {

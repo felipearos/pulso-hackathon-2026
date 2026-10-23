@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { santiagoDate, santiagoParts } from "../clock/santiago";
 import { pagoRecibidoEstaSemana } from "../plata/apartado";
-import { aCompraEnCuotas } from "../plata/cuotas";
+import { aCompraEnCuotas, comprasEnCuotas as comprasRegistradas } from "../plata/cuotas";
 import type { Store } from "../patricia/store";
 import type { Clock, Llm, SpokenAudio, Voice, WhatsApp } from "../ports";
 import type { ValidatorDecision } from "../validator/validator";
@@ -61,7 +61,7 @@ export function createCitaSender({
     // The bank's: a tienda estado de cuenta must not replace the figure Patricia hears on Monday.
     const estadoDeCuenta = store.estadosDeCuenta().findLast((e) => e.origen === "banco" && e.cifras !== null) ?? null;
     const pagoRecibido = pagoRecibidoEstaSemana(store.senales(), now);
-    const comprasEnCuotas = store.comprasEnCuotas().map(aCompraEnCuotas);
+    const comprasEnCuotas = comprasRegistradas(store.senales(), now).map(aCompraEnCuotas);
     const decision = decisionDeCita({ cita, estadoDeCuenta, pagoRecibido, comprasEnCuotas });
     const recordDecision = (d: ValidatorDecision) => {
       store.recordDecision({ tipo: "mensaje", motivo: d.reason, datos: { citaId: cita.id, ...d.input } });

@@ -34,7 +34,7 @@ export function storeMail(store: Store, mail: IncomingMail, classification: Clas
   const pedido = classification.tipo === "S3" ? pedidoPagado(mail) : null;
   // The señal goes first: a duplicate fails here and never reaches the decision log.
   const senal = store.addSenal({ tipo: classification.tipo, origen, monto: pedido?.monto ?? null });
-  // An S4 is only registered: Luna never comments on a compra en cuotas.
+  // An S4 is only registered: no message goes out when it arrives; it may later end a buena noticia.
   const compra = classification.tipo === "S4" ? compraRegistrada(mail.subject, senal.receivedAt) : null;
   const extra = pedido?.motivo ?? compra?.motivo ?? null;
   store.recordDecision({
@@ -75,13 +75,13 @@ function compraRegistrada(
   if (compra === null) {
     return {
       datos: { plataDeCarino },
-      motivo: `El correo no dice en cuántas cuotas; Luna la anota igual y no la comenta.${carino}`,
+      motivo: `El correo no dice en cuántas cuotas; Luna la anota igual y no le escribe por esto.${carino}`,
     };
   }
   const donde = compra.comercio === null ? "" : ` en ${compra.comercio}`;
   return {
     datos: { cuotas: compra.cuotas, comercio: compra.comercio, plataDeCarino },
-    motivo: `Compra en ${compra.cuotas} ${compra.cuotas === 1 ? "cuota" : "cuotas"}${donde}; Luna la anota y no la comenta.${carino}`,
+    motivo: `Compra en ${compra.cuotas} ${compra.cuotas === 1 ? "cuota" : "cuotas"}${donde}; Luna la anota y no le escribe por esto.${carino}`,
   };
 }
 

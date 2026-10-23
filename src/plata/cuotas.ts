@@ -132,7 +132,8 @@ function monthIndex(instant: Date): number {
 
 /**
  * The S4 compras that still have cuotas to bill at `now`, in input order. The
- * first cuota is billed the month after the purchase, one more each month.
+ * first cuota is billed the month after the purchase, one more each month;
+ * a month's cuota counts as billed from that month's first day.
  */
 export function comprasEnCuotas(senales: readonly SenalEnCuotas[], now: Date): CompraRegistrada[] {
   const compras: CompraRegistrada[] = [];

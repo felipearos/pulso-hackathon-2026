@@ -60,7 +60,7 @@ Chile.
 
 A compra en cuotas made in December that looks like a gift («Ropa para tu
 nieto», a juguetería). It is marked as plata de cariño, without judgement:
-Luna registers it like any other compra en cuotas and never scolds it.
+Luna registers it like any other compra en cuotas, sends nothing when it arrives and never scolds it.
 Detected by the clock's month and gift words in the subject
 (`src/plata/cuotas.ts`).
 _Avoid:_ "gasto innecesario", "gasto impulsivo".
