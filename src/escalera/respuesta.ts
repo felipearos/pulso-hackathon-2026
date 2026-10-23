@@ -1,7 +1,7 @@
 import type { Store } from "../patricia/store";
 import type { Llm, WhatsApp } from "../ports";
 import { classifyIntencion } from "./classify";
-import { answerPregunta } from "./preguntas";
+import { answerPregunta, lastAnswerAt } from "./preguntas";
 import { decideEtapa, type Angustia, type Etapa, type EtapaInput, type EtapaMove, type Intencion } from "./policy";
 
 export type RespuestaDeps = { store: Store; llm: Llm; whatsapp: WhatsApp };
@@ -16,10 +16,13 @@ function rank(etapa: Etapa): number {
  * The etapa of the cita she is answering: the one in effect when Luna's latest
  * message went out. Null when there is none, or when that cita already moved
  * her up once: one cita never moves her up twice, even after she moved down.
+ * Also null when Luna answered a question after the cita: she is answering that.
  */
 function citaEtapaOf(store: Store): Etapa | null {
   const cita = store.mensajesSalientes().at(-1);
   if (cita === undefined) return null;
+  const answeredAt = lastAnswerAt(store);
+  if (answeredAt !== null && answeredAt.getTime() >= cita.sentAt.getTime()) return null;
 
   const history = store.etapaHistory();
   const sentAt = cita.sentAt.getTime();

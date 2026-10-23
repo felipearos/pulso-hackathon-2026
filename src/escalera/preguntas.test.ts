@@ -53,6 +53,34 @@ describe("answerPregunta", () => {
     });
   });
 
+  test("a 👍 to the answer does not count as answering the cita before it", async () => {
+    const { app, clock } = createTestApp({ llm: llmTable() });
+    app.store.addMensajeSaliente({ kind: "audio", text: "cita", durationSeconds: 40, whatsappId: "wamid-cita" });
+    programarCita(app, "lunes");
+    clock.advance(MINUTE);
+    await app.receiveMensaje({ text: WHY, whatsappId: null });
+    clock.advance(MINUTE);
+
+    const move = await app.receiveMensaje({ text: "👍", whatsappId: null });
+
+    expect(move.kind).toBe("stay");
+    expect(app.store.getPatricia().etapa).toBe(1);
+  });
+
+  test("a 👍 to a cita sent after the answer still moves her up", async () => {
+    const { app, clock } = createTestApp({ llm: llmTable() });
+    programarCita(app, "lunes");
+    await app.receiveMensaje({ text: WHY, whatsappId: null });
+    clock.advance(MINUTE);
+    app.store.addMensajeSaliente({ kind: "audio", text: "cita", durationSeconds: 40, whatsappId: "wamid-cita" });
+    clock.advance(MINUTE);
+
+    const move = await app.receiveMensaje({ text: "👍", whatsappId: null });
+
+    expect(move.kind).toBe("up");
+    expect(app.store.getPatricia().etapa).toBe(2);
+  });
+
   test("the answer follows the latest decision that made Luna speak", async () => {
     const { app, clock, whatsapp } = createTestApp({ llm: llmTable() });
     programarCita(app, "lunes");

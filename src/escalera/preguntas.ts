@@ -74,6 +74,22 @@ export function draftAnswer(store: Store, pregunta: Pregunta): DraftedAnswer {
   return pregunta === "askWhy" ? draftWhy(store) : draftWhatRead(store);
 }
 
+/**
+ * When Luna last answered one of these questions, if she did. A 👍 after that
+ * answers the answer, not the cita before it.
+ */
+export function lastAnswerAt(store: Store): Date | null {
+  const answer = store
+    .decisions()
+    .filter((decision) => decision.tipo === "mensaje" && isAnswerDatos(decision.datos))
+    .at(-1);
+  return answer?.at ?? null;
+}
+
+function isAnswerDatos(datos: unknown): boolean {
+  return typeof datos === "object" && datos !== null && "pregunta" in datos && "whatsappId" in datos;
+}
+
 const MOTIVOS: Readonly<Record<Pregunta, string>> = {
   askWhy: "respondió por qué le habló",
   askWhatRead: "respondió qué leyó",
