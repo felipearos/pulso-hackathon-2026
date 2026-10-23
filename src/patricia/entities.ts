@@ -91,8 +91,10 @@ export type MensajeEntrante = {
 /** Patricia herself. There is exactly one. */
 export type Patricia = {
   nombre: string;
-  /** The voice id she hears; null for the default. */
+  /** The voz she chose in the bienvenida (`src/voice/voces.ts`); null for the principal one. */
   voz: string | null;
+  /** The hora de la cita she answered in the bienvenida, `HH:MM`; null until she answers. */
+  hora?: string | null;
   /** She allowed Luna to read her Gmail. */
   gmailPermitido: boolean;
   etapa: Etapa;

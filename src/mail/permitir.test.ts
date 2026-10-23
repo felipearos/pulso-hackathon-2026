@@ -1,6 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { MissingEnvError } from "../missing-env";
 import { createTestApp } from "../testing";
+import { permitirUrl } from "./permitir";
 
 const START_URL = "http://localhost/permitir";
 const CALLBACK_URL = "http://localhost/gmail/callback";
@@ -116,5 +117,15 @@ describe("Permitir routes", () => {
     expect((await app.handle(new Request(CALLBACK_URL, { method: "POST" }))).status).toBe(404);
     expect((await app.handle(new Request("http://localhost/other"))).status).toBe(404);
     expect((await app.handle(new Request("http://localhost/health"))).status).toBe(200);
+  });
+});
+
+describe("permitirUrl", () => {
+  test("defaults to the Funnel URL", () => {
+    expect(permitirUrl({})).toBe("https://desktop.taild8ed7e.ts.net/permitir");
+  });
+
+  test("uses PUBLIC_BASE_URL without its trailing slashes", () => {
+    expect(permitirUrl({ PUBLIC_BASE_URL: "https://example.test//" })).toBe("https://example.test/permitir");
   });
 });

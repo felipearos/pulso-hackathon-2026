@@ -180,6 +180,12 @@ export const migrations: Migration[] = [
       );
     `,
   },
+  {
+    version: 10,
+    name: "hora-de-la-cita",
+    // The hora she answered in the bienvenida, `HH:MM`; null until she answers.
+    sql: "ALTER TABLE patricia ADD COLUMN hora_cita TEXT;",
+  },
 ];
 
 /** Opens the SQLite file, creating its directory, or an in-memory database for `:memory:`. */

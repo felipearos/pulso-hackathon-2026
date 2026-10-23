@@ -4,6 +4,7 @@ import { MissingEnvError } from "./missing-env";
 import type { Clock, Ports } from "./ports";
 import { anthropicLlm } from "./anthropic";
 import { createElevenLabsVoice, type Fetch } from "./voice/elevenlabs";
+import { voiceIdFor, VOZ_PRINCIPAL } from "./voice/voces";
 import { createHttpWeb } from "./web/http";
 import { createWhatsAppCloud } from "./whatsapp-cloud";
 import { createGmailAccount } from "./mail/gmail-oauth";
@@ -52,9 +53,11 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
       },
     },
     voice: {
-      synthesize: async (text) => {
-        const [apiKey, voiceId] = requireEnv(env, "voice", ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"]);
-        return createElevenLabsVoice({ apiKey: apiKey!, voiceId: voiceId!, fetch: options.fetch, log: options.log }).synthesize(text);
+      synthesize: async (text, voz) => {
+        // Requiring the principal id is what makes the fallback in voiceIdFor always a string.
+        const [apiKey] = requireEnv(env, "voice", ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"]);
+        const voiceId = voiceIdFor(voz ?? VOZ_PRINCIPAL, env)!;
+        return createElevenLabsVoice({ apiKey: apiKey!, voiceId, fetch: options.fetch, log: options.log }).synthesize(text);
       },
     },
     web: createHttpWeb({ fetch: options.fetch }),

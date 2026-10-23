@@ -15,6 +15,15 @@ import type { Clock, Mail } from "../ports";
 /** The welcome audio (#46) links Patricia here; keep the two in step. */
 export const PERMITIR_PATH = "/permitir";
 export const CALLBACK_PATH = "/gmail/callback";
+/** The Tailscale Funnel URL the live app is published at. */
+export const DEFAULT_PUBLIC_BASE_URL = "https://desktop.taild8ed7e.ts.net";
+
+/** The full «Permitir» link: `PUBLIC_BASE_URL`, or the Funnel URL, plus the route. */
+export function permitirUrl(env: Record<string, string | undefined> = process.env): string {
+  const base = env.PUBLIC_BASE_URL?.replace(/\/+$/, "") || DEFAULT_PUBLIC_BASE_URL;
+  return `${base}${PERMITIR_PATH}`;
+}
+
 /** How long she has between opening the link and coming back from Google. */
 const STATE_TTL_MS = 15 * 60 * 1000;
 

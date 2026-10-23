@@ -1,3 +1,4 @@
+import { recibirRespuestaBienvenida } from "./citas/bienvenida-respuestas";
 import { createCitaSender } from "./citas/envio";
 import { createScheduler } from "./citas/scheduler";
 import { createDemoClock, type DemoClock } from "./clock/demo-clock";
@@ -110,8 +111,15 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   let failedPolls = 0;
   // The entrante and its line in the registro land together too.
   const inTransaction = <T,>(write: () => T): T => ports.db.transaction(write)();
-  const mensaje = (input: MensajeInput) =>
-    receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp, db: ports.db }, input);
+  const mensaje = async (input: MensajeInput) => {
+    try {
+      await recibirRespuestaBienvenida({ store, llm: ports.llm }, input.text);
+    } catch (error) {
+      // A failed bienvenida answer must not cost the escalera its step.
+      console.error(`bienvenida: answer failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp, db: ports.db }, input);
+  };
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
     if (!store.getPatricia().gmailPermitido) return;

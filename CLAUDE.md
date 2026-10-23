@@ -141,6 +141,7 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | --- | --- | --- |
 | `DATABASE_PATH` | none (unit) | SQLite file; defaults to `data/pulso.db` locally |
 | `HOST` | none (unit) | listen address; unset means all interfaces |
+| `PUBLIC_BASE_URL` | none (optional) | public base of the «Permitir» link the bienvenida sends; defaults to the Funnel URL |
 | `GMAIL_CLIENT_ID` | dev, prd | mail port: Gmail OAuth client |
 | `GMAIL_CLIENT_SECRET` | dev, prd | mail port: Gmail OAuth client |
 | `GMAIL_REDIRECT_URI` | dev, prd | mail port: the OAuth callback registered in Google, `<public URL>/gmail/callback` (prd: `https://desktop.taild8ed7e.ts.net/gmail/callback`, dev: `http://localhost:3000/gmail/callback`) |
@@ -159,6 +160,7 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `ANTHROPIC_API_KEY` | dev, prd | llm port: Claude API |
 | `ELEVENLABS_API_KEY` | dev, prd | voice port: ElevenLabs API |
 | `ELEVENLABS_VOICE_ID` | dev, prd | voice port: the voice Patricia hears |
+| `ELEVENLABS_VOICE_ID_OTRA` | dev, prd | voice port: the other voice Patricia can choose in the bienvenida; falls back to ELEVENLABS_VOICE_ID |
 
 ## Agent skills
 

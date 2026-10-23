@@ -119,7 +119,8 @@ The text of one cita as Luna will say it: the buena noticia, at most one
 figure, and a closing question answered with an emoji. Claude writes it,
 the validador checks it, and it is kept as the text of the mensaje saliente;
 the voice hears it with every monto in words. Over 45 seconds of audio, it
-is shortened once.
+is shortened once. The bienvenida is the exception: its guion is fixed text,
+with no figure, that ends asking her to answer by writing.
 _Avoid:_ "script", "prompt", "copy".
 
 ## Salida
@@ -198,6 +199,26 @@ How distressed Patricia says she feels, from 1 to 5. At 4 or more Luna
 goes down one etapa at once; she only moves up while her last angustia is
 3 or less.
 _Avoid:_ "distress", "stress", "anxiety", "level".
+
+## Bienvenida
+
+Patricia's first cita, sent once: Luna asks how she likes to be called,
+whether the hora de la cita suits her, and offers the other voz. A text with
+the «Permitir» link follows. What she writes back while it is the last cita
+sent is kept on Patricia.
+_Avoid:_ "onboarding", "welcome flow".
+
+## Hora de la cita
+
+The night hour Patricia answered in the bienvenida, `HH:MM` between 18:00
+and 23:59; «me acomoda» keeps 22:30.
+_Avoid:_ "schedule", "time slot".
+
+## Voz
+
+Which of Luna's two voices Patricia hears: the principal one, or the otra
+she can ask for by writing «otra voz».
+_Avoid:_ "TTS voice", "speaker".
 
 ## Bienvenida de vuelta
 

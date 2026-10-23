@@ -99,11 +99,14 @@ export function createScheduler({ db, store, clock }: { db: Database; store: Sto
       }
 
       const pendientes = store.pendientes();
+      // The bienvenida goes out once: a second one waiting rides along with the slot's cita.
+      const bienvenida =
+        pendientes.some((p) => p.tipo === "bienvenida") && !citas.some((c) => c.tipo === "bienvenida");
       const tipo: TipoCita = graduada
         ? "graduada"
         : pendientes.some((p) => p.tipo === "bienvenida-de-vuelta")
           ? "bienvenida-de-vuelta"
-          : pendientes.some((p) => p.tipo === "bienvenida")
+          : bienvenida
             ? "bienvenida"
             : slot.tipo;
       programar(fecha, tipo, etapa, motivoFor(tipo, slot, etapa), pendientes);

@@ -94,6 +94,7 @@ export type Store = {
 type PatriciaRow = {
   nombre: string;
   voz: string | null;
+  hora_cita: string | null;
   gmail_permitido: number;
   etapa: string;
   bolsillo: string | null;
@@ -184,6 +185,7 @@ function toPatricia(row: PatriciaRow): Patricia {
   return {
     nombre: row.nombre,
     voz: row.voz,
+    hora: row.hora_cita,
     gmailPermitido: row.gmail_permitido === 1,
     etapa: etapaFromText(row.etapa),
     bolsillo: row.bolsillo,
@@ -272,10 +274,10 @@ export function createStore(db: Database, clock: Clock): Store {
   const now = () => clock.now().toISOString();
 
   const selectPatricia = db.query<PatriciaRow, []>(
-    "SELECT nombre, voz, gmail_permitido, etapa, bolsillo, en_pausa FROM patricia WHERE id = 1",
+    "SELECT nombre, voz, hora_cita, gmail_permitido, etapa, bolsillo, en_pausa FROM patricia WHERE id = 1",
   );
   const updatePatriciaRow = db.query(
-    `UPDATE patricia SET nombre = $nombre, voz = $voz, gmail_permitido = $gmailPermitido,
+    `UPDATE patricia SET nombre = $nombre, voz = $voz, hora_cita = $hora, gmail_permitido = $gmailPermitido,
        bolsillo = $bolsillo, en_pausa = $enPausa WHERE id = 1`,
   );
   const updateEtapa = db.query("UPDATE patricia SET etapa = $etapa WHERE id = 1");
@@ -373,6 +375,7 @@ export function createStore(db: Database, clock: Clock): Store {
       updatePatriciaRow.run({
         nombre: next.nombre,
         voz: next.voz,
+        hora: next.hora ?? null,
         gmailPermitido: next.gmailPermitido ? 1 : 0,
         bolsillo: next.bolsillo,
         enPausa: next.enPausa ? 1 : 0,
