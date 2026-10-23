@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { extractCifras, type CifrasExtraidas } from "../figures/extractor";
 import type { MinimumRule, Statement } from "../figures/payoff";
-import type { Extraccion } from "../patricia/entities";
+import type { EstadoDeCuenta, Extraccion } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { IncomingMail, Llm, Web } from "../ports";
 import { documentText } from "../web/documento";
@@ -42,6 +42,43 @@ function statementFrom(cifras: CifrasExtraidas, minimumRule: MinimumRule): State
     // A mora not found stays unknown; it is never written as 0.
     ...(cifras.mora === null ? {} : { overdue: cifras.mora }),
   };
+}
+
+/** The next ciclo of that origen: the bank and the tienda each count their own. */
+export function nextCiclo(store: Store, origen: EstadoDeCuenta["origen"]): number {
+  return Math.max(0, ...store.estadosDeCuenta().filter((e) => e.origen === origen).map((e) => e.ciclo)) + 1;
+}
+
+/**
+ * Stores read figures as the next estado de cuenta of their origen, with the
+ * extraction under `mailId`. Every figure not found gets a `callar-cifra`
+ * decision, so Luna never invents it. The caller runs it in a transaction.
+ */
+export function storeEstadoDeCuenta(
+  store: Store,
+  input: { origen: EstadoDeCuenta["origen"]; cifras: CifrasExtraidas; mailId: string },
+): { estado: EstadoDeCuenta; extraccion: Extraccion } {
+  const { origen, cifras, mailId } = input;
+  const ciclo = nextCiclo(store, origen);
+  const estado = store.addEstadoDeCuenta({
+    origen,
+    ciclo,
+    fechaCierre: cifras.fechaCierre,
+    fechaVencimiento: cifras.fechaVencimiento,
+    cifras: statementFrom(cifras, origen === "banco" ? BANCO_ANDINO_MINIMUM_RULE : TIENDA_PLAZA_MINIMUM_RULE),
+    pagoMinimo: cifras.pagoMinimo,
+  });
+  const extraccion = store.addExtraccion({ estadoDeCuentaId: estado.id, mailId, cifras });
+  const estadoLabel = origen === "banco" ? "el estado de cuenta" : "el estado de cuenta de la tienda";
+  for (const campo of Object.keys(CAMPO_LABEL) as Array<keyof CifrasExtraidas>) {
+    if (cifras[campo] !== null) continue;
+    store.recordDecision({
+      tipo: "callar-cifra",
+      motivo: `Callo esta cifra: no encontré ${CAMPO_LABEL[campo]} en ${estadoLabel} del ciclo ${ciclo}.`,
+      datos: { campo, mailId, estadoDeCuentaId: estado.id },
+    });
+  }
+  return { estado, extraccion };
 }
 
 /**
@@ -112,26 +149,7 @@ export async function extractEstadoDeCuenta(
     const won = store.extraccionForMail(mail.id);
     if (won !== null) return won;
 
-    // The bank and the tienda each count their own ciclos.
-    const ciclo = Math.max(0, ...store.estadosDeCuenta().filter((e) => e.origen === origen).map((e) => e.ciclo)) + 1;
-    const estado = store.addEstadoDeCuenta({
-      origen,
-      ciclo,
-      fechaCierre: cifras.fechaCierre,
-      fechaVencimiento: cifras.fechaVencimiento,
-      cifras: statementFrom(cifras, origen === "banco" ? BANCO_ANDINO_MINIMUM_RULE : TIENDA_PLAZA_MINIMUM_RULE),
-      pagoMinimo: cifras.pagoMinimo,
-    });
-    const extraccion = store.addExtraccion({ estadoDeCuentaId: estado.id, mailId: mail.id, cifras });
-    const estadoLabel = origen === "banco" ? "el estado de cuenta" : "el estado de cuenta de la tienda";
-    for (const campo of Object.keys(CAMPO_LABEL) as Array<keyof CifrasExtraidas>) {
-      if (cifras[campo] !== null) continue;
-      store.recordDecision({
-        tipo: "callar-cifra",
-        motivo: `Callo esta cifra: no encontré ${CAMPO_LABEL[campo]} en ${estadoLabel} del ciclo ${ciclo}.`,
-        datos: { campo, mailId: mail.id, estadoDeCuentaId: estado.id },
-      });
-    }
+    const { extraccion } = storeEstadoDeCuenta(store, { origen, cifras, mailId: mail.id });
     return extraccion;
   })();
 }

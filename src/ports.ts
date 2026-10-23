@@ -56,11 +56,15 @@ export type WhatsApp = {
   downloadMedia?(mediaId: string): Promise<IncomingMedia>;
 };
 
+export type LlmImage = { bytes: Uint8Array; mimeType: string };
+
 export type LlmRequest = {
   /** Claude model id; unset means the adapter's default. */
   model?: string;
   system?: string;
   prompt: string;
+  /** Images Claude sees before the prompt (vision); unset means text only. */
+  images?: readonly LlmImage[];
   /** Longest answer in tokens; unset means the adapter's default. */
   maxTokens?: number;
   /** How long to wait for the answer; unset means the adapter's default. */
