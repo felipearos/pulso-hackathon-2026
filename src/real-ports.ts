@@ -1,21 +1,14 @@
 import { databasePath } from "./config";
 import { openDatabase } from "./db";
+import { MissingEnvError } from "./missing-env";
 import type { Clock, Ports } from "./ports";
 import { anthropicLlm } from "./anthropic";
 import { createElevenLabsVoice, type Fetch } from "./voice/elevenlabs";
+import { createWhatsAppCloud } from "./whatsapp-cloud";
 
 type Env = Record<string, string | undefined>;
 
-/** A real port was called without the variables it needs. */
-export class MissingEnvError extends Error {
-  constructor(
-    readonly port: string,
-    readonly missing: string[],
-  ) {
-    super(`${port} port needs ${missing.join(", ")}; add them to Doppler pulso-hackathon-2026`);
-    this.name = "MissingEnvError";
-  }
-}
+export { MissingEnvError };
 
 /**
  * The system clock. This adapter is the one place allowed to read system time
@@ -49,7 +42,8 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
   return {
     clock: systemClock,
     mail: { fetchNew: () => notWiredYet(env, "mail", ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET"]) },
-    whatsapp: { send: () => notWiredYet(env, "whatsapp", ["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID"]) },
+    // The whatsapp, llm and voice ports are the real clients wired so far.
+    whatsapp: createWhatsAppCloud({ env, clock: systemClock }),
     llm: {
       complete: (request) => {
         const apiKey = env.ANTHROPIC_API_KEY;

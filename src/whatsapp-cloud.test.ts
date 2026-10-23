@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { FakeClock } from "./fakes";
-import { MissingEnvError } from "./real-ports";
+import { MissingEnvError } from "./missing-env";
 import { createWhatsAppCloud, isMadrugada, type SendLogEntry, WhatsAppSendError } from "./whatsapp-cloud";
 
 const TOKEN = "secret-token-123";

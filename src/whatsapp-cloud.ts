@@ -1,5 +1,5 @@
 import type { Clock, OutgoingWhatsApp, WhatsApp } from "./ports";
-import { MissingEnvError } from "./real-ports";
+import { MissingEnvError } from "./missing-env";
 
 /*
  * Meta WhatsApp Cloud client. Outside the 24 h customer-service window Meta only
