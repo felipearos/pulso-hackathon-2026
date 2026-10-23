@@ -1,0 +1,86 @@
+import { describe, expect, test } from "bun:test";
+import { isAllowedLinkHost, suspiciousReason } from "./suspicious";
+
+describe("suspiciousReason", () => {
+  test.each([
+    ["off-list host", ["https://cupones.example/oferta"]],
+    ["a domain that imitates the bank", ["https://bancoandino-seguro.example/verificar"]],
+    ["an allowed domain followed by a fraudulent domain", ["https://bancoandino.example.fraude.example/verificar"]],
+    ["a one-character look-alike", ["https://bancoandin0.example/verificar"]],
+    ["an unparseable link", ["no es una URL"]],
+  ])("flags %s", (_name, links) => {
+    expect(suspiciousReason({ subject: "Aviso", text: "Información de tu cuenta", links })).not.toBeNull();
+  });
+
+  test("says when an off-list host imitates an allowed sender", () => {
+    expect(suspiciousReason({ subject: "Aviso", text: "", links: ["https://bancoandino-seguro.example"] })).toContain(
+      "imita al banco",
+    );
+  });
+
+  test.each([
+    ["clave", "Ingresa tu clave"],
+    ["claves", "Ingresa tus claves"],
+    ["contraseña", "Comparte tu contraseña"],
+    ["PIN", "Confirma tu PIN"],
+    ["código de verificación", "Ingresa el código de verificación"],
+    ["código SMS", "Ingresa el código SMS"],
+    ["código por SMS", "Ingresa el código que te enviamos por SMS"],
+    ["código de seguridad", "Ingresa el código de seguridad"],
+    ["tarjeta de coordenadas", "Usa tu tarjeta de coordenadas"],
+    ["CVV", "Confirma el CVV de tu tarjeta"],
+    ["actualiza tus datos", "Actualiza tus datos para continuar"],
+    ["confirma tus datos", "Confirma tus datos para continuar"],
+    ["verifica tu cuenta", "Verifica tu cuenta para continuar"],
+  ])("flags a request for %s", (_name, text) => {
+    expect(suspiciousReason({ subject: "Aviso de cuenta", text, links: [] })).not.toBeNull();
+  });
+
+  test("flags a request for secret data in the subject", () => {
+    expect(suspiciousReason({ subject: "Confirma tus datos para seguir", text: "Aviso de cuenta", links: [] })).not.toBeNull();
+  });
+
+  test("allows an approved sender subdomain", () => {
+    expect(isAllowedLinkHost("www.tiendaplaza.example")).toBe(true);
+    expect(suspiciousReason({ subject: "Aviso", text: "Tu cuenta está disponible", links: ["https://www.tiendaplaza.example/cuenta"] })).toBeNull();
+  });
+
+  test.each([
+    "bancoandino.example.fraude.example",
+    "bancoandino-seguro.example",
+    "bancoandin0.example",
+  ])("does not allow the look-alike host %s", (host) => {
+    expect(isAllowedLinkHost(host)).toBe(false);
+  });
+
+  test.each([
+    ["clavel", "El clavel quedó en el catálogo."],
+    ["código de producto", "Este código de producto identifica el artículo."],
+  ])("does not flag harmless text containing %s", (_name, text) => {
+    expect(suspiciousReason({ subject: "Información", text, links: [] })).toBeNull();
+  });
+
+  test("does not flag a normal estado de cuenta mail with a tienda link", () => {
+    expect(
+      suspiciousReason({
+        subject: "Tu estado de cuenta está listo",
+        text: "Puedes revisar el resumen de este mes en Tienda Plaza.",
+        links: ["https://tiendaplaza.example/cuenta/octubre"],
+      }),
+    ).toBeNull();
+  });
+
+  test.each([
+    "Banco Andino nunca te pedirá tu clave ni códigos por correo.",
+    "No compartas tu clave con nadie.",
+    "Protege tu clave y tu PIN.",
+  ])("does not flag a security footer: %p", (text) => {
+    expect(suspiciousReason({ subject: "Tu estado de cuenta de octubre", text, links: [] })).toBeNull();
+  });
+
+  test("still flags a request hidden after a reassuring sentence", () => {
+    expect(
+      suspiciousReason({ subject: "Aviso", text: "Nunca bloqueamos sin aviso: ingresa tu clave para seguir.", links: [] }),
+    ).not.toBeNull();
+  });
+});
