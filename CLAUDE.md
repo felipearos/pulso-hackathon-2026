@@ -42,6 +42,7 @@ bun run typecheck   # tsc --noEmit
 bun run lint        # oxlint
 bun run build       # bundle to dist/
 bun run check       # all four, the same gate CI runs
+bun run reset       # load Patricia's fictional story, back at the starting point
 ```
 
 ## Language
