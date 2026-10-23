@@ -131,3 +131,10 @@ waits for the next cita. If Patricia writes, Luna answers each message with
 a short voice note, without figures or proposals, unless the crisis
 protocol applies.
 _Avoid:_ "quiet hours", "do not disturb".
+
+## Plantilla segura
+
+The calm fixed text, with no figure, that goes out when the validador
+rejects a text twice (once drafted, once redrafted). Its use is recorded as
+a decision.
+_Avoid:_ "fallback", "default message".
