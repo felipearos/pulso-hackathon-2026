@@ -7,14 +7,16 @@
 
 export type Etapa = 1 | 2 | 3 | 4 | 5 | "graduada";
 
-export type DistressLevel = 1 | 2 | 3 | 4 | 5;
+export type Angustia = 1 | 2 | 3 | 4 | 5;
 
 /** The closed list of intenciones the LLM may classify a message into. */
 export type Intencion =
+  /** 👌 or she only listened: she stays, never a reason to move up. */
   | { kind: "listened" }
+  /** 👍 or an equivalent answer to the cita. */
   | { kind: "accepted" }
   | { kind: "minimum" }
-  | { kind: "distress"; level: DistressLevel }
+  | { kind: "angustia"; value: Angustia }
   | { kind: "doesNotWantToSee" }
   | { kind: "pause" }
   | { kind: "hello" }
@@ -33,8 +35,8 @@ export type EtapaInput = {
   etapa: Etapa;
   /** Chronological, oldest first. */
   senales: Senal[];
-  /** Newest angustia reported before these senales; null if none. */
-  lastDistress: number | null;
+  /** Newest angustia she reported before these senales; null if none. */
+  lastAngustia: Angustia | null;
   /** A store estado de cuenta is available. */
   estadoDeCuentaTienda: boolean;
   /** A new bank estado de cuenta arrived. */
@@ -48,7 +50,7 @@ export type EtapaMove = {
   reason: string;
 };
 
-const DISTRESS_DOWN = 4;
+const ANGUSTIA_DOWN = 4;
 
 function rank(etapa: Etapa): number {
   return etapa === "graduada" ? 6 : etapa;
@@ -75,8 +77,8 @@ function stayReason(senal: Senal | undefined): string {
         : `se queda: respondió una cita de la etapa ${citaEtapa}`;
     case "listened":
       return "se queda: solo escuchó";
-    case "distress":
-      return `se queda: angustia ${intencion.level}`;
+    case "angustia":
+      return `se queda: angustia ${intencion.value}`;
     case "pause":
       return "se queda: pidió pausa";
     case "hello":
@@ -85,6 +87,7 @@ function stayReason(senal: Senal | undefined): string {
       return "se queda: preguntó por qué";
     case "askWhatRead":
       return "se queda: preguntó qué leyó Luna";
+    // doesNotWantToSee and crisis never get here: decideEtapa handles them first.
     case "doesNotWantToSee":
     case "crisis":
     case "other":
@@ -104,12 +107,12 @@ export function decideEtapa(input: EtapaInput): EtapaMove {
   const downSignal = senales.find(
     (s) =>
       s.intencion.kind === "doesNotWantToSee" ||
-      (s.intencion.kind === "distress" && s.intencion.level >= DISTRESS_DOWN),
+      (s.intencion.kind === "angustia" && s.intencion.value >= ANGUSTIA_DOWN),
   );
   if (downSignal) {
     const why =
-      downSignal.intencion.kind === "distress"
-        ? `angustia ${downSignal.intencion.level}`
+      downSignal.intencion.kind === "angustia"
+        ? `angustia ${downSignal.intencion.value}`
         : "dijo que no quiere ver eso";
     if (from === 1) return stay(`se queda: ya está en la primera etapa (${why})`);
     return { kind: "down", from, to: fromRank(rank(from) - 1), reason: `bajó: ${why}` };
@@ -119,12 +122,12 @@ export function decideEtapa(input: EtapaInput): EtapaMove {
   if (answered) {
     if (from === "graduada") return stay("se queda: ya está graduada");
 
-    let latestDistress = input.lastDistress;
+    let latestAngustia = input.lastAngustia;
     for (const s of senales) {
-      if (s.intencion.kind === "distress") latestDistress = s.intencion.level;
+      if (s.intencion.kind === "angustia") latestAngustia = s.intencion.value;
     }
-    if (latestDistress !== null && latestDistress >= DISTRESS_DOWN) {
-      return stay(`se queda: la última angustia fue ${latestDistress}`);
+    if (latestAngustia !== null && latestAngustia >= ANGUSTIA_DOWN) {
+      return stay(`se queda: la última angustia fue ${latestAngustia}`);
     }
 
     const to = fromRank(rank(from) + 1);
@@ -135,8 +138,8 @@ export function decideEtapa(input: EtapaInput): EtapaMove {
       return stay("se queda: falta un estado de cuenta nuevo del banco");
     }
 
-    const distressPart = latestDistress === null ? "sin angustia" : `angustia ${latestDistress}`;
-    const why = `respondió la cita de la etapa ${from}, ${distressPart}`;
+    const angustiaPart = latestAngustia === null ? "sin angustia" : `angustia ${latestAngustia}`;
+    const why = `respondió la cita de la etapa ${from}, ${angustiaPart}`;
     if (to === "graduada") return { kind: "graduate", from, to, reason: `se graduó: ${why}` };
     return { kind: "up", from, to, reason: `subió: ${why}` };
   }
