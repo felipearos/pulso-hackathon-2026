@@ -260,7 +260,7 @@
       item("Noches escuchadas:", String(metricas.noches.escuchadas)),
       item("Noches sin presión cuando no escuchó:", String(metricas.noches.sinPresion)),
       item("Apartado esta semana:", peso(metricas.apartadoDeLaSemana)),
-      item("Pagos sobre el mínimo:", `${metricas.pagosSobreElMinimo.sobreElMinimo} de ${metricas.pagosSobreElMinimo.pagos}` +
+      item("Pagos sobre el mínimo, desde el inicio:", `${metricas.pagosSobreElMinimo.sobreElMinimo} de ${metricas.pagosSobreElMinimo.pagos}` +
         ` (meta: ${metricas.pagosSobreElMinimo.meta.sobre} de cada ${metricas.pagosSobreElMinimo.meta.de})`),
     ] : [], "Sin métricas");
     fillList($("correos"), [...state.correos].reverse().map((correo) => {
