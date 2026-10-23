@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { checkText } from "../validator/validator";
 import { buenaNoticia, type DatosBuenaNoticia, type ReglaBuenaNoticia } from "./buena-noticia";
 
 const empty: DatosBuenaNoticia = { pagosAnteriores: null, mora: null, comprasEnCuotas: null };
@@ -92,6 +93,25 @@ const rows: [string, DatosBuenaNoticia, ReglaBuenaNoticia, string][] = [
     "cuota-termina",
     "al refrigerador le queda una sola cuota",
   ],
+  [
+    "unknown mora with a cuota ending soon",
+    { ...empty, comprasEnCuotas: [{ descripcion: "la tele", cuotasRestantes: 1 }] },
+    "cuota-termina",
+    "a la tele le queda una sola cuota",
+  ],
+  [
+    "a description with digits is skipped",
+    {
+      ...empty,
+      mora: 35_000,
+      comprasEnCuotas: [
+        { descripcion: "la tele 55", cuotasRestantes: 1 },
+        { descripcion: "la cama", cuotasRestantes: 2 },
+      ],
+    },
+    "cuota-termina",
+    "a la cama le quedan dos cuotas",
+  ],
   ["all fields unknown", empty, "calida", "qué bueno que estemos conversando"],
   [
     "in mora with no cuotas",
@@ -105,8 +125,7 @@ describe("buenaNoticia", () => {
   test.each(rows)("%s", (_name, datos, regla, texto) => {
     const result = buenaNoticia(datos);
     expect(result).toEqual({ regla, texto });
-    expect(result.texto).not.toMatch(/\d/);
-    expect(result.texto).not.toMatch(/deuda|culpa|atrasad|debes|urgente/i);
+    expect(checkText(result.texto, [])).toEqual([]);
     expect(result.texto).not.toMatch(/\.$/);
   });
 });

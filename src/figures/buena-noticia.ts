@@ -4,14 +4,23 @@
  * Never a digit in the text, so it does not spend her one figure.
  */
 
+/** A purchase in cuotas; `descripcion` starts with its article, e.g. «la lavadora». */
+export interface CompraEnCuotas {
+  descripcion: string;
+  cuotasRestantes: number;
+}
+
 /** What the extractor read about her payments, for the buena noticia. Null fields: not found. */
 export interface DatosBuenaNoticia {
   /** Past payments, oldest first; true when that month was paid on time. */
   pagosAnteriores: boolean[] | null;
-  /** Pesos in mora on this estado de cuenta (Statement.overdue); null if not found. */
+  /**
+   * Pesos in mora on this estado de cuenta (Statement.overdue); null if not
+   * found. An absent `overdue` maps to null, never 0: 0 claims «no estás en DICOM».
+   */
   mora: number | null;
   /** Purchases in cuotas with how many cuotas are left after this one. */
-  comprasEnCuotas: { descripcion: string; cuotasRestantes: number }[] | null;
+  comprasEnCuotas: CompraEnCuotas[] | null;
 }
 
 export type ReglaBuenaNoticia = "pagos-a-tiempo" | "sin-mora" | "cuota-termina" | "calida";
@@ -48,6 +57,10 @@ function monthsInWords(n: number): string {
   return MONTH_WORDS[n] === undefined ? "más de un año" : `${MONTH_WORDS[n]} meses`;
 }
 
+/**
+ * Picks the first rule that holds: pagos-a-tiempo, then sin-mora, then
+ * cuota-termina, then the warm sentence with no data.
+ */
 export function buenaNoticia(datos: DatosBuenaNoticia): BuenaNoticia {
   if (datos.mora === 0) {
     const streak = datos.pagosAnteriores === null ? 0 : trailingStreak(datos.pagosAnteriores);
@@ -60,9 +73,11 @@ export function buenaNoticia(datos: DatosBuenaNoticia): BuenaNoticia {
     return { regla: "sin-mora", texto: "estás al día, no estás en DICOM" };
   }
 
-  let ending: { descripcion: string; cuotasRestantes: number } | undefined;
+  let ending: CompraEnCuotas | undefined;
   for (const compra of datos.comprasEnCuotas ?? []) {
     if (compra.cuotasRestantes !== 1 && compra.cuotasRestantes !== 2) continue;
+    // A digit in the description would spend her one figure.
+    if (/\d/.test(compra.descripcion)) continue;
     if (ending === undefined || compra.cuotasRestantes < ending.cuotasRestantes) ending = compra;
   }
   if (ending !== undefined) {
