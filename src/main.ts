@@ -4,6 +4,7 @@ import { realPorts } from "./real-ports";
 
 const app = createApp(realPorts(), {
   demoOperatorKey: process.env.DEMO_OPERATOR_KEY,
+  demoToken: process.env.DEMO_TOKEN,
   webhook: webhookConfig(),
 });
 const port = Number(process.env.PORT ?? 3000);
