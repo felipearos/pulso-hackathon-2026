@@ -56,6 +56,9 @@ function setup(overrides: Partial<WebhookDeps> = {}) {
       claimed.add(id);
       return true;
     },
+    release(id) {
+      claimed.delete(id);
+    },
     async onMensaje(mensaje) {
       received.push(mensaje);
     },
@@ -66,7 +69,7 @@ function setup(overrides: Partial<WebhookDeps> = {}) {
     log: (line) => logs.push(line),
     ...overrides,
   };
-  return { webhook: createWebhook(deps), received, inbound, logs };
+  return { webhook: createWebhook(deps), received, inbound, logs, claimed };
 }
 
 function challengeUrl(params: Record<string, string>): URL {
@@ -172,6 +175,43 @@ describe("whatsapp webhook: POST", () => {
     expect(retry.status).toBe(200);
     expect(received).toHaveLength(1);
     expect(inbound).toHaveLength(1);
+  });
+
+  test("a handler that failed gives the id back, so Meta's next delivery is taken in", async () => {
+    let attempts = 0;
+    const seen: string[] = [];
+    const { webhook, logs, claimed } = setup({
+      async onMensaje(mensaje) {
+        attempts += 1;
+        // Fails once, the way a transient SQLite write does, then works.
+        if (attempts === 1) throw new Error("database is locked");
+        seen.push(mensaje.whatsappId);
+      },
+    });
+    const body = delivery(text("wamid.TEST1", "hola"));
+
+    await webhook.receive(post(body));
+    await webhook.drain();
+    expect(seen).toEqual([]);
+    expect(claimed.has("wamid.TEST1")).toBe(false);
+    expect(logs).toContain("whatsapp webhook: handler failed, releasing the claim");
+
+    const again = await webhook.receive(post(body));
+    await webhook.drain();
+    expect(await again.json()).toEqual({ received: 1 });
+    expect(seen).toEqual(["wamid.TEST1"]);
+  });
+
+  test("a claim that cannot be released is logged rather than rejecting the task", async () => {
+    const { webhook, logs } = setup({
+      onMensaje: () => Promise.reject(new Error("database is locked")),
+      release() {
+        throw new Error("database is closed");
+      },
+    });
+    await webhook.receive(post(delivery(text("wamid.TEST1", "hola"))));
+    await expect(webhook.drain()).resolves.toBeUndefined();
+    expect(logs).toContain("whatsapp webhook: could not release the claim");
   });
 
   test("a thumbs-up text reaches the handler as text, with id, sender and time", async () => {

@@ -56,6 +56,13 @@ export type Store = {
    * makes the message arrive once: call it before processing, not after.
    */
   claimWhatsappId(whatsappId: string): boolean;
+  /**
+   * Gives the id back, so a later delivery of the same message is processed
+   * instead of being discarded as a retry. Only for a claim whose processing
+   * failed and wrote nothing: a claim kept after a failure loses the message
+   * for good, because the webhook has already answered 200.
+   */
+  releaseWhatsappId(whatsappId: string): void;
   /** Appends to the decision log; there is no way to edit or remove an entry. */
   recordDecision(input: { tipo: TipoDecision; motivo: string; datos: unknown }): Decision;
   /** Oldest first. */
@@ -306,6 +313,9 @@ export function createStore(db: Database, clock: Clock): Store {
   const claimMensajeProcesado = db.query<null, Record<string, string>>(
     "INSERT OR IGNORE INTO mensajes_procesados (whatsapp_id, claimed_at) VALUES ($whatsappId, $claimedAt)",
   );
+  const releaseMensajeProcesado = db.query<null, Record<string, string>>(
+    "DELETE FROM mensajes_procesados WHERE whatsapp_id = $whatsappId",
+  );
   const insertDecision = db.query<DecisionRow, Record<string, string>>(
     "INSERT INTO decisions (at, tipo, motivo, datos) VALUES ($at, $tipo, $motivo, $datos) RETURNING *",
   );
@@ -472,6 +482,10 @@ export function createStore(db: Database, clock: Clock): Store {
 
     claimWhatsappId(whatsappId) {
       return claimMensajeProcesado.run({ whatsappId, claimedAt: now() }).changes === 1;
+    },
+
+    releaseWhatsappId(whatsappId) {
+      releaseMensajeProcesado.run({ whatsappId });
     },
 
     recordDecision({ tipo, motivo, datos }) {

@@ -37,6 +37,12 @@ export type WebhookDeps = {
   config: WebhookConfig;
   /** Claims the id for processing; false means it was taken before. */
   claim(whatsappId: string): boolean;
+  /**
+   * Gives a claimed id back after processing failed, so the message is not lost
+   * for good: the 200 is already sent, so without this the id stays claimed and
+   * every later delivery of it is discarded as a retry.
+   */
+  release(whatsappId: string): void;
   /** Processes one message, after the 200 has been sent. Rejections must not escape. */
   onMensaje(mensaje: InboundMensaje): Promise<void>;
   /** Called with every message taken in, before `onMensaje`; opens Meta's 24 h window. */
@@ -176,7 +182,18 @@ export function createWebhook(deps: WebhookDeps): Webhook {
     // a microtask would run before the caller of `receive` saw the response.
     const task: Promise<void> = new Promise<void>((resolve) => setTimeout(resolve, 0))
       .then(() => deps.onMensaje(mensaje))
-      .catch((error: unknown) => log("whatsapp webhook: handler failed", { whatsappId: mensaje.whatsappId, error }))
+      .catch((error: unknown) => {
+        // The write is one transaction, so a rejection means nothing landed:
+        // give the id back, or a redelivery of this message is read as a retry
+        // of one already taken in and Patricia's answer disappears.
+        log("whatsapp webhook: handler failed, releasing the claim", { whatsappId: mensaje.whatsappId, error });
+        try {
+          deps.release(mensaje.whatsappId);
+        } catch (releaseError: unknown) {
+          // Nothing left to do but say so: this task must never reject.
+          log("whatsapp webhook: could not release the claim", { whatsappId: mensaje.whatsappId, releaseError });
+        }
+      })
       .finally(() => inFlight.delete(task));
     inFlight.add(task);
   }

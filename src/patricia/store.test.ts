@@ -282,6 +282,17 @@ describe("store", () => {
     expect(restarted.store.claimWhatsappId("wamid.AAA")).toBe(false);
   });
 
+  test("a released whatsapp id can be claimed again", () => {
+    const { app } = createTestApp();
+    expect(app.store.claimWhatsappId("wamid.AAA")).toBe(true);
+
+    app.store.releaseWhatsappId("wamid.AAA");
+    expect(app.store.claimWhatsappId("wamid.AAA")).toBe(true);
+
+    // Releasing one that was never claimed is not an error.
+    expect(() => app.store.releaseWhatsappId("wamid.NOPE")).not.toThrow();
+  });
+
   test("migrating the app's database again applies nothing", () => {
     const { db } = createTestApp();
     expect(migrate(db)).toEqual([]);

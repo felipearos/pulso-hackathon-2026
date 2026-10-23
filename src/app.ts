@@ -165,6 +165,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   const webhook = createWebhook({
     config: options.webhook ?? {},
     claim: (whatsappId) => store.claimWhatsappId(whatsappId),
+    release: (whatsappId) => store.releaseWhatsappId(whatsappId),
     onMensaje: (inbound) => receiveInbound({ store, mensaje, inTransaction }, inbound),
     recordInbound: (at) => ports.whatsapp.recordInbound(at),
     now: () => clock.now(),
