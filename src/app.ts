@@ -47,8 +47,13 @@ export type App = {
   clock: DemoClock;
   /** Takes a message from Patricia, moves her etapa if the política says so and logs the decision. */
   receiveMensaje(input: MensajeInput): Promise<EtapaMove>;
-  /** Puts Patricia and the demo clock back at the starting point of her story. */
-  reset(): void;
+  /**
+   * Puts Patricia and the demo clock back at the starting point of her story.
+   * A tick still running is finished first and ticks asked for meanwhile run
+   * after it, so nothing from the old story is sent once the reset resolves.
+   * With no tick running the reset is done before this returns.
+   */
+  reset(): Promise<void>;
 };
 
 // The control room's page and test audio ship with the repo; Bun reads them on request.
@@ -205,7 +210,26 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     operatorKey: options.demoOperatorKey,
     webhook,
   });
-  const tick = async () => {
+  // Ticks and resets take turns: a reset in the middle of a tick would let the
+  // tick send the old story's audio and then fail on a cita that is gone. A
+  // step asked for while the app is idle starts at once, synchronously up to
+  // its first await, so a reset with nothing running is done on return.
+  let tail: Promise<unknown> = Promise.resolve();
+  let busy = 0;
+  const inTurn = <T,>(step: () => T | Promise<T>): Promise<T> => {
+    const run = async () => {
+      try {
+        return await step();
+      } finally {
+        busy -= 1;
+      }
+    };
+    busy += 1;
+    const result = busy === 1 ? run() : tail.then(run, run);
+    tail = result.catch(() => undefined);
+    return result;
+  };
+  const tickNow = async () => {
     // Mail first, so tonight's cita is decided with every señal already in.
     await pollMail();
     // Fourteen days without a reply silence Luna before tonight's slot is decided.
@@ -213,7 +237,8 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     scheduler.tick();
     await sender.tick();
   };
-  const reset = () => resetPatricia(ports.db, clock);
+  const tick = () => inTurn(tickNow);
+  const reset = () => inTurn(() => resetPatricia(ports.db, clock));
   // A text import hands over the file's contents; Bun's types only know the HTML-bundle import.
   const controlPageText = controlPage as unknown as string;
   const demo = createDemoRoutes({

@@ -15,7 +15,7 @@ export type DemoDeps = {
   clock: DemoClock;
   store: Store;
   tick(): Promise<void>;
-  reset(): void;
+  reset(): Promise<void>;
   guion: readonly MomentoDelGuion[];
   /** The control room page, served as is. */
   page: string;
