@@ -196,6 +196,27 @@ describe("cita sender", () => {
     expect(sentDecision(t)?.datos).toMatchObject({ acortado: true, durationSeconds: 30 });
   });
 
+  test("the audio's decision records the bank estado de cuenta its cifra came from", async () => {
+    const t = setup();
+    const banco = t.app.store.estadosDeCuenta()[0]!;
+    await tickAt(t, "2026-10-19T22:30");
+
+    expect(sentDecision(t)?.datos).toMatchObject({ estadoDeCuentaId: banco.id });
+  });
+
+  test("the audio's decision records no estado de cuenta when none is stored", async () => {
+    const t = createTestApp({
+      now: parseSantiago("2026-10-19T09:00"),
+      llm: [
+        ["Escribe el guion", "Hola, Patricia. Esta semana no hay nada que hacer."],
+        ["", "OK"],
+      ],
+    });
+    await tickAt(t, "2026-10-19T22:30");
+
+    expect(sentDecision(t)?.datos).toMatchObject({ estadoDeCuentaId: null });
+  });
+
   test("a failed send is retried on the next tick of the same day", async () => {
     const t = setup({ voice: { failures: 2 } });
     await tickAt(t, "2026-10-19T22:30");
