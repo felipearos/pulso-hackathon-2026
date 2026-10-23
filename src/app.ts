@@ -20,6 +20,7 @@ import { createStore, type Store } from "./patricia/store";
 import type { IncomingMail, Ports, Web } from "./ports";
 import { createHandler } from "./server";
 import { receiveInbound } from "./whatsapp/inbound";
+import { createCanal, createSimulador } from "./whatsapp/simulador";
 import { createWebhook, type WebhookConfig } from "./whatsapp/webhook";
 
 export type App = {
@@ -74,6 +75,8 @@ export type AppOptions = {
   demoToken?: string;
   /** The webhook's Meta secrets; unset leaves every delivery refused. */
   webhook?: WebhookConfig;
+  /** Whether the /sala simulador is the channel at boot instead of Meta (`WHATSAPP_SIMULADOR`); /sala can switch it. */
+  simulador?: boolean;
 };
 
 /**
@@ -84,6 +87,9 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   migrate(ports.db);
   const clock = createDemoClock(ports.db, ports.clock);
   const store = createStore(ports.db, clock);
+  // Every flow sends through the canal, so the simulador can stand in for Meta while the app runs.
+  const simulador = createSimulador();
+  const canal = createCanal(ports.whatsapp, simulador, options.simulador ?? false);
   // The señal and its decision land together or not at all.
   const receive = (mail: IncomingMail) =>
     receiveMail(store, ports.llm, mail, (fn) => ports.db.transaction(fn)());
@@ -124,7 +130,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
       // A failed bienvenida answer must not cost the escalera its step.
       console.error(`bienvenida: answer failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-    return receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp, voice: ports.voice, db: ports.db }, input);
+    return receiveMensaje({ store, llm: ports.llm, whatsapp: canal, voice: ports.voice, db: ports.db }, input);
   };
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
@@ -173,7 +179,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     clock,
     llm: ports.llm,
     voice: ports.voice,
-    whatsapp: ports.whatsapp,
+    whatsapp: canal,
   });
   const permitir = createPermitir({ mail: ports.mail, store, clock: ports.clock });
   const webhook = createWebhook({
@@ -181,16 +187,16 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     claim: (whatsappId) => store.claimWhatsappId(whatsappId),
     release: (whatsappId) => store.releaseWhatsappId(whatsappId),
     onMensaje: (inbound) => receiveInbound(
-        { store, mensaje, inTransaction, whatsapp: ports.whatsapp, voice: ports.voice, llm: ports.llm },
+        { store, mensaje, inTransaction, whatsapp: canal, voice: ports.voice, llm: ports.llm },
         inbound,
       ),
-    recordInbound: (at) => ports.whatsapp.recordInbound(at),
+    recordInbound: (at) => canal.recordInbound(at),
     now: () => clock.now(),
   });
   const routes = createHandler({
     demoPage,
     nightAudio,
-    sendNightAudio: nightAudioSender(ports.whatsapp, nightAudio),
+    sendNightAudio: nightAudioSender(canal, nightAudio),
     operatorKey: options.demoOperatorKey,
     webhook,
   });
@@ -213,6 +219,9 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     reset,
     guion: GUION,
     page: controlPageText,
+    canal,
+    simulador,
+    inject: (inbound) => webhook.inject(inbound),
   });
   return {
     handle: async (request) => (await demo(request)) ?? permitir.handle(request) ?? routes(request),
