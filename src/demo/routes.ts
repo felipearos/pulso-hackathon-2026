@@ -25,9 +25,9 @@ function tokenMatches(expected: string, given: string | null): boolean {
   return given !== null && timingSafeEqual(digest(expected), digest(given));
 }
 
-/** The operator's token, from `?token=` (the projector's URL) or the `x-demo-token` header (the page's calls). */
+/** The operator's token: the `x-demo-token` header (the page's calls) or else `?token=` (the projector's URL). */
 function givenToken(request: Request, url: URL): string | null {
-  return request.headers.get("x-demo-token") ?? url.searchParams.get("token");
+  return request.headers.get("x-demo-token") || url.searchParams.get("token");
 }
 
 /**
@@ -57,7 +57,13 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`demo: ${message}`);
-      return Response.json({ error: message, ...state() }, { status: 500 });
+      let current = {};
+      try {
+        current = state();
+      } catch {
+        // The store itself may be what failed; the error alone still reaches the page.
+      }
+      return Response.json({ error: message, ...current }, { status: 500 });
     }
     return Response.json(state());
   };
@@ -74,10 +80,16 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
     if (request.method === "GET" && pathname === "/demo/state") return Response.json(state());
     if (request.method === "POST" && pathname === "/demo/tick") return run(deps.tick);
     if (request.method === "POST" && pathname === "/demo/reset") return run(deps.reset);
-    const moment = /^\/demo\/moments\/([^/]+)$/.exec(pathname);
-    if (request.method === "POST" && moment) {
-      const momento = findMomento(deps.guion, decodeURIComponent(moment[1]!));
-      if (!momento) return Response.json({ error: `no momento ${moment[1]}` }, { status: 400 });
+    const match = /^\/demo\/momentos\/([^/]+)$/.exec(pathname);
+    if (request.method === "POST" && match) {
+      let id: string;
+      try {
+        id = decodeURIComponent(match[1]!);
+      } catch {
+        return Response.json({ error: `no momento ${match[1]}` }, { status: 400 });
+      }
+      const momento = findMomento(deps.guion, id);
+      if (!momento) return Response.json({ error: `no momento ${id}` }, { status: 400 });
       // Jump, then tick at once, so the button shows what that moment brings.
       return run(async () => {
         deps.clock.set(momento.at);

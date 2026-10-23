@@ -205,7 +205,15 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   const reset = () => resetPatricia(ports.db, clock);
   // A text import hands over the file's contents; Bun's types only know the HTML-bundle import.
   const controlPageText = controlPage as unknown as string;
-  const demo = createDemoRoutes({ token: options.demoToken, clock, store, tick, reset, guion: GUION, page: controlPageText });
+  const demo = createDemoRoutes({
+    token: options.demoToken,
+    clock,
+    store,
+    tick,
+    reset,
+    guion: GUION,
+    page: controlPageText,
+  });
   return {
     handle: async (request) => (await demo(request)) ?? permitir.handle(request) ?? routes(request),
     tick,

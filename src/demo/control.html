@@ -2,6 +2,7 @@
 <html lang="es-CL">
 <head>
 <meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sala de control</title>
 <style>
@@ -133,7 +134,7 @@
         button.textContent = momento.label;
         button.disabled = busy;
         button.addEventListener("click", () =>
-          call("POST", `/demo/moments/${encodeURIComponent(momento.id)}`, momento.label));
+          call("POST", `/demo/momentos/${encodeURIComponent(momento.id)}`, momento.label));
         return button;
       });
       $("momentos").replaceChildren(...buttons);

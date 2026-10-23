@@ -143,6 +143,15 @@ sin `DATABASE_PATH` reinicia `data/pulso.db`, que no es la de la app:
 cd ~/pulso-live && DATABASE_PATH=~/.local/share/pulso/pulso.db bun run reset
 ```
 
+El botón «Reiniciar» de la sala de control hace lo mismo sobre la base viva.
+
+## La sala de control /demo
+
+Se abre en el proyector con `https://desktop.taild8ed7e.ts.net/demo?token=…`,
+con el valor de `DEMO_TOKEN` de Doppler `prd`. Sin esa variable, o con otro
+token, /demo responde 404. Los botones del guion salen de
+`src/demo/guion.json`: para cambiar uno se edita ese archivo y se mergea.
+
 ## Después del evento
 
 ```bash
