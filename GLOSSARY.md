@@ -302,3 +302,21 @@ The calm fixed text, with no figure, that goes out when the validador
 rejects a text twice (once drafted, once redrafted). Its use is recorded as
 a decision.
 _Avoid:_ "fallback", "default message".
+
+## Sala de control
+
+/sala: the team's screen for the pitch, served by the same app and opened
+only with the operator token (`DEMO_TOKEN`; without it /sala answers 404).
+It moves the demo clock to the momentos del guion, runs a tick and resets
+Patricia to the starting point. It has no logic of its own: every button
+calls the same flows Patricia's night runs on. The scripted week at /demo
+is a separate screen. Written "the control room"
+in English prose.
+_Avoid:_ "dashboard", "admin panel".
+
+## Momento del guion
+
+A named point of the demo's guion (`Jue 22:30`, `Semana 4`) that a button of
+the sala de control jumps the demo clock to. The list lives in
+`src/demo/guion.json`, so the team adjusts it without touching code.
+_Avoid:_ "preset", "scene".
