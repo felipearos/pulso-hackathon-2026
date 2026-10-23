@@ -223,7 +223,7 @@ export function resetPatricia(db: Database, clock: DemoClock): void {
       [
         PATRICIA_AT_START.nombre,
         PATRICIA_AT_START.voz,
-        PATRICIA_AT_START.hora,
+        PATRICIA_AT_START.hora ?? null,
         PATRICIA_AT_START.gmailPermitido ? 1 : 0,
         String(PATRICIA_AT_START.etapa),
         PATRICIA_AT_START.bolsillo,

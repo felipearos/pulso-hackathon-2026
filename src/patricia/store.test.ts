@@ -35,8 +35,8 @@ describe("store", () => {
 
   test("her bienvenida answers are kept", () => {
     const { app } = createTestApp();
-    app.store.updatePatricia({ nombre: "Paty", hora: "21:30", voz: "clara" });
-    expect(app.store.getPatricia()).toMatchObject({ nombre: "Paty", hora: "21:30", voz: "clara" });
+    app.store.updatePatricia({ nombre: "Paty", hora: "21:30", voz: "otra" });
+    expect(app.store.getPatricia()).toMatchObject({ nombre: "Paty", hora: "21:30", voz: "otra" });
   });
 
   test("setEtapa moves her and appends history with the clock time", () => {

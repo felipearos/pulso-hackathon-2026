@@ -353,7 +353,7 @@ export function createStore(db: Database, clock: Clock): Store {
       updatePatriciaRow.run({
         nombre: next.nombre,
         voz: next.voz,
-        hora: next.hora,
+        hora: next.hora ?? null,
         gmailPermitido: next.gmailPermitido ? 1 : 0,
         bolsillo: next.bolsillo,
         enPausa: next.enPausa ? 1 : 0,

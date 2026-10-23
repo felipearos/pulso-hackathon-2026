@@ -229,4 +229,16 @@ describe("bienvenida", () => {
     await tickAt(t, "2026-10-19T22:33");
     expect(t.whatsapp.outbox).toHaveLength(2);
   });
+
+  test("a restart between the audio and the link still sends the link that night", async () => {
+    const t = setupBienvenida();
+    t.whatsapp.failNextTexts = 1;
+    await tickAt(t, "2026-10-19T22:30");
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
+
+    const restarted = createTestApp({ db: t.db, now: parseSantiago("2026-10-19T22:45") });
+    await restarted.app.tick();
+    expect(restarted.whatsapp.outbox.map((m) => m.kind)).toEqual(["text"]);
+    expect(restarted.voice.calls).toHaveLength(0);
+  });
 });

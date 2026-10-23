@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { santiagoDate, santiagoParts } from "../clock/santiago";
+import type { Cita } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { Clock, Llm, SpokenAudio, Voice, WhatsApp } from "../ports";
 import { permitirUrl } from "../mail/permitir";
@@ -55,9 +56,15 @@ export function createCitaSender({
   let sending = false;
   // Citas whose failed send is already in the registro: retries every tick must not flood it.
   const failureRecorded = new Set<number>();
-  // Bienvenidas already sent whose «Permitir» link has not gone out yet; retried on the day's next ticks.
-  const permitirPending = new Set<number>();
   const permitirFailureRecorded = new Set<number>();
+
+  // Read from the base, not memory, so a restart between the audio and the link still sends the link that day.
+  const permitirOwed = (cita: Cita): boolean =>
+    cita.tipo === "bienvenida" &&
+    cita.mensajeSalienteId !== null &&
+    !store
+      .mensajesSalientes()
+      .some((m) => m.kind === "text" && m.id > cita.mensajeSalienteId! && m.text?.includes(permitirUrl()));
 
   const sendPermitir = async (cita: { id: number; motivo: string }): Promise<void> => {
     const text = `Para que pueda leer los correos de tu banco y de tu tienda, toca aquí y dale «Permitir» (solo lectura): ${permitirUrl()}`;
@@ -77,7 +84,6 @@ export function createCitaSender({
       }
       return;
     }
-    permitirPending.delete(cita.id);
     db.transaction(() => {
       store.addMensajeSaliente({ kind: "text", text, durationSeconds: null, whatsappId: id });
       store.recordDecision({
@@ -93,7 +99,7 @@ export function createCitaSender({
     const parts = santiagoParts(now);
     if (parts.hour * 60 + parts.minute < MADRUGADA_END) return;
     const cita = store.citaOn(santiagoDate(now));
-    if (cita && permitirPending.has(cita.id)) return sendPermitir(cita);
+    if (cita && permitirOwed(cita)) return sendPermitir(cita);
     if (!cita || cita.estado !== "programada" || cita.mensajeSalienteId !== null) return;
 
     const estadoDeCuenta = store.estadosDeCuenta().findLast((e) => e.cifras !== null) ?? null;
@@ -155,10 +161,7 @@ export function createCitaSender({
       });
     })();
 
-    if (bienvenida) {
-      permitirPending.add(cita.id);
-      await sendPermitir(cita);
-    }
+    if (bienvenida) await sendPermitir(cita);
   };
 
   return {
