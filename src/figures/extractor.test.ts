@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { FakeLlm } from "../fakes";
 import type { Llm } from "../ports";
-import { type CifrasExtraidas, EXTRACTOR_MODEL, extractCifras } from "./extractor";
+import { type CifrasExtraidas, EXTRACTOR_MODEL, extractCifras, extractCifrasDeFoto } from "./extractor";
 import { ESTADO_DE_CUENTA_8_CIFRAS, ESTADO_DE_CUENTA_8_TEXTO } from "./fixtures/estado-de-cuenta-8";
 
 const REPLY_8 = {
@@ -122,5 +122,48 @@ describe("extractCifras", () => {
     };
 
     expect(await extractCifras(ESTADO_DE_CUENTA_8_TEXTO, llm)).toBeNull();
+  });
+});
+
+describe("extractCifrasDeFoto", () => {
+  const FOTO = { bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0]), mimeType: "image/jpeg" };
+
+  test("reads the figures of a foto", async () => {
+    const llm = new FakeLlm([["Foto de un estado de cuenta:", '{"pagoMinimo":18500}']]);
+
+    const read = await extractCifrasDeFoto(FOTO, llm);
+
+    expect(read?.pagoMinimo).toBe(18500);
+    expect(read?.totalFacturado).toBeNull();
+  });
+
+  test("asks the extractor model with the foto as an image", async () => {
+    const llm = new FakeLlm([["Foto de un estado de cuenta:", JSON.stringify(REPLY_8)]]);
+
+    await extractCifrasDeFoto(FOTO, llm, { timeoutMs: 5_000 });
+
+    expect(llm.calls).toHaveLength(1);
+    const request = llm.calls[0];
+    expect(request?.model).toBe(EXTRACTOR_MODEL);
+    expect(request?.prompt.startsWith("Foto de un estado de cuenta:")).toBe(true);
+    expect(request?.images).toEqual([FOTO]);
+    expect(request?.system).toContain("foto");
+    expect(request?.timeoutMs).toBe(5_000);
+  });
+
+  test("a non-JSON reply is a failed read", async () => {
+    const llm = new FakeLlm([["Foto de un estado de cuenta:", "No se lee la foto."]]);
+
+    expect(await extractCifrasDeFoto(FOTO, llm)).toBeNull();
+  });
+
+  test("a failing llm is a failed read instead of throwing", async () => {
+    const llm: Llm = {
+      complete: async () => {
+        throw new Error("timeout");
+      },
+    };
+
+    expect(await extractCifrasDeFoto(FOTO, llm)).toBeNull();
   });
 });
