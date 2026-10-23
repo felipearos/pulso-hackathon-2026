@@ -1,0 +1,111 @@
+# Deploy — dónde corre Pulso y cómo se opera
+
+La app corre en el pc de escritorio de Felipe, que queda encendido y conectado
+hasta que terminen los pitches del sábado. No hay Railway ni Vercel: la app es
+un proceso que tiene que estar siempre encendido (revisa Gmail, corre el
+programador de noches y responde el webhook de Meta) y el pc lo hace gratis.
+
+## Lo que hay que saber
+
+| Qué | Dónde |
+| --- | --- |
+| URL pública | `https://desktop.taild8ed7e.ts.net` |
+| Healthcheck | `https://desktop.taild8ed7e.ts.net/health` → `{"status":"ok"}` |
+| Webhook de Meta | `https://desktop.taild8ed7e.ts.net/<ruta>` cuando exista la ruta |
+| Proceso | servicio systemd de usuario `pulso.service`, en `127.0.0.1:3010` |
+| Código en vivo | `~/pulso-live`, un checkout que sigue a `origin/main` |
+| Estado de Patricia | `~/.local/share/pulso/pulso.db` (SQLite, fuera del checkout) |
+| Secretos | Doppler `pulso-hackathon-2026`, config `prd` |
+
+## Cómo se despliega
+
+**Mergear a `main` es desplegar.** `pulso-update.timer` corre
+`deploy/update.sh` cada minuto: si `main` cambió, hace checkout, `bun install`
+y reinicia `pulso.service`. En un minuto el cambio está en la URL pública.
+Nadie tiene que entrar al pc, tampoco después de la entrega de las 13:00.
+
+Un merge que rompe el arranque deja la app reiniciándose en loop. La salida es
+otro merge que lo arregle (o un revert), no tocar el pc.
+
+```text
+Meta / jurado ──HTTPS──▶ Tailscale Funnel ──▶ 127.0.0.1:3010 (pulso.service)
+                         desktop.taild8ed7e.ts.net        ▲
+                                                          │ restart
+GitHub main ◀── git fetch cada minuto ── pulso-update.timer
+```
+
+## Operación diaria (en el pc)
+
+```bash
+systemctl --user status pulso.service                         # ¿está arriba?
+journalctl --user -u pulso.service -u pulso-update.service -f  # logs en vivo
+systemctl --user restart pulso.service                        # reiniciar a mano
+tailscale funnel status                                       # ¿está publicada?
+curl -s https://desktop.taild8ed7e.ts.net/health              # prueba de punta a punta
+```
+
+Para confirmar que se ve desde afuera, abrir la URL en un teléfono con datos
+móviles y **sin** Tailscale. Probar desde el mismo pc pasa por la tailnet, no
+por internet.
+
+Los secretos nuevos se agregan en Doppler `prd` y se aplican con
+`systemctl --user restart pulso.service`. `HOST`, `PORT` y `DATABASE_PATH`
+están fijos en `deploy/pulso.service`, no en Doppler.
+
+## Setup desde cero
+
+Ya está hecho; queda por si hay que rehacerlo (por ejemplo, otro pc).
+
+```bash
+cd ~/pulso-hackathon-2026 && git pull
+deploy/install.sh                                          # checkout en vivo, units, arranque
+tailscale funnel --bg --https=443 http://127.0.0.1:3010    # publicar
+curl -s https://desktop.taild8ed7e.ts.net/health
+```
+
+Cambios a los archivos de `deploy/*.service` o `*.timer` solo se aplican al
+correr `deploy/install.sh` de nuevo; el timer no los copia.
+
+## Si algo falla
+
+**La URL no responde pero `curl 127.0.0.1:3010/health` sí.** Es el funnel:
+`tailscale funnel status`; si no aparece, correr de nuevo el comando de
+publicar. Revisar que Tailscale esté conectado (`tailscale status`).
+
+**`pulso.service` no arranca o se reinicia en loop.** Ver el error en
+`journalctl --user -u pulso.service -n 50`. Si es un merge malo, arreglarlo
+con otro merge. Si dice que Doppler no responde, revisar la conexión del pc.
+
+**`systemctl --user restart` se queda colgado.** Pasó el 23 de octubre: el
+administrador de systemd del usuario quedó al 95 % de CPU y ningún servicio
+arrancaba. Se confirma con `systemctl --user list-jobs` (todo en `waiting`).
+Se arregla con:
+
+```bash
+systemctl --user daemon-reexec
+```
+
+Los servicios que ya corren siguen corriendo.
+
+**Se corta la luz o internet en la casa.** La app se cae con el pc. Al volver,
+los servicios arrancan solos (lingering activo) y el funnel también. Si no
+vuelve a tiempo para el pitch, usar el respaldo.
+
+## Respaldo: un laptop
+
+```bash
+doppler setup --project pulso-hackathon-2026 --config prd --no-interactive
+DATABASE_PATH=data/pulso.db doppler run -- bun run start   # puerto 3000
+cloudflared tunnel --url http://localhost:3000              # o ngrok
+```
+
+El túnel da otra URL: hay que apuntar el webhook de Meta a ella (unos dos
+minutos). El estado de Patricia parte vacío en el laptop salvo que se copie
+`~/.local/share/pulso/pulso.db`. Ensayarlo una vez antes del sábado.
+
+## Después del evento
+
+```bash
+tailscale funnel --https=443 off
+systemctl --user disable --now pulso-update.timer pulso.service
+```
