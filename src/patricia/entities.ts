@@ -34,6 +34,8 @@ export type Senal = {
   tipo: TipoSenal;
   /** The mail it came from. */
   origen: { mailId: string; from: string; subject: string };
+  /** The paid amount of an S3's pedido del catálogo, in pesos; null when unknown or not an S3. */
+  monto: number | null;
   receivedAt: Date;
 };
 

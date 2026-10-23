@@ -59,4 +59,14 @@ describe("migrate", () => {
     ]);
     expect(() => db.run(insert, ["S1", "dup"])).toThrow();
   });
+
+  test("the monto step keeps the señales a v4 base already holds, with no monto", () => {
+    const db = openDatabase(":memory:");
+    migrate(db, migrations.filter((m) => m.version < 5));
+    db.run("INSERT INTO senales (tipo, mail_id, mail_from, subject, received_at) VALUES ('S3', 'm', 'a@b.example', 's', 't')");
+    expect(migrate(db)).toEqual([5]);
+    expect(db.query<{ tipo: string; monto: number | null }, []>("SELECT tipo, monto FROM senales").all()).toEqual([
+      { tipo: "S3", monto: null },
+    ]);
+  });
 });

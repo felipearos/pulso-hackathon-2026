@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { Clock } from "../ports";
+import { plataApartada, type PlataApartada } from "../plata/apartado";
 import type {
   Cita,
   Decision,
@@ -28,8 +29,11 @@ export type Store = {
   etapaHistory(): EtapaCambio[];
   addEstadoDeCuenta(input: Omit<EstadoDeCuenta, "id" | "receivedAt">): EstadoDeCuenta;
   estadosDeCuenta(): EstadoDeCuenta[];
-  addSenal(input: Omit<Senal, "id" | "receivedAt">): Senal;
+  /** `monto` is the paid amount of an S3's pedido; leave it out for every other señal. */
+  addSenal(input: Omit<Senal, "id" | "receivedAt" | "monto"> & { monto?: number | null }): Senal;
   senales(): Senal[];
+  /** This week's plata apartada at the clock's current time. */
+  plataApartada(): PlataApartada;
   /** The señal a mail already became; null if it never was seen. */
   senalForMail(mailId: string): Senal | null;
   addMensajeSaliente(input: Omit<MensajeSaliente, "id" | "sentAt">): MensajeSaliente;
@@ -87,6 +91,7 @@ type SenalRow = {
   mail_id: string;
   mail_from: string;
   subject: string;
+  monto: number | null;
   received_at: string;
 };
 
@@ -167,6 +172,7 @@ function toSenal(row: SenalRow): Senal {
     id: row.id,
     tipo: row.tipo,
     origen: { mailId: row.mail_id, from: row.mail_from, subject: row.subject },
+    monto: row.monto,
     receivedAt: new Date(row.received_at),
   };
 }
@@ -239,9 +245,9 @@ export function createStore(db: Database, clock: Clock): Store {
      RETURNING *`,
   );
   const selectEstadosDeCuenta = db.query<EstadoDeCuentaRow, []>("SELECT * FROM estados_de_cuenta ORDER BY id");
-  const insertSenal = db.query<SenalRow, Record<string, string>>(
-    `INSERT INTO senales (tipo, mail_id, mail_from, subject, received_at)
-     VALUES ($tipo, $mailId, $from, $subject, $receivedAt) RETURNING *`,
+  const insertSenal = db.query<SenalRow, Record<string, string | number | null>>(
+    `INSERT INTO senales (tipo, mail_id, mail_from, subject, monto, received_at)
+     VALUES ($tipo, $mailId, $from, $subject, $monto, $receivedAt) RETURNING *`,
   );
   const selectSenales = db.query<SenalRow, []>("SELECT * FROM senales ORDER BY id");
   const selectSenalForMail = db.query<SenalRow, [string]>("SELECT * FROM senales WHERE mail_id = ?");
@@ -352,6 +358,7 @@ export function createStore(db: Database, clock: Clock): Store {
         mailId: input.origen.mailId,
         from: input.origen.from,
         subject: input.origen.subject,
+        monto: input.monto ?? null,
         receivedAt: now(),
       });
       return toSenal(row!);
@@ -359,6 +366,10 @@ export function createStore(db: Database, clock: Clock): Store {
 
     senales() {
       return selectSenales.all().map(toSenal);
+    },
+
+    plataApartada() {
+      return plataApartada(selectSenales.all().map(toSenal), clock.now());
     },
 
     senalForMail(mailId) {
