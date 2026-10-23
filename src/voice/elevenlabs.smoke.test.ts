@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createElevenLabsVoice } from "./elevenlabs";
+import { createElevenLabsTranscriber, createElevenLabsVoice } from "./elevenlabs";
 
 const apiKey = process.env.ELEVENLABS_API_KEY;
 const voiceId = process.env.ELEVENLABS_VOICE_ID;
@@ -17,6 +17,20 @@ test.skipIf(!enabled || !apiKey || !voiceId)(
     expect(spoken.mimeType).toBe("audio/ogg");
     expect(spoken.durationSeconds).toBeGreaterThan(0);
     expect(spoken.durationSeconds).toBeLessThan(30);
+  },
+  30_000,
+);
+
+test.skipIf(!enabled || !apiKey || !voiceId)(
+  "ElevenLabs transcribes back a Spanish sentence it spoke",
+  async () => {
+    const voice = createElevenLabsVoice({ apiKey: apiKey!, voiceId: voiceId! });
+    const transcriber = createElevenLabsTranscriber({ apiKey: apiKey! });
+
+    const spoken = await voice.synthesize("Patricia pagó su tarjeta completa este mes.");
+    const text = await transcriber.transcribe(spoken.audio, spoken.mimeType);
+
+    expect(text.toLowerCase()).toContain("tarjeta");
   },
   30_000,
 );
