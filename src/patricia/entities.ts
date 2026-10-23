@@ -142,7 +142,9 @@ export type TipoDecision =
   /** Patricia gave her «Permitir» and Luna may read her Gmail. */
   | "permitir-correo"
   /** Reading Gmail failed; one entry per run of failed polls, not per poll. */
-  | "error-correo";
+  | "error-correo"
+  /** She wrote something that reads as a crisis: Luna sent the crisis text and she went into pausa. */
+  | "crisis";
 
 /** One entry of the append-only decision log. */
 export type Decision = {
