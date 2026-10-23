@@ -111,7 +111,7 @@ describe("createWhatsAppCloud", () => {
     });
   });
 
-  test("an audio inside the window uploads the media first, then sends it", async () => {
+  test("an audio inside the window uploads the media first, then sends it as a voice note", async () => {
     const { whatsapp, requests, clock } = setup({ responses: [Response.json({ id: "media-1" }), ok("wamid-2")] });
     whatsapp.recordInbound(clock.now());
     const result = await whatsapp.send(OGG);
@@ -131,7 +131,7 @@ describe("createWhatsAppCloud", () => {
       messaging_product: "whatsapp",
       to: "56900000000",
       type: "audio",
-      audio: { id: "media-1" },
+      audio: { id: "media-1", voice: true },
     });
   });
 

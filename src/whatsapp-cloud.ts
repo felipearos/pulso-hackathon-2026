@@ -219,7 +219,9 @@ export function createWhatsAppCloud(deps: WhatsAppCloudDeps): WhatsAppCloud {
         return postMessage(config, "text", { type: "text", text: { body: message.text } });
       case "audio": {
         const id = await uploadMedia(config, "audio", message.audio, message.mimeType, "audio.ogg");
-        return postMessage(config, "audio", { type: "audio", audio: { id } });
+        // `voice: true` is what makes Meta deliver the OGG/Opus as a nota de voz
+        // rather than as an audio attachment.
+        return postMessage(config, "audio", { type: "audio", audio: { id, voice: true } });
       }
       case "image": {
         const filename = `imagen.${extensionOf(message.mimeType)}`;
