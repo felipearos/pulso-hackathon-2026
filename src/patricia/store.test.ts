@@ -72,6 +72,36 @@ describe("store", () => {
     expect(listed[1]!.cifras).toBeNull();
   });
 
+  test("an extraction round-trips by its mail, one per mail", () => {
+    const { app, clock } = createTestApp();
+    clock.set(NIGHT);
+    const estado = app.store.addEstadoDeCuenta({
+      origen: "banco",
+      ciclo: 8,
+      fechaCierre: null,
+      fechaVencimiento: null,
+      cifras: null,
+      pagoMinimo: null,
+    });
+    const cifras = {
+      pagoMinimo: 41_900,
+      totalFacturado: 650_000,
+      cupo: null,
+      tasaMensual: 0.031,
+      fechaVencimiento: "2026-11-05",
+      fechaCierre: "2026-10-15",
+      mora: 0,
+      pagosAnteriores: [{ monto: 41_300, aTiempo: true }],
+      comprasEnCuotas: [{ descripcion: "Refrigerador", cuotasRestantes: 2 }],
+    };
+    const added = app.store.addExtraccion({ estadoDeCuentaId: estado.id, mailId: "mail-8", cifras });
+
+    expect(added).toEqual({ id: added.id, estadoDeCuentaId: estado.id, mailId: "mail-8", cifras, extractedAt: NIGHT });
+    expect(app.store.extraccionForMail("mail-8")).toEqual(added);
+    expect(app.store.extraccionForMail("mail-9")).toBeNull();
+    expect(() => app.store.addExtraccion({ estadoDeCuentaId: estado.id, mailId: "mail-8", cifras })).toThrow();
+  });
+
   test("señales round-trip with the clock time", () => {
     const { app, clock } = createTestApp();
     clock.set(NIGHT);

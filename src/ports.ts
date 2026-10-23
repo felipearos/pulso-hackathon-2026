@@ -46,6 +46,10 @@ export type LlmRequest = {
   model?: string;
   system?: string;
   prompt: string;
+  /** Longest answer in tokens; unset means the adapter's default. */
+  maxTokens?: number;
+  /** How long to wait for the answer; unset means the adapter's default. */
+  timeoutMs?: number;
 };
 
 /** Claude: turns a prompt into text. */

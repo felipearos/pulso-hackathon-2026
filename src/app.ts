@@ -5,9 +5,10 @@ import { migrate } from "./db";
 import { nightAudioSender } from "./demo/night-audio";
 import type { EtapaMove } from "./escalera/policy";
 import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
+import { extractEstadoDeCuenta } from "./mail/estado-de-cuenta";
 import { receiveMail } from "./mail/ingest";
 import { allowedSenderDomains } from "./mail/senders";
-import type { Senal } from "./patricia/entities";
+import type { Extraccion, Senal } from "./patricia/entities";
 import { resetPatricia } from "./patricia/fixtures";
 import { createStore, type Store } from "./patricia/store";
 import type { IncomingMail, Ports } from "./ports";
@@ -24,6 +25,8 @@ export type App = {
   tick(): Promise<void>;
   /** Turns one mail into at most one señal; Gmail, the fake and the /demo injection all end here. */
   receiveMail(mail: IncomingMail): Promise<Senal | null>;
+  /** Reads an S1 mail's estado de cuenta after `receiveMail`; `tick` calls it for every new S1. */
+  extractEstadoDeCuenta(mail: IncomingMail): Promise<Extraccion | null>;
   /** Patricia's persisted state and the decision log. */
   store: Store;
   /** The demo clock: every domain time read goes through it (ADR 0002). */
@@ -54,9 +57,24 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   // The señal and its decision land together or not at all.
   const receive = (mail: IncomingMail) =>
     receiveMail(store, ports.llm, mail, (fn) => ports.db.transaction(fn)());
+  const extract = (mail: IncomingMail) => extractEstadoDeCuenta({ store, llm: ports.llm, db: ports.db }, mail);
+  // fetchNew hands each mail over once, so an S1 Claude could not read is kept
+  // here and read again on the next tick instead of being lost.
+  const porLeer = new Map<string, IncomingMail>();
+  const extractOrKeep = async (mail: IncomingMail) => {
+    if ((await extract(mail)) === null && store.senalForMail(mail.id)?.tipo === "S1") porLeer.set(mail.id, mail);
+    else porLeer.delete(mail.id);
+  };
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
     if (!store.getPatricia().gmailPermitido) return;
+    for (const mail of porLeer.values()) {
+      try {
+        await extractOrKeep(mail);
+      } catch (error) {
+        console.error(`mail: ${mail.id} failed again: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     let mails: IncomingMail[];
     try {
       mails = await ports.mail.fetchNew(allowedSenderDomains());
@@ -67,7 +85,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     }
     for (const mail of mails) {
       try {
-        await receive(mail);
+        if ((await receive(mail))?.tipo === "S1") await extractOrKeep(mail);
       } catch (error) {
         // One mail that fails must not cost the rest of the batch.
         console.error(`mail: ${mail.id} failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -97,6 +115,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
       await sender.tick();
     },
     receiveMail: receive,
+    extractEstadoDeCuenta: extract,
     store,
     clock,
     receiveMensaje: (input) => receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp }, input),

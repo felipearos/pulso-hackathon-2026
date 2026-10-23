@@ -19,6 +19,20 @@ The monthly credit-card statement the bank emails her. The artefact she
 avoids opening; the success condition is that she opens it herself.
 _Avoid:_ "bill", "invoice".
 
+## Extracción
+
+What the extractor (Claude) read from one estado de cuenta: pago mínimo,
+total facturado, cupo, tasa, vencimiento, pagos anteriores and compras en
+cuotas. The model only copies what is printed; code checks every field, and
+a field it did not find or doubted is «no encontrado» and is never used.
+_Avoid:_ "parse", "OCR result".
+
+## Callar una cifra
+
+The decision (`callar-cifra`) Luna records for each figure the extracción
+did not find: she keeps it to herself instead of guessing it.
+_Avoid:_ "missing value", "default".
+
 ## Pago mínimo
 
 The minimum payment the statement asks for. Paying exactly it is how she
@@ -144,9 +158,9 @@ _Avoid:_ "whitelist".
 ## Registro de decisiones
 
 The append-only log of everything Luna decided (move the etapa, stay quiet,
-defer a cita or what waits for it, propose plata apartada, read a señal),
-each with the demo clock's time, its tipo, a motivo in Spanish and the input
-it was taken on.
+keep a figure to herself, defer a cita or what waits for it, propose plata
+apartada, read a señal), each with the demo clock's time, its tipo, a motivo
+in Spanish and the input it was taken on.
 Nothing in it is ever edited or deleted; the control room shows it. The one
 exception is the reset (`bun run reset`, `App.reset()`), which empties it along
 with the rest of her history to rehearse the demo from the starting point.
