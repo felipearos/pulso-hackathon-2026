@@ -35,12 +35,12 @@ const extra: [number, string][] = [
 const invalid = [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 1_000_000_000_000];
 
 describe("montoEnPalabras", () => {
-  test.each(acceptance)("says %p as %p", (pesos, palabras) => {
-    expect(montoEnPalabras(pesos)).toBe(palabras);
+  test.each(acceptance)("says %p as %p", (pesos, words) => {
+    expect(montoEnPalabras(pesos)).toBe(words);
   });
 
-  test.each(extra)("says %p as %p", (pesos, palabras) => {
-    expect(montoEnPalabras(pesos)).toBe(palabras);
+  test.each(extra)("says %p as %p", (pesos, words) => {
+    expect(montoEnPalabras(pesos)).toBe(words);
   });
 
   test.each(invalid)("rejects %p", (pesos) => {
@@ -49,8 +49,8 @@ describe("montoEnPalabras", () => {
 });
 
 describe("montoEnPantalla", () => {
-  test.each(acceptance)("shows %p as %p", (pesos, _palabras, pantalla) => {
-    expect(montoEnPantalla(pesos)).toBe(pantalla);
+  test.each(acceptance)("shows %p as %p", (pesos, _words, screen) => {
+    expect(montoEnPantalla(pesos)).toBe(screen);
   });
 
   test.each(invalid)("rejects %p", (pesos) => {
