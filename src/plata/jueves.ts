@@ -1,0 +1,113 @@
+/**
+ * The jueves: the cita proposes paying the plata apartada sobre el mínimo,
+ * and Patricia's 👍 or 👌 gets one warm reply. Every cifra comes from the
+ * motor; every time read goes through the store's clock (ADR 0002).
+ */
+import { isOnlyEmoji } from "../escalera/classify";
+import type { Intencion } from "../escalera/policy";
+import type { Cita } from "../patricia/entities";
+import type { Store } from "../patricia/store";
+import type { Llm, WhatsApp } from "../ports";
+import { SAFE_TEMPLATE, validateText } from "../validator/validator";
+import { montoEnPantalla } from "../voz/montos";
+import {
+  propuestaDelJueves,
+  respuestaAEleccion,
+  textoPropuesta,
+  type EleccionDePago,
+  type Propuesta,
+} from "./propuesta";
+
+type PropuestaDatos = Propuesta & { citaId: number; texto: string };
+
+/**
+ * Records the propuesta for a jueves cita that was just programada. Nothing at
+ * all when there is no plata apartada or no pago mínimo to build it on.
+ */
+export function proponerEnCita(store: Store, cita: Cita): void {
+  if (cita.tipo !== "jueves") return;
+  const { total: apartado, aportes } = store.plataApartada();
+  const estado = store
+    .estadosDeCuenta()
+    .filter((e) => e.origen === "banco" && e.pagoMinimo !== null)
+    .at(-1);
+  const propuesta = propuestaDelJueves({ apartado, pagoMinimo: estado?.pagoMinimo ?? null });
+  if (propuesta === null) return;
+
+  const { pagoMinimo, monto } = propuesta;
+  store.recordDecision({
+    tipo: "proponer-plata-apartada",
+    motivo: `propone pagar ${montoEnPantalla(monto)}: mínimo ${montoEnPantalla(pagoMinimo)} + ${montoEnPantalla(apartado)} apartado`,
+    datos: { citaId: cita.id, apartado, aportes, pagoMinimo, monto, texto: textoPropuesta(propuesta) },
+  });
+}
+
+/** The propuesta of the latest programada cita, while Patricia has not answered it. */
+function openPropuesta(store: Store): PropuestaDatos | null {
+  const cita = store
+    .citas()
+    .filter((c) => c.estado === "programada")
+    .at(-1);
+  if (cita === undefined) return null;
+  const decisions = store.decisions();
+  const forCita = (tipo: string) =>
+    decisions.filter((d) => d.tipo === tipo && (d.datos as { citaId?: unknown } | null)?.citaId === cita.id);
+  if (forCita("respuesta-propuesta").length > 0) return null;
+  const propuesta = forCita("proponer-plata-apartada").at(-1);
+  return propuesta ? (propuesta.datos as PropuestaDatos) : null;
+}
+
+function eleccionOf(text: string, intencion: Intencion): EleccionDePago | null {
+  if (isOnlyEmoji(text, "👍") || intencion.kind === "accepted") return "propuesta";
+  if (isOnlyEmoji(text, "👌") || intencion.kind === "minimum") return "minimo";
+  return null;
+}
+
+/**
+ * Answers Patricia's choice on the open propuesta, once. The reply is fixed
+ * by code, equally warm either way; it is not a cita, so it adds no
+ * MensajeSaliente.
+ */
+export async function answerEleccion(
+  deps: { store: Store; llm: Llm; whatsapp: WhatsApp },
+  text: string,
+  intencion: Intencion,
+): Promise<void> {
+  const { store, llm, whatsapp } = deps;
+  const propuesta = openPropuesta(store);
+  if (propuesta === null) return;
+  const eleccion = eleccionOf(text, intencion);
+  if (eleccion === null) return;
+
+  const draft = respuestaAEleccion(eleccion, propuesta);
+  const validated = await validateText({
+    draft,
+    allowedFigures: [propuesta.monto],
+    llm,
+    redraft: async () => draft,
+    safeTemplate: SAFE_TEMPLATE,
+    recordDecision: (decision) =>
+      store.recordDecision({ tipo: "mensaje", motivo: decision.reason, datos: decision.input }),
+  });
+
+  let whatsappId: string;
+  try {
+    ({ id: whatsappId } = await whatsapp.send({ kind: "text", text: validated.text }));
+  } catch (error) {
+    console.error("could not send the reply to the propuesta", error);
+    return;
+  }
+
+  store.recordDecision({
+    tipo: "respuesta-propuesta",
+    motivo: eleccion === "propuesta" ? `eligió pagar ${montoEnPantalla(propuesta.monto)}` : "eligió el mínimo",
+    datos: {
+      citaId: propuesta.citaId,
+      eleccion,
+      monto: propuesta.monto,
+      text: validated.text,
+      source: validated.source,
+      whatsappId,
+    },
+  });
+}

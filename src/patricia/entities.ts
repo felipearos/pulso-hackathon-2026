@@ -130,7 +130,9 @@ export type TipoDecision =
   /** A message was sent or received. */
   | "mensaje"
   /** Luna set a cita for tonight. */
-  | "programar-cita";
+  | "programar-cita"
+  /** Patricia chose between the propuesta and the mínimo, and Luna answered. */
+  | "respuesta-propuesta";
 
 /** One entry of the append-only decision log. */
 export type Decision = {

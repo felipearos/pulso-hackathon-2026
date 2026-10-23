@@ -1,4 +1,5 @@
 import type { Store } from "../patricia/store";
+import { answerEleccion } from "../plata/jueves";
 import type { Llm, WhatsApp } from "../ports";
 import { classifyIntencion } from "./classify";
 import { answerPregunta, lastAnswerAt } from "./preguntas";
@@ -90,5 +91,6 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
   if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
     await answerPregunta(deps, intencion.kind);
   }
+  await answerEleccion(deps, input.text, intencion);
   return move;
 }
