@@ -86,6 +86,15 @@ describe("FakeWhatsApp", () => {
       { kind: "image", image, mimeType: "image/png", caption: "Tu cuenta" },
     ]);
   });
+
+  test("returns the media a test filled and records every download", async () => {
+    const whatsapp = new FakeWhatsApp();
+    const media = { bytes: new Uint8Array([1, 2, 3]), mimeType: "audio/ogg" };
+    whatsapp.media.set("media-1", media);
+    expect(await whatsapp.downloadMedia("media-1")).toEqual(media);
+    await expect(whatsapp.downloadMedia("media-2")).rejects.toThrow("media-2");
+    expect(whatsapp.downloads).toEqual(["media-1", "media-2"]);
+  });
 });
 
 describe("FakeLlm", () => {
@@ -118,5 +127,15 @@ describe("FakeVoice", () => {
     expect(spoken.audio.length).toBeGreaterThan(0);
     expect(spoken.durationSeconds).toBeGreaterThan(0);
     expect(voice.calls).toEqual(["Buenas noches, Patricia"]);
+  });
+
+  test("transcribes in order, after the failures, and throws once the transcripts run out", async () => {
+    const voice = new FakeVoice({ transcripts: ["pagué la cuenta"], transcribeFailures: 1 });
+    const audio = new Uint8Array([1, 2]);
+    await expect(voice.transcribe(audio, "audio/ogg")).rejects.toThrow("on purpose");
+    expect(await voice.transcribe(audio, "audio/ogg")).toBe("pagué la cuenta");
+    await expect(voice.transcribe(audio, "audio/ogg")).rejects.toThrow("no transcript");
+    expect(voice.transcribed).toHaveLength(3);
+    expect(voice.transcribed[0]).toEqual({ bytes: 2, mimeType: "audio/ogg" });
   });
 });

@@ -294,3 +294,60 @@ describe("isMadrugada", () => {
     expect(isMadrugada(new Date("2026-10-24T15:00:00Z"))).toBe(false); // 12:00
   });
 });
+
+describe("downloadMedia", () => {
+  const MEDIA_URL = "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=media-1";
+
+  test("looks the id up, then downloads the bytes from its url, both with the bearer token", async () => {
+    const { whatsapp, requests } = setup({
+      env: { WHATSAPP_ACCESS_TOKEN: TOKEN },
+      responses: [
+        Response.json({ url: MEDIA_URL, mime_type: "audio/ogg; codecs=opus", id: "media-1" }),
+        new Response(new Uint8Array([7, 8, 9]), { headers: { "content-type": "application/octet-stream" } }),
+      ],
+    });
+
+    const media = await whatsapp.downloadMedia("media-1");
+
+    expect(media).toEqual({ bytes: new Uint8Array([7, 8, 9]), mimeType: "audio/ogg; codecs=opus" });
+    expect(requests.map((request) => [request.method, request.url])).toEqual([
+      ["GET", "https://graph.facebook.com/v21.0/media-1"],
+      ["GET", MEDIA_URL],
+    ]);
+    for (const request of requests) expect(request.headers.Authorization).toBe(`Bearer ${TOKEN}`);
+  });
+
+  test("falls back to the download's content-type when the lookup has no mime_type", async () => {
+    const { whatsapp } = setup({
+      responses: [Response.json({ url: MEDIA_URL }), new Response(new Uint8Array([1]), { headers: { "content-type": "audio/ogg" } })],
+    });
+    expect((await whatsapp.downloadMedia("media-1")).mimeType).toBe("audio/ogg");
+  });
+
+  test("a failed lookup throws with the status and the token scrubbed", async () => {
+    const { whatsapp, requests } = setup({ responses: [serverError()] });
+    const error = await whatsapp.downloadMedia("media-1").catch((caught: Error) => caught);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain("500");
+    expect((error as Error).message).not.toContain(TOKEN);
+    expect(requests).toHaveLength(1);
+  });
+
+  test("a network error on the download throws with the token scrubbed", async () => {
+    const { whatsapp } = setup({ responses: [Response.json({ url: MEDIA_URL }), new Error(`socket closed for ${TOKEN}`)] });
+    const error = (await whatsapp.downloadMedia("media-1").catch((caught: Error) => caught)) as Error;
+    expect(error.message).toContain("socket closed");
+    expect(error.message).not.toContain(TOKEN);
+  });
+
+  test("a lookup without a url throws", async () => {
+    const { whatsapp } = setup({ responses: [Response.json({ id: "media-1" })] });
+    await expect(whatsapp.downloadMedia("media-1")).rejects.toThrow("no url");
+  });
+
+  test("needs only the access token", async () => {
+    const { whatsapp, requests } = setup({ env: {} });
+    await expect(whatsapp.downloadMedia("media-1")).rejects.toBeInstanceOf(MissingEnvError);
+    expect(requests).toHaveLength(0);
+  });
+});

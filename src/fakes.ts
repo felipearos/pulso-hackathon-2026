@@ -1,6 +1,7 @@
 import type {
   Clock,
   IncomingMail,
+  IncomingMedia,
   Llm,
   LlmRequest,
   Mail,
@@ -82,6 +83,9 @@ export class FakeWhatsApp implements WhatsApp {
   readonly inbound: Date[] = [];
   /** The next this-many text sends throw instead of reaching the outbox. */
   failNextTexts = 0;
+  /** By media id; a test fills it with what Patricia sent. */
+  readonly media = new Map<string, IncomingMedia>();
+  readonly downloads: string[] = [];
 
   async send(message: OutgoingWhatsApp): Promise<{ id: string }> {
     if (message.kind === "text" && this.failNextTexts > 0) {
@@ -94,6 +98,13 @@ export class FakeWhatsApp implements WhatsApp {
 
   recordInbound(at: Date): void {
     this.inbound.push(new Date(at.getTime()));
+  }
+
+  async downloadMedia(mediaId: string): Promise<IncomingMedia> {
+    this.downloads.push(mediaId);
+    const media = this.media.get(mediaId);
+    if (!media) throw new Error(`FakeWhatsApp has no media ${mediaId}`);
+    return media;
   }
 }
 
@@ -116,13 +127,23 @@ export class FakeVoice implements Voice {
   readonly calls: string[] = [];
   /** The voz of each call, in the same order as `calls`. */
   readonly voces: Voz[] = [];
+  readonly transcribed: Array<{ bytes: number; mimeType: string }> = [];
   private readonly durations: number[];
   private failures: number;
+  private readonly transcripts: string[];
+  private transcribeFailures: number;
 
-  /** Each call takes the next of `durations` (3 s once they run out); the first `failures` calls throw. */
-  constructor(options: { durations?: number[]; failures?: number } = {}) {
+  /**
+   * Each `synthesize` takes the next of `durations` (3 s once they run out); the first `failures` calls throw.
+   * Each `transcribe` takes the next of `transcripts` and throws once they run out; the first `transcribeFailures` calls throw.
+   */
+  constructor(
+    options: { durations?: number[]; failures?: number; transcripts?: string[]; transcribeFailures?: number } = {},
+  ) {
     this.durations = [...(options.durations ?? [])];
     this.failures = options.failures ?? 0;
+    this.transcripts = [...(options.transcripts ?? [])];
+    this.transcribeFailures = options.transcribeFailures ?? 0;
   }
 
   async synthesize(text: string, voz?: Voz): Promise<SpokenAudio> {
@@ -138,6 +159,17 @@ export class FakeVoice implements Voice {
       mimeType: "audio/ogg",
       durationSeconds,
     };
+  }
+
+  async transcribe(audio: Uint8Array, mimeType: string): Promise<string> {
+    this.transcribed.push({ bytes: audio.length, mimeType });
+    if (this.transcribeFailures > 0) {
+      this.transcribeFailures--;
+      throw new Error("FakeVoice failed to transcribe on purpose");
+    }
+    const transcript = this.transcripts.shift();
+    if (transcript === undefined) throw new Error("FakeVoice has no transcript");
+    return transcript;
   }
 }
 

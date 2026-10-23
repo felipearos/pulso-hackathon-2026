@@ -37,6 +37,9 @@ export type OutgoingWhatsApp =
   | { kind: "audio"; audio: Uint8Array; mimeType: string; durationSeconds: number }
   | { kind: "image"; image: Uint8Array; mimeType: string; caption?: string };
 
+/** A file Patricia sent by WhatsApp, such as a nota de voz, as downloaded from Meta. */
+export type IncomingMedia = { bytes: Uint8Array; mimeType: string };
+
 /**
  * Meta WhatsApp Cloud: how messages reach Patricia. `recordInbound` is how the
  * webhook tells the port that she wrote, which opens Meta's 24 h window; outside
@@ -45,6 +48,12 @@ export type OutgoingWhatsApp =
 export type WhatsApp = {
   send(message: OutgoingWhatsApp): Promise<{ id: string }>;
   recordInbound(at: Date): void;
+  /**
+   * Downloads the media an incoming message carries, by the id the webhook
+   * received. Optional while other branches still build `WhatsApp` without it:
+   * unset means a nota de voz cannot be heard.
+   */
+  downloadMedia?(mediaId: string): Promise<IncomingMedia>;
 };
 
 export type LlmRequest = {
@@ -69,9 +78,18 @@ export type SpokenAudio = {
   durationSeconds: number;
 };
 
-/** ElevenLabs: turns text into spoken audio, in the voz given (the principal voice when none is). */
+/**
+ * ElevenLabs: turns text into spoken audio, in the voz given (the principal
+ * voice when none is), and a nota de voz back into text.
+ */
 export type Voice = {
   synthesize(text: string, voz?: Voz): Promise<SpokenAudio>;
+  /**
+   * ElevenLabs speech-to-text; returns the transcript text. Optional while
+   * other branches still build `Voice` without it: unset means a nota de voz
+   * cannot be heard.
+   */
+  transcribe?(audio: Uint8Array, mimeType: string): Promise<string>;
 };
 
 export type WebDocument = { contentType: string; body: Uint8Array };

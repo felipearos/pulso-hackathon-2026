@@ -3,7 +3,7 @@ import { openDatabase } from "./db";
 import { MissingEnvError } from "./missing-env";
 import type { Clock, Ports } from "./ports";
 import { anthropicLlm } from "./anthropic";
-import { createElevenLabsVoice, type Fetch } from "./voice/elevenlabs";
+import { createElevenLabsTranscriber, createElevenLabsVoice, type Fetch } from "./voice/elevenlabs";
 import { voiceIdFor, VOZ_PRINCIPAL } from "./voice/voces";
 import { createHttpWeb } from "./web/http";
 import { createWhatsAppCloud } from "./whatsapp-cloud";
@@ -58,6 +58,10 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
         const [apiKey] = requireEnv(env, "voice", ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"]);
         const voiceId = voiceIdFor(voz ?? VOZ_PRINCIPAL, env)!;
         return createElevenLabsVoice({ apiKey: apiKey!, voiceId, fetch: options.fetch, log: options.log }).synthesize(text);
+      },
+      transcribe: async (audio, mimeType) => {
+        const [apiKey] = requireEnv(env, "voice", ["ELEVENLABS_API_KEY"]);
+        return createElevenLabsTranscriber({ apiKey: apiKey!, fetch: options.fetch, log: options.log }).transcribe(audio, mimeType);
       },
     },
     web: createHttpWeb({ fetch: options.fetch }),

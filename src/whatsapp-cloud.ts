@@ -1,4 +1,4 @@
-import type { Clock, OutgoingWhatsApp, WhatsApp } from "./ports";
+import type { Clock, IncomingMedia, OutgoingWhatsApp, WhatsApp } from "./ports";
 import { MissingEnvError } from "./missing-env";
 
 /*
@@ -40,6 +40,7 @@ export type WhatsAppCloudDeps = {
 
 /** The WhatsApp port plus the window's inbound record and the failure log. */
 export type WhatsAppCloud = WhatsApp & {
+  downloadMedia(mediaId: string): Promise<IncomingMedia>;
   readonly failures: SendLogEntry[];
 };
 
@@ -232,8 +233,48 @@ export function createWhatsAppCloud(deps: WhatsAppCloudDeps): WhatsAppCloud {
     }
   }
 
+  /**
+   * Meta's two-step media fetch: the id resolves to a short-lived URL, and that
+   * URL, with the same bearer token, serves the bytes. Only the token is needed.
+   */
+  async function downloadMedia(mediaId: string): Promise<IncomingMedia> {
+    const token = env.WHATSAPP_ACCESS_TOKEN;
+    if (!token) throw new MissingEnvError("whatsapp", ["WHATSAPP_ACCESS_TOKEN"]);
+    const version = env.WHATSAPP_API_VERSION || "v21.0";
+    const headers = { Authorization: `Bearer ${token}` };
+
+    async function get(url: string, step: string): Promise<Response> {
+      let response: Response;
+      try {
+        response = await doFetch(url, { method: "GET", headers });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(`whatsapp media ${step} failed: ${shortDetail(detail, token as string)}`);
+      }
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(`whatsapp media ${step} answered ${response.status}: ${shortDetail(text, token as string)}`);
+      }
+      return response;
+    }
+
+    const lookup = await get(`https://graph.facebook.com/${version}/${encodeURIComponent(mediaId)}`, "lookup");
+    const info = (await lookup.json().catch(() => ({}))) as { url?: unknown; mime_type?: unknown };
+    if (typeof info.url !== "string" || !info.url) {
+      throw new Error(`whatsapp media lookup returned no url for ${mediaId}`);
+    }
+    const download = await get(info.url, "download");
+    const bytes = new Uint8Array(await download.arrayBuffer());
+    const mimeType =
+      (typeof info.mime_type === "string" && info.mime_type) ||
+      download.headers.get("content-type") ||
+      "application/octet-stream";
+    return { bytes, mimeType };
+  }
+
   return {
     send,
+    downloadMedia,
     recordInbound(at: Date) {
       lastInbound = new Date(at.getTime());
     },
