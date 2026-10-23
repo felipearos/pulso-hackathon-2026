@@ -3,7 +3,7 @@ import { createTestApp } from "../testing";
 
 const receivedAt = new Date("2026-10-19T08:00:00-03:00");
 
-describe("recibirCorreo", () => {
+describe("receiveMail", () => {
   test("classifies the bank, store, catalogue, cuotas and payment mails, one decision each", async () => {
     const { app, mail } = createTestApp();
     mail.inject({ id: "s1", from: "Banco Andino <avisos@bancoandino.example>", subject: "Tu estado de cuenta de octubre", receivedAt });
@@ -42,7 +42,7 @@ describe("recibirCorreo", () => {
 
   test("a mail the rules cannot tell is stored as ignorado with a motivo saying so", () => {
     const { app } = createTestApp();
-    const senal = app.recibirCorreo({
+    const senal = app.receiveMail({
       id: "x", from: "avisos@bancoandino.example", subject: "Actualiza tus datos", text: "", receivedAt, links: [],
     });
     expect(senal?.tipo).toBe("ignorado");
@@ -54,7 +54,7 @@ describe("recibirCorreo", () => {
     mail.inject({ from: "amiga@correo.example", subject: "Estado de cuenta", receivedAt });
     mail.inject({ from: "avisos@bancoandino.example.fraude.example", subject: "Estado de cuenta", receivedAt });
     await app.tick();
-    expect(app.recibirCorreo({
+    expect(app.receiveMail({
       id: "direct", from: "avisos@bancoandin0.example", subject: "Estado de cuenta", text: "", receivedAt, links: [],
     })).toBeNull();
     expect(app.store.senales()).toEqual([]);
@@ -74,8 +74,8 @@ describe("recibirCorreo", () => {
   test("calling the entry twice with the same mail returns the same señal", () => {
     const { app } = createTestApp();
     const incoming = { id: "twice", from: "avisos@tiendaplaza.example", subject: "Recibimos tu pago", text: "", receivedAt, links: [] };
-    const first = app.recibirCorreo(incoming);
-    const second = app.recibirCorreo(incoming);
+    const first = app.receiveMail(incoming);
+    const second = app.receiveMail(incoming);
     expect(second).toEqual(first);
     expect(app.store.senales()).toHaveLength(1);
     expect(app.store.decisions()).toHaveLength(1);
@@ -94,5 +94,27 @@ describe("recibirCorreo", () => {
       console.error = original;
     }
     expect(app.store.senales()).toEqual([]);
+  });
+
+  test("a mail whose decision fails leaves no señal and the batch goes on", async () => {
+    const { app, mail } = createTestApp();
+    const record = app.store.recordDecision;
+    let calls = 0;
+    app.store.recordDecision = (input) => {
+      calls += 1;
+      if (calls === 1) throw new Error("registro lleno");
+      return record(input);
+    };
+    mail.inject({ id: "first", from: "avisos@bancoandino.example", subject: "Estado de cuenta", receivedAt });
+    mail.inject({ id: "second", from: "avisos@tiendaplaza.example", subject: "Recibimos tu pago", receivedAt });
+    const original = console.error;
+    console.error = () => {};
+    try {
+      await app.tick();
+    } finally {
+      console.error = original;
+    }
+    expect(app.store.senales().map((s) => s.origen.mailId)).toEqual(["second"]);
+    expect(app.store.decisions()).toHaveLength(1);
   });
 });

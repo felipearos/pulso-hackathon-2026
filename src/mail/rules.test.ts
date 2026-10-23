@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { TipoSenal } from "../patricia/entities";
-import { clasificarPorReglas } from "./reglas";
+import { classifyByRules } from "./rules";
 
 const BANCO = "Banco Andino <avisos@bancoandino.example>";
 const TIENDA = "Tienda Plaza <cuenta@tiendaplaza.example>";
@@ -23,17 +23,17 @@ const cases: [string, string, TipoSenal, string][] = [
   [CATALOGO, "Ofertas exclusivas solo por hoy", "ignorado", "Remitente del catálogo y el asunto no habla de un pedido pagado."],
 ];
 
-describe("clasificarPorReglas", () => {
+describe("classifyByRules", () => {
   test.each(cases)("from %p with subject %p is %p", (from, subject, tipo, motivo) => {
-    expect(clasificarPorReglas({ from, subject })).toEqual({ tipo, motivo });
+    expect(classifyByRules({ from, subject })).toEqual({ tipo, motivo });
   });
 
   test("a payment receipt wins over a statement in the same subject", () => {
-    expect(clasificarPorReglas({ from: BANCO, subject: "Recibimos tu pago del estado de cuenta" })?.tipo).toBe("S5");
+    expect(classifyByRules({ from: BANCO, subject: "Recibimos tu pago del estado de cuenta" })?.tipo).toBe("S5");
   });
 
   test("a bank statement that mentions cuotas is still S1", () => {
-    expect(clasificarPorReglas({ from: BANCO, subject: "Estado de cuenta: revisa tus cuotas" })?.tipo).toBe("S1");
+    expect(classifyByRules({ from: BANCO, subject: "Estado de cuenta: revisa tus cuotas" })?.tipo).toBe("S1");
   });
 
   test.each([
@@ -41,7 +41,7 @@ describe("clasificarPorReglas", () => {
     [TIENDA, "Nuevos productos en Tienda Plaza"],
     [BANCO, "Te convencemos con este seguro"],
   ])("from %p with subject %p is left to the next step", (from, subject) => {
-    expect(clasificarPorReglas({ from, subject })).toBeNull();
+    expect(classifyByRules({ from, subject })).toBeNull();
   });
 
   test.each([
@@ -50,6 +50,6 @@ describe("clasificarPorReglas", () => {
     "avisos@x.bancoandino.example",
     "avisos@bancoandin0.example",
   ])("does not classify mail from the look-alike %p", (from) => {
-    expect(clasificarPorReglas({ from, subject: "Tu estado de cuenta" })).toBeNull();
+    expect(classifyByRules({ from, subject: "Tu estado de cuenta" })).toBeNull();
   });
 });

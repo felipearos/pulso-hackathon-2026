@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { dominiosPermitidos, remitentePermitido } from "./remitentes";
+import { allowedSenderDomains, allowedSender, type SenderKind } from "./senders";
 
-describe("remitentePermitido", () => {
-  test.each([
+describe("allowedSender", () => {
+  test.each<[string, SenderKind]>([
     ["avisos@bancoandino.example", "banco"],
     ["Banco Andino <avisos@bancoandino.example>", "banco"],
     ["AVISOS@BancoAndino.EXAMPLE", "banco"],
     ["Tienda Plaza <cuenta@tiendaplaza.example>", "tienda"],
     ["pedidos@catalogoaurora.example", "catalogo"],
     ["  Catálogo Aurora <hola@catalogoaurora.example>  ", "catalogo"],
-  ])("allows %p as %p", (from, tipo) => {
-    expect(remitentePermitido(from)?.tipo).toBe(tipo as "banco" | "tienda" | "catalogo");
+  ])("allows %p as %p", (from, kind) => {
+    expect(allowedSender(from)?.kind).toBe(kind);
   });
 
   test.each([
@@ -24,12 +24,12 @@ describe("remitentePermitido", () => {
     "sin arroba",
     "",
   ])("rejects %p", (from) => {
-    expect(remitentePermitido(from)).toBeNull();
+    expect(allowedSender(from)).toBeNull();
   });
 });
 
-test("dominiosPermitidos lists the three allowed domains", () => {
-  expect(dominiosPermitidos()).toEqual([
+test("allowedSenderDomains lists the three allowed domains", () => {
+  expect(allowedSenderDomains()).toEqual([
     "bancoandino.example",
     "tiendaplaza.example",
     "catalogoaurora.example",

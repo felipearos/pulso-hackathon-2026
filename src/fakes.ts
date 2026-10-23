@@ -9,7 +9,7 @@ import type {
   Voice,
   WhatsApp,
 } from "./ports";
-import { dominioDe } from "./mail/remitentes";
+import { senderDomain } from "./mail/senders";
 
 export class FakeClock implements Clock {
   private current: Date;
@@ -55,8 +55,8 @@ export class FakeMail implements Mail {
   async fetchNew(senders: readonly string[]): Promise<IncomingMail[]> {
     const allowed = new Set(senders.map((s) => s.toLowerCase()));
     const drained = this.pending.filter((m) => {
-      const dominio = dominioDe(m.from);
-      return dominio !== null && allowed.has(dominio);
+      const domain = senderDomain(m.from);
+      return domain !== null && allowed.has(domain);
     });
     this.pending = [];
     return drained;
