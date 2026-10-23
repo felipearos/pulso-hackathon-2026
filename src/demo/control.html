@@ -100,6 +100,8 @@
   <section>
     <h2>Próxima cita</h2>
     <ul id="proxima-cita"></ul>
+    <h2>Esta semana</h2>
+    <ul id="metricas"></ul>
     <h2>De dónde salió la cifra del último audio</h2>
     <ul id="cifra"></ul>
   </section>
@@ -252,6 +254,15 @@
     const proxima = state.proximaCita;
     fillList($("proxima-cita"), proxima ? [item(`${proxima.fecha} · ${proxima.hora}`, proxima.tipo)] : [],
       "Sin cita programada");
+    const metricas = state.metricas;
+    fillList($("metricas"), metricas ? [
+      item("Noches con invitación:", String(metricas.noches.conInvitacion)),
+      item("Noches escuchadas:", String(metricas.noches.escuchadas)),
+      item("Noches sin presión cuando no escuchó:", String(metricas.noches.sinPresion)),
+      item("Apartado esta semana:", peso(metricas.apartadoDeLaSemana)),
+      item("Pagos sobre el mínimo, desde el inicio:", `${metricas.pagosSobreElMinimo.sobreElMinimo} de ${metricas.pagosSobreElMinimo.pagos}` +
+        ` (meta: ${metricas.pagosSobreElMinimo.meta.sobre} de cada ${metricas.pagosSobreElMinimo.meta.de})`),
+    ] : [], "Sin métricas");
     fillList($("correos"), [...state.correos].reverse().map((correo) => {
       const li = item(`${shortTime.format(new Date(correo.at))} · ${correo.etiqueta}`, `${correo.subject} — ${correo.from}`);
       if (correo.tipo === "S7") li.className = "sospechoso";

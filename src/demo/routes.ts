@@ -8,6 +8,7 @@ import type { Store } from "../patricia/store";
 import type { IncomingMail } from "../ports";
 import type { Canal, Simulador } from "../whatsapp/simulador";
 import type { InboundMensaje } from "../whatsapp/webhook";
+import { nochesDeLaSemana, pagosSobreElMinimo } from "./contadores";
 import { findMomento, type MomentoDelGuion } from "./guion";
 
 /** What the control room drives: the same flows Patricia's night runs on, no logic of its own. */
@@ -185,6 +186,20 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
           from: origen.from,
           etiqueta: ETIQUETAS[tipo],
         })),
+      metricas: {
+        noches: nochesDeLaSemana({
+          citas: deps.store.citas(),
+          salientes: deps.store.mensajesSalientes(),
+          entrantes: deps.store.mensajesEntrantes(),
+          now,
+        }),
+        apartadoDeLaSemana: deps.store.plataApartada().total,
+        pagosSobreElMinimo: pagosSobreElMinimo({
+          senales: deps.store.senales(),
+          estadosDeCuenta: deps.store.estadosDeCuenta(),
+          now,
+        }),
+      },
     };
   };
   const run = async (step: () => void | Promise<void>): Promise<Response> => {
