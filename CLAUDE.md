@@ -142,7 +142,7 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | --- | --- | --- |
 | `DATABASE_PATH` | none (unit) | SQLite file; defaults to `data/pulso.db` locally |
 | `HOST` | none (unit) | listen address; unset means all interfaces |
-| `PUBLIC_BASE_URL` | none (optional) | public base of the «Permitir» link the bienvenida sends; defaults to the Funnel URL |
+| `PUBLIC_BASE_URL` | none (optional) | public base of the «Permitir» link the bienvenida sends and of the jurado QR (`/sala/qr/jurado`); defaults to the Funnel URL |
 | `GMAIL_CLIENT_ID` | dev, prd | mail port: Gmail OAuth client |
 | `GMAIL_CLIENT_SECRET` | dev, prd | mail port: Gmail OAuth client |
 | `GMAIL_REDIRECT_URI` | dev, prd | mail port: the OAuth callback registered in Google, `<public URL>/gmail/callback` (prd: `https://desktop.taild8ed7e.ts.net/gmail/callback`, dev: `http://localhost:3000/gmail/callback`) |
@@ -157,6 +157,7 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `WHATSAPP_VERIFY_TOKEN` | dev, prd | whatsapp webhook: the token echoed back in Meta's GET subscription challenge; unset means the challenge is refused with 403 |
 | `WHATSAPP_SMOKE_TO` | dev | whatsapp port: Meta test number the smoke test writes to |
 | `WHATSAPP_SMOKE` | none (command line) | set it for one run to let the smoke test send a real message; unset everywhere else, so `bun run test` never does |
+| `WHATSAPP_ENTRADA_PHONE` | dev, prd | /sala/qr/entrada: the WhatsApp number the projector's QR opens a chat with («Hola Luna»); unset, that page answers 503 |
 | `WHATSAPP_SIMULADOR` | none (optional) | set to 1 to boot with the /sala simulador as the channel instead of Meta; it can also be switched from /sala |
 | `DEMO_OPERATOR_KEY` | dev, prd | control room: the key that lets `/demo` move the clock and send the test audio; the operator opens `/demo?clave=<key>` once. Unset, `/demo` is view-only |
 | `ANTHROPIC_API_KEY` | none (optional) | llm port: Claude API; unset means Claude runs through the Claude Code CLI logged in on the machine (`claude -p`), which is how the live app runs |

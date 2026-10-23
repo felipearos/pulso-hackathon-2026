@@ -346,3 +346,13 @@ A named point of the demo's guion (`Jue 22:30`, `Semana 4`) that a button of
 the sala de control jumps the demo clock to. The list lives in
 `src/demo/guion.json`, so the team adjusts it without touching code.
 _Avoid:_ "preset", "scene".
+
+## Pase del jurado
+
+The key the jurado QR at `/sala/qr/jurado` carries, so a member of the jury
+opens `/jurado` on their phone without the operator token. It is derived
+from `DEMO_TOKEN`, so changing the token changes it. There, Luna sends them
+their own audio de la noche 1, said with their nombre, through a simulador of
+its own: nothing reaches Meta or Patricia's conversation. One run of the app
+records at most 30 of those audios.
+_Avoid:_ "guest token", "invite".
