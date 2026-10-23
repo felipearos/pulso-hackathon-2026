@@ -18,6 +18,7 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.13",
     "unpdf": "^1.9.1"
   }
 }
