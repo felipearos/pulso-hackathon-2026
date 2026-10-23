@@ -26,6 +26,21 @@ stops paying only the minimum.
 Patricia is a fictional profile. Fixtures stay fictional: no real phone
 numbers, emails, bank data or names.
 
+## Stack and commands
+
+Bun 1.4 + TypeScript (strict, ESM), no web framework: `Bun.serve` serves
+HTTP. Tests sit next to the code as `*.test.ts` (`bun:test`).
+
+```bash
+bun install
+bun run start       # local server, PORT defaults to 3000
+bun run test        # bun test
+bun run typecheck   # tsc --noEmit
+bun run lint        # oxlint
+bun run build       # bundle to dist/
+bun run check       # all four, the same gate CI runs
+```
+
 ## Language
 
 Commits, PRs, issues and GitHub comments in Spanish (Chile), with the

@@ -1,0 +1,18 @@
+{
+  "name": "pulso-hackathon-2026",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun src/main.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings src",
+    "build": "bun build src/main.ts --target bun --outdir dist",
+    "check": "bun run test && bun run typecheck && bun run lint && bun run build"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "oxlint": "^1.89.0",
+    "typescript": "^7.0.2"
+  }
+}
