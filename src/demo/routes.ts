@@ -104,7 +104,7 @@ export function tokenMatches(expected: string, given: string | null): boolean {
 }
 
 /** The operator's token: the `x-demo-token` header (the page's calls) or else `?token=` (the projector's URL). */
-function givenToken(request: Request, url: URL): string | null {
+export function givenToken(request: Request, url: URL): string | null {
   return request.headers.get("x-demo-token") || url.searchParams.get("token");
 }
 

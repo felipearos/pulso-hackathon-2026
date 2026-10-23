@@ -157,4 +157,19 @@ describe("QR pages and the jurado's audio", () => {
     expect(((await response.json()) as { error: string }).error).toBeTruthy();
     expect(voice.calls).toHaveLength(MAX_AUDIOS_JURADO + 1);
   });
+
+  test("a body far bigger than a nombre answers 413 without reaching the voice", async () => {
+    const { app, voice } = setup();
+    const pase = await paseFromProjector(app);
+    const body = JSON.stringify({ nombre: "Rosa", relleno: "x".repeat(10_000) });
+    const response = await app.handle(
+      new Request(`http://localhost/jurado/audio?pase=${encodeURIComponent(pase)}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "content-length": String(body.length) },
+        body,
+      }),
+    );
+    expect(response.status).toBe(413);
+    expect(voice.calls).toHaveLength(0);
+  });
 });

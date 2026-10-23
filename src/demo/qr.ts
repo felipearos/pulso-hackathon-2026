@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import type { Voice } from "../ports";
 import type { Simulador } from "../whatsapp/simulador";
 import { guionNoche1 } from "./moments";
-import { tokenMatches } from "./routes";
+import { givenToken, tokenMatches } from "./routes";
 
 /** What the QR pages and the jurado's own audio need. */
 export type QrDeps = {
@@ -27,6 +27,8 @@ const PASE_LENGTH = 22;
 /** A nombre: Unicode letters, spaces, apostrophes and hyphens, starting with a letter. */
 const NOMBRE = /^\p{L}[\p{L}\p{M} '’-]*$/u;
 const MAX_NOMBRE = 40;
+/** The most a POST /jurado/audio body may weigh. */
+const MAX_BODY_BYTES = 4096;
 
 const NOT_FOUND = () => new Response("Not found", { status: 404 });
 
@@ -39,11 +41,6 @@ const escapeHtml = (text: string) =>
 /** The jurado's pase, derived from the operator token so there is nothing to store; it does not give the token back. */
 export function paseDelJurado(token: string): string {
   return createHmac("sha256", token).update("jurado").digest("base64url").slice(0, PASE_LENGTH);
-}
-
-/** The operator's token: the `x-demo-token` header or else `?token=`, as in every /sala route. */
-function givenToken(request: Request, url: URL): string | null {
-  return request.headers.get("x-demo-token") || url.searchParams.get("token");
 }
 
 /** A projector page: one big line and the QR under it. */
@@ -111,11 +108,11 @@ const pase = ${JSON.stringify(pase).replace(/</g, "\\u003c")};
 const chat = document.getElementById("chat");
 const form = document.getElementById("form");
 const input = document.getElementById("nombre");
-const boton = document.getElementById("enviar");
-function burbuja(clase, texto) {
+const button = document.getElementById("enviar");
+function bubble(className, text) {
   const div = document.createElement("div");
-  div.className = "msg" + (clase ? " " + clase : "");
-  if (texto) div.textContent = texto;
+  div.className = "msg" + (className ? " " + className : "");
+  if (text) div.textContent = text;
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
   return div;
@@ -124,33 +121,33 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const nombre = input.value.trim();
   if (!nombre) return;
-  burbuja("yo", nombre);
-  boton.disabled = true;
-  const espera = burbuja("", "Grabando tu audio de la noche…");
+  bubble("yo", nombre);
+  button.disabled = true;
+  const waiting = bubble("", "Grabando tu audio de la noche…");
   try {
-    const respuesta = await fetch("/jurado/audio?pase=" + encodeURIComponent(pase), {
+    const response = await fetch("/jurado/audio?pase=" + encodeURIComponent(pase), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ nombre }),
     });
-    const datos = await respuesta.json();
-    espera.remove();
-    if (!respuesta.ok) {
-      burbuja("error", datos.error || "No pude grabar tu audio. Prueba de nuevo.");
+    const data = await response.json();
+    waiting.remove();
+    if (!response.ok) {
+      bubble("error", data.error || "No pude grabar tu audio. Prueba de nuevo.");
       return;
     }
-    const div = burbuja("", "");
+    const div = bubble("", "");
     const audio = document.createElement("audio");
     audio.controls = true;
-    audio.src = datos.mediaUrl;
+    audio.src = data.mediaUrl;
     div.appendChild(audio);
-    div.appendChild(document.createTextNode(datos.text));
+    div.appendChild(document.createTextNode(data.text));
     input.value = "";
   } catch {
-    espera.remove();
-    burbuja("error", "No pude grabar tu audio. Prueba de nuevo.");
+    waiting.remove();
+    bubble("error", "No pude grabar tu audio. Prueba de nuevo.");
   } finally {
-    boton.disabled = false;
+    button.disabled = false;
   }
 });
 </script>
@@ -184,13 +181,17 @@ export function createQrRoutes(deps: QrDeps): (request: Request) => Promise<Resp
     return html(projectorPage("entrada", "Escanéalo y Luna te saluda", svg, link));
   };
 
-  const juradoQr = async (pase: string) => {
-    const link = `${deps.publicBaseUrl}/jurado?pase=${pase}`;
+  const juradoQr = async (validPase: string) => {
+    const link = `${deps.publicBaseUrl}/jurado?pase=${encodeURIComponent(validPase)}`;
     const svg = await QRCode.toString(link, { type: "svg", margin: 1 });
     return html(projectorPage("jurado", "Escanéalo y te llega tu propio audio de la noche", svg, link));
   };
 
-  const audio = async (request: Request, pase: string) => {
+  const audio = async (request: Request, validPase: string) => {
+    // The route is public: a nombre fits in far less, so a big body is not read at all.
+    if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) {
+      return Response.json({ error: "El mensaje es demasiado largo." }, { status: 413 });
+    }
     let body: unknown;
     try {
       body = await request.json();
@@ -206,7 +207,7 @@ export function createQrRoutes(deps: QrDeps): (request: Request) => Promise<Resp
       );
     }
     if (sent + inFlight >= MAX_AUDIOS_JURADO) {
-      return Response.json({ error: "Luna ya grabó todos los audios de hoy. ¡Gracias!" }, { status: 429 });
+      return Response.json({ error: "Luna ya grabó todos los audios que tenía. ¡Gracias!" }, { status: 429 });
     }
     inFlight += 1;
     try {
@@ -221,7 +222,7 @@ export function createQrRoutes(deps: QrDeps): (request: Request) => Promise<Resp
       const { audio, mimeType, durationSeconds } = spoken;
       const { id } = await deps.simulador.send({ kind: "audio", audio, mimeType, durationSeconds });
       sent += 1;
-      const mediaUrl = `/jurado/media/${encodeURIComponent(id)}?pase=${encodeURIComponent(pase)}`;
+      const mediaUrl = `/jurado/media/${encodeURIComponent(id)}?pase=${encodeURIComponent(validPase)}`;
       return Response.json({ id, text, durationSeconds, mediaUrl }, { status: 201 });
     } finally {
       inFlight -= 1;
