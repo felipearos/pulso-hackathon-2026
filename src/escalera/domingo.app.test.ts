@@ -1,11 +1,32 @@
 import { describe, expect, test } from "bun:test";
 import { parseSantiago } from "../clock/santiago";
+import { cifraEscrita, type CifraPermitida } from "../citas/redactor";
+import { payoff } from "../figures/payoff";
 import type { IncomingMail } from "../ports";
 import { createTestApp, type TestApp } from "../testing";
-import { ANGUSTIA_EMOJIS } from "./policy";
+import { ANGUSTIA_EMOJIS, SUENO_EMOJIS } from "./policy";
 
 const BANCO = "avisos@bancoandino.example";
 const DRAFT = "Hola, Patricia. Aquí estoy contigo, con calma, para mirar juntas cómo va todo.";
+
+const CIFRAS = {
+  totalBilled: 650_000,
+  monthlyRate: 0.031,
+  minimumRule: { percent: 0.0645, floor: 10_500, roundTo: 100 },
+  overdue: 0,
+};
+const PAGO_MINIMO = 41_900;
+
+function addEstadoDeCuenta(t: TestApp): void {
+  t.app.store.addEstadoDeCuenta({
+    origen: "banco",
+    ciclo: 8,
+    fechaCierre: "2026-10-15",
+    fechaVencimiento: "2026-11-05",
+    cifras: CIFRAS,
+    pagoMinimo: PAGO_MINIMO,
+  });
+}
 
 let nextId = 1;
 function mail(subject: string, receivedAt: Date): IncomingMail {
@@ -31,6 +52,13 @@ async function domingo(t: TestApp) {
     .decision;
 }
 
+/** The sent domingo audio's decision and the source of its guion. */
+async function domingoEnviado(t: TestApp) {
+  await domingo(t);
+  const sent = t.app.store.decisions().find((d) => d.tipo === "mensaje" && d.motivo.startsWith("salió"));
+  return sent!.datos as { decision: { cifra: CifraPermitida | null; pregunta: string }; source: string };
+}
+
 describe("the domingo cita and her angustia through the app", () => {
   test("a «recibimos tu pago» this week is celebrated and the cita asks the angustia", async () => {
     const t = setup();
@@ -48,6 +76,53 @@ describe("the domingo cita and her angustia through the app", () => {
     const decision = await domingo(t);
     expect(decision.buenaNoticia.regla).not.toBe("pago-recibido");
     for (const emoji of ANGUSTIA_EMOJIS) expect(decision.pregunta).toContain(emoji);
+  });
+
+  test("a pago sobre el mínimo this week makes the domingo say la fecha en que queda libre", async () => {
+    const { fixedPayment, versusMinimum } = payoff(CIFRAS, 50_000, "2026-10-25");
+    if (!fixedPayment.ends || !versusMinimum.comparable) throw new Error("the fixture must pay off earlier");
+    const cifra: CifraPermitida = {
+      kind: "fecha-libre",
+      freeOn: fixedPayment.freeOn,
+      mesesAdelantados: versusMinimum.monthsSaved,
+    };
+    const t = createTestApp({
+      now: parseSantiago("2026-10-19T09:00"),
+      llm: [
+        ["Escribe el guion", `Hola, Patricia. Pagando como esta semana, quedas libre de la tarjeta ${cifraEscrita(cifra)} que pagando solo el mínimo.`],
+        ["", "OK"],
+      ],
+    });
+    addEstadoDeCuenta(t);
+    t.clock.set(parseSantiago("2026-10-22T10:00"));
+    await t.app.receiveMail(mail("Banco Andino: recibimos tu pago de $50.000", t.clock.now()));
+
+    const { decision, source } = await domingoEnviado(t);
+    expect(decision.cifra).toEqual(cifra);
+    expect(source).not.toBe("safe-template");
+    for (const emoji of SUENO_EMOJIS) expect(decision.pregunta).toContain(emoji);
+  });
+
+  test("a pago of exactly the pago mínimo keeps the usual domingo cifra", async () => {
+    const t = setup();
+    addEstadoDeCuenta(t);
+    t.clock.set(parseSantiago("2026-10-22T10:00"));
+    await t.app.receiveMail(mail("Banco Andino: recibimos tu pago de $41.900", t.clock.now()));
+
+    const { decision } = await domingoEnviado(t);
+    expect(decision.cifra?.kind).not.toBe("fecha-libre");
+  });
+
+  test("her «😐😴» is stored as angustia 3 without asking the LLM", async () => {
+    const t = setup();
+    await domingo(t);
+    const llmCalls = t.llm.calls.length;
+
+    t.clock.set(parseSantiago("2026-10-25T21:40"));
+    await t.app.receiveMensaje({ text: "😐😴", whatsappId: "in-1" });
+
+    expect(t.app.store.mensajesEntrantes().at(-1)?.intencion).toEqual({ kind: "angustia", value: 3 });
+    expect(t.llm.calls).toHaveLength(llmCalls);
   });
 
   test("her 😟 is stored as angustia 4 without asking the LLM", async () => {
