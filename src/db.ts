@@ -124,6 +124,12 @@ export const migrations: Migration[] = [
       );
     `,
   },
+  {
+    version: 5,
+    name: "monto-del-pedido",
+    // The monto an S3's pedido was paid, read from its mail; the plata apartada is its 10 %.
+    sql: "ALTER TABLE senales ADD COLUMN monto INTEGER;",
+  },
 ];
 
 /** Opens the SQLite file, creating its directory, or an in-memory database for `:memory:`. */
