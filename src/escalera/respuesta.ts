@@ -3,6 +3,7 @@ import type { Store } from "../patricia/store";
 import { answerEleccion } from "../plata/jueves";
 import type { Llm, WhatsApp } from "../ports";
 import { classifyIntencion } from "./classify";
+import { sendCrisisText } from "./crisis";
 import { returnFromPausa } from "./pausa";
 import { answerPregunta, lastAnswerAt } from "./preguntas";
 import { decideEtapa, type Angustia, type Etapa, type EtapaInput, type EtapaMove, type Intencion } from "./policy";
@@ -74,9 +75,8 @@ function buildInput(store: Store, intencion: Intencion): EtapaInput {
   };
 }
 
-function isDownOrCrisis(intencion: Intencion): boolean {
+function isDown(intencion: Intencion): boolean {
   return (
-    intencion.kind === "crisis" ||
     intencion.kind === "doesNotWantToSee" ||
     (intencion.kind === "angustia" && intencion.value >= 4)
   );
@@ -89,6 +89,8 @@ function isDownOrCrisis(intencion: Intencion): boolean {
  * jueves propuesta (src/plata/jueves.ts), after the move is stored.
  * «Pausa» silences Luna; any other message during a pausa ends it with a
  * bienvenida de vuelta, one etapa down per estado de cuenta cycle she missed.
+ * A crisis puts her in pausa and Luna sends the crisis text at once, at any
+ * hour; her next message brings her back in etapa 1.
  */
 export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): Promise<EtapaMove> {
   const { store, llm, db } = deps;
@@ -100,6 +102,21 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
   const inputBefore = enPausa ? null : buildInput(store, intencion);
   const mensaje = store.addMensajeEntrante({ text: input.text, intencion, whatsappId: input.whatsappId });
   const now = mensaje.receivedAt;
+
+  if (intencion.kind === "crisis") {
+    const reason = "congelada: crisis";
+    // Stored before sending, so a failed send still leaves her in pausa. A crisis during a pausa keeps it.
+    atomically(() => {
+      store.updatePatricia({ enPausa: true });
+      store.recordDecision({
+        tipo: "crisis",
+        motivo: "congelada: crisis, en pausa",
+        datos: { desde: now.toISOString(), text: input.text },
+      });
+    });
+    await sendCrisisText(deps);
+    return { kind: "freeze", from: etapa, to: etapa, reason };
+  }
 
   if (intencion.kind === "pause") {
     // Already in pausa: she stays, and there is nothing new to log.
@@ -130,8 +147,8 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
         datos: { desde: desde.toISOString(), missedCycles, from, to },
       });
     });
-    // A crisis, a high angustia or «no quiero ver» still go through the política, from the etapa she returns to.
-    if (!isDownOrCrisis(intencion)) {
+    // A high angustia or «no quiero ver» still go through the política, from the etapa she returns to.
+    if (!isDown(intencion)) {
       if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
         await answerPregunta(deps, intencion.kind);
       }
