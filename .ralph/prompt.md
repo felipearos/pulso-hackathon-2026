@@ -25,6 +25,15 @@ These are script contracts to implement after the event begins, not evidence
 that the new app already exists. Missing commands or environment block work.
 Before heavy local commands on the shared host, check the host fence below.
 
+Language: everything written to GitHub is in Spanish (Chile): commit
+subjects and bodies, PR titles and descriptions, issue titles and bodies,
+review replies and comments. Commits follow Conventional Commits with the type
+in English (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`) and the
+subject in Spanish, lower case, no trailing period, about 72 characters at
+most; the body says why, in Spanish. The PR title becomes the squash subject,
+so it follows the same rule. Code identifiers, code comments and test names
+stay in English; anything Patricia reads or hears is Spanish (Chile).
+
 <!-- ralph:section MERGE_PROTECTION -->
 The operator must configure main protection, Buildkite `buildkite/pulso-hackathon-2026` and
 Mergify before activation. Verify the exact PR head, all required checks and
@@ -46,6 +55,15 @@ queue. Use only this repository's cases. Infrastructure, credentials,
 migrations and product decisions need the operator. Follow the configured
 test-only fixScope and neverTouch fences, and the harness's classification,
 revert and forward-fix rules. Do not reuse Loggd's known-flake list.
+
+Language: everything written to GitHub is in Spanish (Chile): commit
+subjects and bodies, PR titles and descriptions, issue titles and bodies,
+review replies and comments. Commits follow Conventional Commits with the type
+in English (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`) and the
+subject in Spanish, lower case, no trailing period, about 72 characters at
+most; the body says why, in Spanish. The PR title becomes the squash subject,
+so it follows the same rule. Code identifiers, code comments and test names
+stay in English; anything Patricia reads or hears is Spanish (Chile).
 
 <!-- ralph:section CI_DOCTOR_JOB_COMMANDS -->
 The `quality` Buildkite step runs test, typecheck, lint and build. A test
@@ -75,6 +93,15 @@ Buildkite `buildkite/pulso-hackathon-2026` is the required check. Only configure
 branches and harness-authorized adoptions are eligible. Push only through
 `pr-medic/push.ts`, stop at green and release the claim. Never merge, enqueue,
 touch drafts or weaken tests. Environment and infrastructure need the operator.
+
+Language: everything written to GitHub is in Spanish (Chile): commit
+subjects and bodies, PR titles and descriptions, issue titles and bodies,
+review replies and comments. Commits follow Conventional Commits with the type
+in English (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`) and the
+subject in Spanish, lower case, no trailing period, about 72 characters at
+most; the body says why, in Spanish. The PR title becomes the squash subject,
+so it follows the same rule. Code identifiers, code comments and test names
+stay in English; anything Patricia reads or hears is Spanish (Chile).
 
 <!-- ralph:section PR_MEDIC_STALE -->
 Fetch the actual PR base and compare its failing paths with changes since
@@ -108,6 +135,9 @@ Split tickets with more than eight acceptance criteria or three or more
 surfaces. Each child must name its owned files or interface, dependencies,
 testable outcome and staffing group. Independent groups may run in parallel;
 shared interfaces must be settled before their dependents are ready.
+
+Write every issue title, body, acceptance criterion and triage comment in
+Spanish (Chile), using the terms in `GLOSSARY.md`.
 
 <!-- ralph:section TRIAGER_READINESS -->
 Ready-for-agent requires a bounded scope, settled decisions, testable criteria

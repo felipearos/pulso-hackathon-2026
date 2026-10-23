@@ -26,6 +26,13 @@ stops paying only the minimum.
 Patricia is a fictional profile. Fixtures stay fictional: no real phone
 numbers, emails, bank data or names.
 
+## Language
+
+Commits, PRs, issues and GitHub comments in Spanish (Chile), with the
+Conventional Commits type in English (`feat: el audio de la noche parte con
+una buena noticia`). Code, code comments and test names in English. Full rule
+in `AGENTS.md`.
+
 ## Team
 
 | GitHub | Name |
