@@ -37,9 +37,17 @@ export function pauseIfSilent(db: Database, store: Store, now: Date): void {
   })();
 }
 
-/** When the current pausa started: the `desde` of the latest pausa decision, or `fallback` if there is none. */
+/** The latest decision that put her in pausa: a pausa or a crisis. */
+function latestPausa(store: Store) {
+  return store.decisions().findLast((decision) => decision.tipo === "pausa" || decision.tipo === "crisis");
+}
+
+/**
+ * When the current pausa started: the `desde` of the latest pausa or crisis
+ * decision, or `fallback` if there is none.
+ */
 export function pausaDesde(store: Store, fallback: Date): Date {
-  const datos = store.decisions().findLast((decision) => decision.tipo === "pausa")?.datos;
+  const datos = latestPausa(store)?.datos;
   const desde = (datos as { desde?: unknown } | undefined)?.desde;
   return typeof desde === "string" ? new Date(desde) : fallback;
 }
@@ -56,7 +64,10 @@ export function missedCyclesSince(store: Store, desde: Date, now: Date): number 
   return Math.max(estados, months);
 }
 
-/** The etapa she comes back to after a pausa, with the reason and what it was read from. */
+/**
+ * The etapa she comes back to after a pausa, with the reason and what it was
+ * read from. After a crisis she comes back in etapa 1.
+ */
 export function returnFromPausa(
   store: Store,
   now: Date,
@@ -64,6 +75,7 @@ export function returnFromPausa(
   const from = store.getPatricia().etapa;
   const desde = pausaDesde(store, now);
   const missedCycles = missedCyclesSince(store, desde, now);
-  const { etapa: to, reason } = etapaOnReturn({ etapa: from, missedCycles, afterCrisis: false });
+  const afterCrisis = latestPausa(store)?.tipo === "crisis";
+  const { etapa: to, reason } = etapaOnReturn({ etapa: from, missedCycles, afterCrisis });
   return { from, to, reason, desde, missedCycles };
 }

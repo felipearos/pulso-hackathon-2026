@@ -200,8 +200,9 @@ _Avoid:_ "reactivation", "re-onboarding".
 
 ## Pausa
 
-A stretch in which Luna sends nothing: Patricia wrote «pausa», or she went
-two weeks without answering. It ends when she writes again.
+A stretch in which Luna sends nothing: Patricia wrote «pausa», she went
+two weeks without answering, or a crisis (after the fixed crisis text). It
+ends when she writes again.
 _Avoid:_ "churn", "inactive", "dropped out".
 
 ## Plata apartada
