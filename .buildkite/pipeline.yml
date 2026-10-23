@@ -1,0 +1,16 @@
+# Required check buildkite/pulso-hackathon-2026. Runs on the pulso-hackathon-2026
+# agent queue; the package scripts it invokes are defined in package.json.
+steps:
+  - label: ":test_tube: Quality"
+    key: quality
+    agents:
+      queue: pulso-hackathon-2026
+    concurrency: 1
+    concurrency_group: pulso-hackathon-2026/quality
+    timeout_in_minutes: 20
+    command:
+      - bun install --frozen-lockfile
+      - bun run test
+      - bun run typecheck
+      - bun run lint
+      - bun run build

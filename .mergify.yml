@@ -1,0 +1,51 @@
+# Adapted from Loggd: serial Mergify queue, squash, five PRs per batch.
+
+merge_queue:
+  max_parallel_checks: 1
+  mode: serial
+  status_comments: outcomes
+  queued_label: queued
+  dequeued_label: dequeued
+
+queue_rules:
+  - name: main
+    queue_conditions:
+      - base = main
+      - -draft
+      - -conflict
+      - check-success = buildkite/pulso-hackathon-2026
+    merge_conditions:
+      - check-success = buildkite/pulso-hackathon-2026
+    merge_method: squash
+    batch_size: 5
+    batch_max_wait_time: 3 min
+    batch_max_failure_resolution_attempts: 3
+    checks_timeout: 60 min
+
+pull_request_rules:
+  - name: queue a settled green PR
+    conditions:
+      - -draft
+      - -closed
+      - label != hold
+      - "#review-threads-unresolved = 0"
+      - "#changes-requested-reviews-by = 0"
+      - created-at < 30 minutes ago
+    actions:
+      queue:
+
+  - name: queue on the ready-to-merge label
+    conditions:
+      - label = ready-to-merge
+      - label != hold
+    actions:
+      queue:
+
+  - name: clear the handoff after the merge
+    conditions:
+      - merged
+      - label = ready-to-merge
+    actions:
+      label:
+        remove:
+          - ready-to-merge

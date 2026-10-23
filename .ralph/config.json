@@ -1,0 +1,85 @@
+{
+  "repo": "felipearos/pulso-hackathon-2026",
+  "owner": "felipearosr",
+  "baseBranch": "main",
+  "displayName": "Pulso Hackathon 2026",
+  "secrets": {
+    "runner": "doppler",
+    "project": "pulso-hackathon-2026",
+    "config": "dev",
+    "withhold": [
+      "BUILDKITE_AGENT_TOKEN",
+      "BUILDKITE_API_TOKEN",
+      "BUILDKITE_OPERATOR_TOKEN",
+      "GH_PAT",
+      "PRODUCTION_DATABASE_URL"
+    ]
+  },
+  "refuseFiles": [
+    ".ralph/HACKATHON_LOCK",
+    ".env.local"
+  ],
+  "envCheck": [],
+  "requiredChecks": [
+    "buildkite/pulso-hackathon-2026"
+  ],
+  "gates": {
+    "test": "bun run test",
+    "typecheck": "bun run typecheck",
+    "lint": "bun run lint",
+    "build": "bun run build"
+  },
+  "promptFragment": ".ralph/prompt.md",
+  "coderFragment": ".ralph/coder.md",
+  "plan": ".ralph/plan.md",
+  "journal": {
+    "dir": "journal/pulso-hackathon-2026"
+  },
+  "ciDoctor": {
+    "fixScope": [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/__tests__/**",
+      "src/test/**"
+    ],
+    "neverTouch": [
+      ".buildkite/**",
+      ".mergify.yml",
+      ".github/workflows/**",
+      ".ralph/**"
+    ],
+    "pollSeconds": 300,
+    "windowHours": 72,
+    "autoRevert": true,
+    "retry": {
+      "perCandidate": 1,
+      "perDay": 6
+    }
+  },
+  "prMedic": {
+    "branches": [
+      "felipearosr/*"
+    ],
+    "quietMinutes": 15,
+    "maxPushes": 3
+  },
+  "loops": [
+    "ralph",
+    "rafa",
+    "remo",
+    "rulo",
+    "testo",
+    {
+      "name": "doc",
+      "role": "ci-doctor"
+    },
+    {
+      "name": "medi",
+      "role": "pr-medic"
+    },
+    {
+      "name": "tria",
+      "role": "triager"
+    }
+  ]
+}

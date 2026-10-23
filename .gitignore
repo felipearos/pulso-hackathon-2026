@@ -1,0 +1,8 @@
+# Per-checkout factory state; never share agent identities or logs.
+.ralph/logs/
+.ralph/loop-name
+.ralph/control/
+node_modules/
+.env
+.env.*
+!.env.example
