@@ -42,8 +42,14 @@ review findings before enqueueing. Never `gh pr merge` or bypass protection.
 <!-- ralph:section ENQUEUE -->
 Post `@mergifyio queue` once on the checked PR using `gh pr comment`.
 Mergify builds main plus the queued changes and squashes only after success.
-The normal automatic path waits thirty minutes; `ready-to-merge` permits
-early queueing and `hold` opts out, matching the reference project's policy.
+The queue conditions carry the review gate: Mergify holds the command until
+the PR is thirty minutes old with no unresolved review thread, and dequeues
+it if a Codex thread opens later. Mergify counts unresolved threads, not
+unanswered ones: after replying as §5 step 6 says, resolve the thread with
+the GraphQL `resolveReviewThread` mutation (its node id comes from the PR's
+`reviewThreads`), then post `@mergifyio queue` again if the PR left the
+queue. Never resolve a thread without a reply. Never add `ready-to-merge` to
+skip the wait; that label is the operator's override. `hold` opts out.
 
 <!-- ralph:section REQUEUE -->
 Post `@mergifyio requeue` only after diagnosing the failed queue build and
