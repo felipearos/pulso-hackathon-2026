@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import { answerTeLoCuento, esperaQueLeCuente } from "../citas/te-lo-cuento";
 import type { CifrasExtraidas } from "../figures/extractor";
 import { answerMinimoContado, guardarFotoComoEstadoDeCuenta } from "../figures/minimo-contado";
 import type { MensajeEntrante } from "../patricia/entities";
@@ -131,7 +132,8 @@ function isDown(intencion: Intencion): boolean {
  * does what the cita asked, so it is accepted.
  * Luna replies only to «¿por qué?» and «¿qué leíste?», to her choice on the
  * jueves propuesta (src/plata/jueves.ts), the bolsillo question, a compra en
- * cuotas (src/plata/verlo-manana.ts), and to the
+ * cuotas (src/plata/verlo-manana.ts), «te lo cuento yo» after a graduada cita,
+ * and to the
  * pago mínimo she brings: a foto's (the tienda's in etapa 4, the bank's
  * otherwise), or the one she tells in etapa 5 answering the lunes cita. All of
  * them after the move is stored.
@@ -146,9 +148,11 @@ function isDown(intencion: Intencion): boolean {
  */
 export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): Promise<EtapaMove> {
   const { store, llm, db } = deps;
+  // Read before the message is stored: «te lo cuento yo» answers a graduada cita still waiting.
+  const cuentoEsperado = !input.foto && esperaQueLeCuente(store);
   const intencion: Intencion = input.foto
     ? { kind: "accepted" }
-    : await classifyIntencion(input.text, llm, { angustiaEsperada: answersDomingo(store) });
+    : await classifyIntencion(input.text, llm, { angustiaEsperada: answersDomingo(store), cuentoEsperado });
   const atomically = (fn: () => void) => db.transaction(fn)();
 
   const { enPausa, etapa } = store.getPatricia();
@@ -267,6 +271,7 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
     await answerMinimoContado(deps, { origen: "banco", contado: minimoContado, fuente: "texto" });
     return move;
   }
+  if (await answerTeLoCuento(deps, mensaje, intencion, cuentoEsperado)) return move;
   const purchaseHandled = await answerCompraEnCuotas(deps, mensaje, intencion);
   if (!purchaseHandled && !(await answerBolsillo(deps, mensaje, intencion))) {
     await answerEleccion(deps, mensaje, intencion);
