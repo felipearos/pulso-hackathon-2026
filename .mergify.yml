@@ -14,6 +14,18 @@ queue_rules:
       - -draft
       - -conflict
       - check-success = buildkite/pulso-hackathon-2026
+      # The review gate lives here too, not only in auto-merge: the loops
+      # queue with `@mergifyio queue` seconds after opening a PR, and that
+      # command only checks queue_conditions. Mergify holds the command until
+      # these match, and dequeues a PR if a Codex thread opens later. Merging
+      # deploys to the live PC, so nothing lands before Codex had its window.
+      - label != hold
+      - "#changes-requested-reviews-by = 0"
+      - or:
+          - label = ready-to-merge
+          - and:
+              - "#review-threads-unresolved = 0"
+              - created-at < 30 minutes ago
     merge_conditions:
       - check-success = buildkite/pulso-hackathon-2026
     merge_method: squash
