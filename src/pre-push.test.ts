@@ -9,10 +9,13 @@ const dir = mkdtempSync(join(tmpdir(), "pre-push-test-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 // The test process may itself run inside a git hook; drop its GIT_* variables
-// so every command below acts only on the scratch repositories.
-const env = Object.fromEntries(
-  Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
-);
+// so every command below acts only on the scratch repositories. The machine's
+// global and system config (signing, a global hooksPath) stay out too.
+const env = {
+  ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_"))),
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_NOSYSTEM: "1",
+};
 
 function git(cwd: string, ...args: string[]) {
   const run = Bun.spawnSync(["git", ...args], { cwd, env, stdout: "pipe", stderr: "pipe" });
