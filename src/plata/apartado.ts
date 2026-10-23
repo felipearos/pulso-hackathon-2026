@@ -6,7 +6,7 @@
 import { fromSantiago, santiagoParts } from "../clock/santiago";
 import type { TipoSenal } from "../patricia/entities";
 
-/** What plataApartada needs from a señal. `monto` is the pedido's paid amount, when known. */
+/** What plataApartada needs from a señal. `monto` is what the pedido was paid, when known. */
 export type SenalApartable = {
   id: number;
   tipo: TipoSenal;
@@ -21,15 +21,18 @@ export type PlataApartada = { total: number; aportes: Aporte[] };
 
 // `$` then either dot-grouped thousands (`1.250.000`) or plain digits (`18500`).
 const MONTO_PATTERN = /\$\s*(\d{1,3}(?:\.\d{3})+|\d+)/;
+// The largest monto the app can show or say (src/voz/montos.ts).
+const MONTO_MAX = 999_999_999_999;
 
-/** The first amount after a `$` in `text`, in whole pesos, or null when there is none. */
+/** The first monto after a `$` in `text`, in whole pesos; null when there is none or it is absurdly large. */
 export function montoDePedido(text: string): number | null {
   const match = MONTO_PATTERN.exec(text);
   if (!match) return null;
-  return Number(match[1]!.replaceAll(".", ""));
+  const monto = Number(match[1]!.replaceAll(".", ""));
+  return monto <= MONTO_MAX ? monto : null;
 }
 
-/** 10 % of `monto`, rounded to the nearest 100 pesos (half up); 0 for non-positive amounts. */
+/** 10 % of `monto`, rounded to the nearest 100 pesos (half up); 0 for a monto of zero or less. */
 export function aporteDePedido(monto: number): number {
   if (!(monto > 0)) return 0;
   // 10 % rounded to 100 is `monto` rounded to 1.000, divided by 10.
@@ -56,10 +59,16 @@ export function plataApartada(senales: readonly SenalApartable[], now: Date): Pl
   const desde = inicioDeSemana(now).getTime();
   const hasta = now.getTime();
   const semana = senales.filter((s) => s.receivedAt.getTime() >= desde && s.receivedAt.getTime() <= hasta);
-  const ultimoPago = semana.reduce((last, s) => (s.tipo === "S5" && s.id > last ? s.id : last), -Infinity);
+  // Clock order, id breaking ties: a /demo clock reset can give a later id an earlier time.
+  const despues = (a: SenalApartable, b: SenalApartable) =>
+    a.receivedAt.getTime() > b.receivedAt.getTime() || (a.receivedAt.getTime() === b.receivedAt.getTime() && a.id > b.id);
+  const ultimoPago = semana.filter((s) => s.tipo === "S5").reduce<SenalApartable | null>(
+    (last, s) => (last === null || despues(s, last) ? s : last),
+    null,
+  );
   const aportes = semana
-    .filter((s) => s.tipo === "S3" && s.id > ultimoPago && s.monto !== null)
-    .sort((a, b) => a.id - b.id)
+    .filter((s) => s.tipo === "S3" && s.monto !== null && (ultimoPago === null || despues(s, ultimoPago)))
+    .sort((a, b) => (despues(a, b) ? 1 : -1))
     .map((s) => ({ senalId: s.id, monto: s.monto!, aporte: aporteDePedido(s.monto!) }));
   return { total: aportes.reduce((sum, a) => sum + a.aporte, 0), aportes };
 }

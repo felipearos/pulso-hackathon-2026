@@ -29,7 +29,7 @@ export type Store = {
   etapaHistory(): EtapaCambio[];
   addEstadoDeCuenta(input: Omit<EstadoDeCuenta, "id" | "receivedAt">): EstadoDeCuenta;
   estadosDeCuenta(): EstadoDeCuenta[];
-  /** `monto` is the paid amount of an S3's pedido; leave it out for every other señal. */
+  /** `monto` is what an S3's pedido was paid; leave it out for every other señal. */
   addSenal(input: Omit<Senal, "id" | "receivedAt" | "monto"> & { monto?: number | null }): Senal;
   senales(): Senal[];
   /** This week's plata apartada at the clock's current time. */

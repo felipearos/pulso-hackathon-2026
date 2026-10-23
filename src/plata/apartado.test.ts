@@ -17,6 +17,7 @@ describe("montoDePedido", () => {
     ["Pedido #1234 pagado: $24.000 y envío $2.000", 24000],
     ["Pagamos tu pedido #1234", null],
     ["Sin montos aquí", null],
+    ["Pagamos $9.999.999.999.999", null],
   ] as const)("%p reads as %p", (text, expected) => {
     expect(montoDePedido(text)).toBe(expected);
   });
@@ -82,6 +83,12 @@ describe("plataApartada", () => {
       total: 1900,
       aportes: [{ senalId: 5, monto: 18500, aporte: 1900 }],
     });
+  });
+
+  test("the clock, not the insert order, says whether a pedido came after the pago", () => {
+    // A /demo clock reset can store a later señal at an earlier time.
+    const senales = [senal(1, "S5", null, "2026-10-22T09:00"), senal(2, "S3", 30000, "2026-10-21T09:00")];
+    expect(plataApartada(senales, now).total).toBe(0);
   });
 
   test("a pago from last week does not reset this week", () => {

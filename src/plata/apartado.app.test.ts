@@ -46,6 +46,7 @@ describe("plata apartada through the app", () => {
     const [conMonto, sinMonto] = app.store.decisions();
     expect(conMonto!.datos).toMatchObject({ tipo: "S3", monto: 18500, aporte: 1900 });
     expect(sinMonto!.datos).toMatchObject({ tipo: "S3", monto: null, aporte: 0 });
+    expect(conMonto!.motivo).toContain("El pedido fue de $18.500; su 10 % ($1.900) suma a la plata apartada");
   });
 
   test("only S3 decisions carry monto and aporte", () => {

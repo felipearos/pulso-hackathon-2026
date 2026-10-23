@@ -127,7 +127,7 @@ export const migrations: Migration[] = [
   {
     version: 5,
     name: "monto-del-pedido",
-    // The paid amount of an S3, read from its mail; the plata apartada is its 10 %.
+    // The monto an S3's pedido was paid, read from its mail; the plata apartada is its 10 %.
     sql: "ALTER TABLE senales ADD COLUMN monto INTEGER;",
   },
 ];
