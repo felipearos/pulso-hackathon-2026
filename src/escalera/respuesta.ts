@@ -6,7 +6,7 @@ import type { Store } from "../patricia/store";
 import { answerBolsillo } from "../plata/bolsillo";
 import { answerEleccion } from "../plata/jueves";
 import { answerCompraEnCuotas } from "../plata/verlo-manana";
-import type { Llm, WhatsApp } from "../ports";
+import type { Llm, Voice, WhatsApp } from "../ports";
 import { findFigures } from "../validator/validator";
 import { answerFotoNoLeida } from "../whatsapp/inbound";
 import { isMadrugada } from "../whatsapp-cloud";
@@ -14,10 +14,14 @@ import { classifyIntencion } from "./classify";
 import { sendCrisisText } from "./crisis";
 import { returnFromPausa } from "./pausa";
 import { answerPregunta, lastAnswerAt } from "./preguntas";
+import { answerMadrugada } from "./respuesta-madrugada";
 import { decideEtapa, type Angustia, type Etapa, type EtapaInput, type EtapaMove, type Intencion } from "./policy";
 
-/** `db` lets a pausa or a return land with its decision in one transaction. */
-export type RespuestaDeps = { store: Store; llm: Llm; whatsapp: WhatsApp; db: Database };
+/**
+ * `db` lets a pausa or a return land with its decision in one transaction.
+ * `voice` speaks the madrugada answer; without it that answer is logged as not sent.
+ */
+export type RespuestaDeps = { store: Store; llm: Llm; whatsapp: WhatsApp; voice?: Voice; db: Database };
 
 export type MensajeInput = {
   text: string;
@@ -130,7 +134,11 @@ function isDown(intencion: Intencion): boolean {
  * cuotas (src/plata/verlo-manana.ts), and to the
  * pago mínimo she brings: a foto's (the tienda's in etapa 4, the bank's
  * otherwise), or the one she tells in etapa 5 answering the lunes cita. All of
- * them after the move is stored, and the mínimo never in the madrugada.
+ * them after the move is stored.
+ * In the madrugada none of those answers go out: Luna answers each message
+ * with one fixed nota de voz, with no figure, and keeps it as a pendiente for
+ * the next cita (src/escalera/respuesta-madrugada.ts). The move and a foto's
+ * estado de cuenta are still stored.
  * «Pausa» silences Luna; any other message during a pausa ends it with a
  * bienvenida de vuelta, one etapa down per estado de cuenta cycle she missed.
  * A crisis puts her in pausa and Luna sends the crisis text at once, at any
@@ -150,6 +158,8 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
   const inputBefore = enPausa ? null : buildInput(store, intencion);
   const mensaje = store.addMensajeEntrante({ text: input.text, intencion, whatsappId: input.whatsappId });
   const now = mensaje.receivedAt;
+  const madrugada = isMadrugada(now);
+  const answerAtNight = () => answerMadrugada(deps, { text: input.text, whatsappId: input.whatsappId, now });
 
   if (intencion.kind === "crisis") {
     const reason = "congelada: crisis";
@@ -197,7 +207,9 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
     });
     // A high angustia or «no quiero ver» still go through the política, from the etapa she returns to.
     if (!isDown(intencion)) {
-      if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
+      if (madrugada) {
+        await answerAtNight();
+      } else if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
         await answerPregunta(deps, intencion.kind);
       }
       return { kind: rank(to) < rank(from) ? "down" : "stay", from, to, reason };
@@ -235,18 +247,24 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
     }
   });
 
+  if (madrugada) {
+    // A foto is stored at any hour; its answer is replaced by the madrugada note.
+    if (input.foto) await answerFoto(deps, mensaje, input.foto.cifras, etapa === 4 ? "tienda" : "banco", false);
+    await answerAtNight();
+    return move;
+  }
+
   // Luna answers the question only once the move is stored: her reply says what
   // the registro already holds.
   if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
     await answerPregunta(deps, intencion.kind);
   }
   if (input.foto) {
-    // Stored at any hour; only the answer waits out the madrugada.
-    await answerFoto(deps, mensaje, input.foto.cifras, etapa === 4 ? "tienda" : "banco", !isMadrugada(now));
+    await answerFoto(deps, mensaje, input.foto.cifras, etapa === 4 ? "tienda" : "banco", true);
     return move;
   }
   if (minimoContado !== null) {
-    if (!isMadrugada(now)) await answerMinimoContado(deps, { origen: "banco", contado: minimoContado, fuente: "texto" });
+    await answerMinimoContado(deps, { origen: "banco", contado: minimoContado, fuente: "texto" });
     return move;
   }
   const purchaseHandled = await answerCompraEnCuotas(deps, mensaje, intencion);
