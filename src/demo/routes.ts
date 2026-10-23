@@ -5,7 +5,7 @@ import { findMomento, type MomentoDelGuion } from "./guion";
 
 /** What the control room drives: the same flows Patricia's night runs on, no logic of its own. */
 export type DemoDeps = {
-  /** The operator token; unset or empty turns /demo off entirely. */
+  /** The operator token; unset or empty turns /sala off entirely. */
   token: string | undefined;
   clock: DemoClock;
   store: Store;
@@ -31,8 +31,8 @@ function givenToken(request: Request, url: URL): string | null {
 }
 
 /**
- * The /demo control room routes. Returns null for any other path so the app
- * falls through to its own routes. Without the right token every /demo path
+ * The /sala control room routes. Returns null for any other path so the app
+ * falls through to its own routes. Without the right token every /sala path
  * answers 404, the same as a path that does not exist, because the app is
  * published on the internet.
  */
@@ -71,16 +71,16 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
   return async (request) => {
     const url = new URL(request.url);
     const { pathname } = url;
-    if (pathname !== "/demo" && !pathname.startsWith("/demo/")) return null;
+    if (pathname !== "/sala" && !pathname.startsWith("/sala/")) return null;
     if (!deps.token || !tokenMatches(deps.token, givenToken(request, url))) return NOT_FOUND();
 
-    if (request.method === "GET" && pathname === "/demo") {
+    if (request.method === "GET" && pathname === "/sala") {
       return new Response(deps.page, { headers: { "content-type": "text/html; charset=utf-8" } });
     }
-    if (request.method === "GET" && pathname === "/demo/state") return Response.json(state());
-    if (request.method === "POST" && pathname === "/demo/tick") return run(deps.tick);
-    if (request.method === "POST" && pathname === "/demo/reset") return run(deps.reset);
-    const match = /^\/demo\/momentos\/([^/]+)$/.exec(pathname);
+    if (request.method === "GET" && pathname === "/sala/state") return Response.json(state());
+    if (request.method === "POST" && pathname === "/sala/tick") return run(deps.tick);
+    if (request.method === "POST" && pathname === "/sala/reset") return run(deps.reset);
+    const match = /^\/sala\/momentos\/([^/]+)$/.exec(pathname);
     if (request.method === "POST" && match) {
       let id: string;
       try {

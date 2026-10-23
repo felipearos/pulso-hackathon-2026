@@ -134,7 +134,7 @@
         button.textContent = momento.label;
         button.disabled = busy;
         button.addEventListener("click", () =>
-          call("POST", `/demo/momentos/${encodeURIComponent(momento.id)}`, momento.label));
+          call("POST", `/sala/momentos/${encodeURIComponent(momento.id)}`, momento.label));
         return button;
       });
       $("momentos").replaceChildren(...buttons);
@@ -173,7 +173,7 @@
   async function poll() {
     if (busy) return;
     try {
-      await request("GET", "/demo/state");
+      await request("GET", "/sala/state");
       if ($("estado").className === "error" && $("estado").textContent.startsWith("Sin conexión")) {
         setStatus("", false);
       }
@@ -182,9 +182,9 @@
     }
   }
 
-  $("tick").addEventListener("click", () => call("POST", "/demo/tick", "Tick"));
+  $("tick").addEventListener("click", () => call("POST", "/sala/tick", "Tick"));
   $("reiniciar").addEventListener("click", () => {
-    if (confirm("¿Reiniciar todo al punto de partida?")) call("POST", "/demo/reset", "Reiniciando");
+    if (confirm("¿Reiniciar todo al punto de partida?")) call("POST", "/sala/reset", "Reiniciando");
   });
 
   poll();

@@ -70,7 +70,7 @@ export type AppOptions = {
   /** The control room's operator key (`DEMO_OPERATOR_KEY`); unset leaves `/demo` view-only. */
   demoOperatorKey?: string;
   /** The webhook's Meta secrets; unset leaves every delivery refused. */
-  /** The operator token that opens /demo; without it /demo answers 404. */
+  /** The operator token that opens /sala; without it /sala answers 404. */
   demoToken?: string;
   /** The webhook's Meta secrets; unset leaves every delivery refused. */
   webhook?: WebhookConfig;

@@ -28,13 +28,13 @@ const snapshot = (app: App) => {
   };
 };
 
-describe("/demo without the operator token", () => {
+describe("/sala without the operator token", () => {
   const paths: [string, string][] = [
-    ["GET", "/demo"],
-    ["GET", "/demo/state"],
-    ["POST", "/demo/tick"],
-    ["POST", "/demo/reset"],
-    ["POST", "/demo/momentos/jue-2230"],
+    ["GET", "/sala"],
+    ["GET", "/sala/state"],
+    ["POST", "/sala/tick"],
+    ["POST", "/sala/reset"],
+    ["POST", "/sala/momentos/jue-2230"],
   ];
 
   test("every endpoint answers 404 when no token is configured, whatever is sent", async () => {
@@ -62,65 +62,65 @@ describe("/demo without the operator token", () => {
     const { app } = createTestApp({ demoToken: TOKEN });
     app.reset();
     const before = snapshot(app);
-    await post(app, "/demo/momentos/jue-2230", { "x-demo-token": "otro" });
-    await post(app, "/demo/reset", {});
+    await post(app, "/sala/momentos/jue-2230", { "x-demo-token": "otro" });
+    await post(app, "/sala/reset", {});
     expect(snapshot(app)).toEqual(before);
   });
 });
 
-describe("/demo with the operator token", () => {
+describe("/sala with the operator token", () => {
   test("serves the control room page with the token in the query", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
-    const response = await get(app, `/demo?token=${TOKEN}`);
+    const response = await get(app, `/sala?token=${TOKEN}`);
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
     expect(await response.text()).toContain("Sala de control");
   });
 
-  test("the control room page calls every /demo endpoint with the token header", async () => {
+  test("the control room page calls every /sala endpoint with the token header", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
-    const page = await (await get(app, `/demo?token=${TOKEN}`)).text();
-    for (const reference of ["/demo/state", "/demo/momentos/", "/demo/reset", "/demo/tick", "x-demo-token"]) {
+    const page = await (await get(app, `/sala?token=${TOKEN}`)).text();
+    for (const reference of ["/sala/state", "/sala/momentos/", "/sala/reset", "/sala/tick", "x-demo-token"]) {
       expect(page).toContain(reference);
     }
   });
 
   test("state lists the momentos of the guion from configuration", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
-    const response = await get(app, "/demo/state", { "x-demo-token": TOKEN });
+    const response = await get(app, "/sala/state", { "x-demo-token": TOKEN });
     const body = (await response.json()) as { guion: { id: string; label: string }[] };
     expect(response.status).toBe(200);
     expect(body.guion.map((momento) => momento.id)).toContain("jue-2230");
   });
 
-  test("«Jue 22:30» moves the clock to Thursday 22:30 and its tick sets the jueves cita", async () => {
+  test("«Jue 22:30» moves the clock to Thursday 22:30 and its tick sets that night's cita", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
     app.reset();
-    const response = await post(app, "/demo/momentos/jue-2230");
+    const response = await post(app, "/sala/momentos/jue-2230");
     expect(response.status).toBe(200);
     const parts = santiagoParts(app.clock.now());
     expect([parts.weekday, parts.hour, parts.minute]).toEqual([4, 22, 30]);
-    expect(app.store.citaOn("2026-10-22")).toMatchObject({ fecha: "2026-10-22", tipo: "jueves" });
+    expect(app.store.citaOn("2026-10-22")).toMatchObject({ fecha: "2026-10-22", estado: "programada" });
   });
 
   test("tick runs with the token in the query alone, even beside an empty header", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
     app.reset();
     app.clock.set(new Date("2026-10-23T01:30:00Z"));
-    const response = await post(app, `/demo/tick?token=${TOKEN}`, { "x-demo-token": "" });
+    const response = await post(app, `/sala/tick?token=${TOKEN}`, { "x-demo-token": "" });
     expect(response.status).toBe(200);
-    expect(app.store.citaOn("2026-10-22")).toMatchObject({ tipo: "jueves" });
+    expect(app.store.citaOn("2026-10-22")).toMatchObject({ estado: "programada" });
   });
 
   test("a malformed momento id is refused", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
-    expect((await post(app, "/demo/momentos/%E0")).status).toBe(400);
+    expect((await post(app, "/sala/momentos/%E0")).status).toBe(400);
   });
 
   test("an unknown momento is refused and leaves the clock alone", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
     app.reset();
-    const response = await post(app, "/demo/momentos/viernes");
+    const response = await post(app, "/sala/momentos/viernes");
     expect(response.status).toBe(400);
     expect(app.clock.now().toISOString()).toBe(PATRICIA_START.toISOString());
   });
@@ -130,10 +130,10 @@ describe("/demo with the operator token", () => {
     const { app: fresh } = createTestApp();
     fresh.reset();
     app.reset();
-    await post(app, "/demo/momentos/lun-2230");
-    await post(app, "/demo/momentos/jue-2230");
+    await post(app, "/sala/momentos/lun-2230");
+    await post(app, "/sala/momentos/jue-2230");
     expect(snapshot(app)).not.toEqual(snapshot(fresh));
-    const response = await post(app, "/demo/reset");
+    const response = await post(app, "/sala/reset");
     expect(response.status).toBe(200);
     expect(snapshot(app)).toEqual(snapshot(fresh));
   });
@@ -141,6 +141,13 @@ describe("/demo with the operator token", () => {
   test("other paths still reach the app's own routes", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
     expect((await get(app, "/health")).status).toBe(200);
-    expect((await get(app, "/demonio", { "x-demo-token": TOKEN })).status).toBe(404);
+    expect((await get(app, "/salami", { "x-demo-token": TOKEN })).status).toBe(404);
+  });
+
+  test("the scripted /demo room keeps answering beside /sala", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    const response = await get(app, "/demo");
+    expect(response.status).toBe(200);
+    expect(await response.text()).not.toContain("x-demo-token");
   });
 });
