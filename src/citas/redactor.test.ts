@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { FakeLlm } from "../fakes";
 import type { Statement } from "../figures/payoff";
 import type { Cita, Etapa, EstadoDeCuenta, TipoCita } from "../patricia/entities";
+import { ANGUSTIA_EMOJIS } from "../escalera/policy";
 import { SAFE_TEMPLATE, findFigures, type ValidatorDecision } from "../validator/validator";
 import { REDACTOR_MODEL, allowedFigures, cifraEscrita, decisionDeCita, redactarGuion } from "./redactor";
 
@@ -75,6 +76,32 @@ describe("decisionDeCita", () => {
       expect(pregunta).not.toMatch(/\d/);
       expect(pregunta).toMatch(EMOJI_AT_END);
     }
+  });
+});
+
+describe("decisionDeCita on domingo", () => {
+  test("with a pago recibido this week it celebrates, carries no cifra and asks the angustia", () => {
+    const decision = decisionDeCita({ cita: cita(1, "domingo"), estadoDeCuenta: estadoOcho, pagoRecibido: true });
+    expect(decision.buenaNoticia.regla).toBe("pago-recibido");
+    expect(decision.buenaNoticia.texto).not.toMatch(/\d/);
+    expect(decision.cifra).toBeNull();
+    expect(decision.pregunta).not.toMatch(/\d/);
+    expect(decision.pregunta).not.toContain("💛");
+    for (const emoji of ANGUSTIA_EMOJIS) expect(decision.pregunta).toContain(emoji);
+  });
+
+  test("without a pago recibido the buena noticia is the usual one, still without cifra", () => {
+    const decision = decisionDeCita({ cita: cita(2, "domingo"), estadoDeCuenta: estadoOcho, pagoRecibido: false });
+    expect(decision.buenaNoticia.regla).toBe("sin-mora");
+    expect(decision.cifra).toBeNull();
+    for (const emoji of ANGUSTIA_EMOJIS) expect(decision.pregunta).toContain(emoji);
+  });
+
+  test("a pago recibido does not change a lunes cita", () => {
+    const decision = decisionDeCita({ cita: cita(1), estadoDeCuenta: estadoOcho, pagoRecibido: true });
+    expect(decision.buenaNoticia.regla).toBe("sin-mora");
+    expect(decision.cifra).toEqual({ kind: "pago-minimo", monto: 41_900 });
+    expect(decision.pregunta).toContain("💛");
   });
 });
 

@@ -8,6 +8,8 @@ import { guionHablado } from "./envio";
 const DRAFT_ETAPA_1 = "Hola, Patricia. Estás al día, no estás en DICOM. Este mes el pago mínimo es $41.900.";
 const DRAFT_ETAPA_2 = "Estás al día, no estás en DICOM. Hay una salida: 17 meses pagando $50.000, con calma.";
 const SHORT = "Estás al día. El pago mínimo es $41.900.";
+const DRAFT_DOMINGO = "Hola, Patricia. Llegó tu pago esta semana, el banco ya lo recibió.";
+const PAGO_ORIGEN = { mailId: "mail-pago", from: "avisos@banco.example", subject: "Recibimos tu pago" };
 
 const EMOJI_AT_END = /\p{Extended_Pictographic}$/u;
 
@@ -130,6 +132,28 @@ describe("cita sender", () => {
     expect(audios(t)).toHaveLength(1);
     expect(t.app.store.mensajesSalientes()[0]!.text).toContain("17 meses pagando $50.000");
     expect(t.voice.calls[0]).toContain("17 meses pagando cincuenta mil pesos");
+  });
+
+  test("the domingo cita celebrates a «recibimos tu pago» from this week", async () => {
+    const t = setup({ llm: [["Escribe el guion", DRAFT_DOMINGO], ["", "OK"]] });
+    t.clock.set(parseSantiago("2026-10-22T10:00"));
+    t.app.store.addSenal({ tipo: "S5", origen: PAGO_ORIGEN });
+    await tickAt(t, "2026-10-25T21:30");
+
+    expect(sentDecision(t)?.datos).toMatchObject({
+      decision: { tipo: "domingo", buenaNoticia: { regla: "pago-recibido" }, cifra: null },
+    });
+  });
+
+  test("a «recibimos tu pago» from last week is not celebrated on domingo", async () => {
+    const t = setup({ llm: [["Escribe el guion", DRAFT_DOMINGO], ["", "OK"]] });
+    t.clock.set(parseSantiago("2026-10-18T10:00"));
+    t.app.store.addSenal({ tipo: "S5", origen: PAGO_ORIGEN });
+    await tickAt(t, "2026-10-25T21:30");
+
+    expect(sentDecision(t)?.datos).toMatchObject({
+      decision: { tipo: "domingo", buenaNoticia: { regla: "sin-mora" } },
+    });
   });
 
   test("an audio over 45 seconds is rewritten shorter once", async () => {
