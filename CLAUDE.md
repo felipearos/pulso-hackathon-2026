@@ -137,3 +137,17 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | --- | --- | --- |
 | `DATABASE_PATH` | none (unit) | SQLite file; defaults to `data/pulso.db` locally |
 | `HOST` | none (unit) | listen address; unset means all interfaces |
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `felipearos/pulso-hackathon-2026`, through `gh`, written in Spanish. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The default five: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` is the glossary (in place of `CONTEXT.md`), decisions in `docs/adr/`. See `docs/agents/domain.md`.
