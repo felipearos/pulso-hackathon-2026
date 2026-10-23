@@ -1,4 +1,5 @@
 import { migrate } from "./db";
+import { createStore, type Store } from "./patricia/store";
 import type { Ports } from "./ports";
 import { handle } from "./server";
 
@@ -7,6 +8,8 @@ export type App = {
   handle(request: Request): Response | Promise<Response>;
   /** Runs one pass of the scheduler at the clock's current time. */
   tick(): Promise<void>;
+  /** Patricia's persisted state and the decision log. */
+  store: Store;
 };
 
 /**
@@ -19,5 +22,6 @@ export function createApp(ports: Ports): App {
     handle,
     // The scheduler tickets fill this pass; until then a tick has nothing to do.
     tick: async () => {},
+    store: createStore(ports.db, ports.clock),
   };
 }
