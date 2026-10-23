@@ -6,6 +6,7 @@ import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
 import { receiveMail } from "./mail/ingest";
 import { allowedSenderDomains } from "./mail/senders";
 import type { Senal } from "./patricia/entities";
+import { resetPatricia } from "./patricia/fixtures";
 import { createStore, type Store } from "./patricia/store";
 import type { IncomingMail, Ports } from "./ports";
 import { handle } from "./server";
@@ -23,6 +24,8 @@ export type App = {
   clock: DemoClock;
   /** Takes a message from Patricia, moves her etapa if the política says so and logs the decision. */
   receiveMensaje(input: MensajeInput): Promise<EtapaMove>;
+  /** Puts Patricia and the demo clock back at the starting point of her story. */
+  reset(): void;
 };
 
 /**
@@ -67,5 +70,6 @@ export function createApp(ports: Ports): App {
     store,
     clock,
     receiveMensaje: (input) => receiveMensaje({ store, llm: ports.llm }, input),
+    reset: () => resetPatricia(ports.db, store, clock),
   };
 }
