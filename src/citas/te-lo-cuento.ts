@@ -41,14 +41,14 @@ export function esperaQueLeCuente(store: Store): boolean {
   return citaPendiente(store) !== null;
 }
 
-/** Fixed message with the latest bank figure, or a gentle wait for this month's estado de cuenta. */
+/** Fixed message with the pago mínimo of the latest bank estado de cuenta. */
 export function textoPagoMinimo(nombre: string, monto: number): string {
-  return `Te lo cuento, ${nombre}: este mes el pago mínimo es ${montoEnPantalla(monto)}. Lo que pongas sobre el mínimo lo decides tú, con calma.`;
+  return `Te lo cuento, ${nombre}: en tu último estado de cuenta, el pago mínimo es ${montoEnPantalla(monto)}. Lo que pongas sobre el mínimo lo decides tú, con calma.`;
 }
 
 /** Fixed message for when no bank estado de cuenta with figures has arrived yet. */
 export function textoSinEstadoDeCuenta(nombre: string): string {
-  return `Te lo cuento, ${nombre}: todavía no me llega tu estado de cuenta de este mes. Cuando llegue, te lo cuento.`;
+  return `Te lo cuento, ${nombre}: todavía no me llega tu estado de cuenta. Cuando llegue, te lo cuento.`;
 }
 
 /** Stores whose pago mínimo is being sent, so a second 👌 meanwhile sends nothing. */
@@ -97,10 +97,12 @@ async function tell(deps: TeLoCuentoDeps, mensaje: MensajeEntrante, cita: Cita):
   try {
     ({ id: whatsappId } = await whatsapp.send({ kind: "text", text: validated.text }));
   } catch (error) {
-    console.error("Could not tell Patricia the pago mínimo", error);
+    console.error("could not tell Patricia the pago mínimo", error);
     return;
   }
 
+  // The plantilla segura tells her nothing, so the cita still waits for her answer.
+  if (validated.source === "safe-template") return;
   store.recordDecision({
     tipo: "contar-estado-de-cuenta",
     motivo: "le contó el estado de cuenta del mes: graduada",

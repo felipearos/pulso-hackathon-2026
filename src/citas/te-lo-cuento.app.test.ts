@@ -77,7 +77,7 @@ describe("the graduada cita reply through the app", () => {
     expect(texts(t)).toEqual([
       {
         kind: "text",
-        text: `Te lo cuento, Rosa: este mes el pago mínimo es ${montoEnPantalla(monto)}. Lo que pongas sobre el mínimo lo decides tú, con calma.`,
+        text: `Te lo cuento, Rosa: en tu último estado de cuenta, el pago mínimo es ${montoEnPantalla(monto)}. Lo que pongas sobre el mínimo lo decides tú, con calma.`,
       },
     ]);
     expect(findFigures(texts(t)[0]!.text)).toEqual([monto]);
@@ -146,7 +146,7 @@ describe("the graduada cita reply through the app", () => {
     await t.app.receiveMensaje({ text: "👌", whatsappId: "in-1" });
 
     expect(texts(t)[0]?.text).toBe(
-      "Te lo cuento, Patricia: todavía no me llega tu estado de cuenta de este mes. Cuando llegue, te lo cuento.",
+      "Te lo cuento, Patricia: todavía no me llega tu estado de cuenta. Cuando llegue, te lo cuento.",
     );
     expect(findFigures(texts(t)[0]!.text)).toEqual([]);
     expect(contarDecisions(t)[0]!.datos).toMatchObject({ citaId, source: "draft" });

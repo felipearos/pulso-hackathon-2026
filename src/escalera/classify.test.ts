@@ -47,7 +47,7 @@ describe("classifyIntencion", () => {
     for (const message of ["Cuéntamelo tú", "mejor tú dime", "te lo cuento yo", "prefiero que me lo cuentes", "Léelo tú"]) {
       expect(pideQueLeCuente(message)).toBe(true);
     }
-    for (const message of ["lo abro yo", "mejor tuve que pagar"]) {
+    for (const message of ["lo abro yo", "mejor tuve que pagar", "no me lo cuentes, lo abro yo", "mejor tú no me digas nada"]) {
       expect(pideQueLeCuente(message)).toBe(false);
     }
   });

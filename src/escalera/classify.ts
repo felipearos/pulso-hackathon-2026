@@ -21,7 +21,7 @@ export const CRISIS_PHRASES = [
 const SYSTEM_PROMPT = `Clasifica el mensaje de Patricia en una sola intención.
 Responde SOLO un objeto JSON con la forma {"intencion":"<tipo>"}; para angustia usa {"intencion":"angustia","valor":<entero de 1 a 5>}.
 Los tipos permitidos son:
-- listened: escuchó o solo confirma que recibió el audio, o pide que Luna le cuente lo que dice su estado de cuenta (por ejemplo «cuéntamelo tú»).
+- listened: escuchó o solo confirma que recibió el audio.
 - accepted: acepta responder o hacer lo propuesto en la cita.
 - minimum: cuenta que pagó o piensa pagar solo el pago mínimo.
 - angustia: dice cómo se siente, con valor de angustia de 1 (poca) a 5 (mucha).
@@ -47,11 +47,15 @@ function normalize(text: string): string {
 }
 
 const PIDE_QUE_LE_CUENTE =
-  /(?:^|[^\p{L}\p{N}])(?:cuentamelo|cuentame tu|cuentame vos|dimelo tu|dimelo|me lo cuentas|me lo cuentes|me lo dices|te lo cuento yo|cuentalo tu|mejor tu|tu cuentame|tu dime|leelo tu|abrelo tu)(?=$|[^\p{L}\p{N}])/u;
+  /(?:^|[^\p{L}\p{N}])(?:cuentamelo|cuentame tu|cuentame vos|dimelo|me lo cuentas|me lo cuentes|me lo dices|te lo cuento yo|cuentalo tu|mejor tu|tu cuentame|tu dime|leelo tu|abrelo tu)(?=$|[^\p{L}\p{N}])/u;
+
+/** «No me lo cuentes», «lo abro yo»: she wants to open it herself. */
+const LO_ABRE_ELLA = /(?:^|[^\p{L}\p{N}])(?:no me|lo abro yo|yo lo abro)(?=$|[^\p{L}\p{N}])/u;
 
 /** Whether the message asks Luna to tell her what the estado de cuenta says. */
 export function pideQueLeCuente(message: string): boolean {
-  return PIDE_QUE_LE_CUENTE.test(normalize(message));
+  const normalized = normalize(message);
+  return PIDE_QUE_LE_CUENTE.test(normalized) && !LO_ABRE_ELLA.test(normalized);
 }
 
 /** Phrases that also talk about amounts: «no puedo más que el mínimo», «no doy más de 20 mil». */
