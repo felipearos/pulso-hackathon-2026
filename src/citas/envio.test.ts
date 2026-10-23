@@ -64,6 +64,14 @@ describe("guionHablado", () => {
     );
   });
 
+  test("says the monto in words without a dollar sign, and does not repeat pesos", () => {
+    const cifra = { kind: "pago-minimo" as const, monto: 41_900 };
+    expect(guionHablado("El mínimo es 41.900 pesos, o 41900.", cifra)).toBe(
+      "El mínimo es cuarenta y un mil novecientos pesos, o cuarenta y un mil novecientos pesos.",
+    );
+    expect(guionHablado("Son $ 141.900 y 41.9001.", cifra)).toBe("Son $ 141.900 y 41.9001.");
+  });
+
   test("leaves a guion without cifra as it is", () => {
     expect(guionHablado("Hola, Patricia.", null)).toBe("Hola, Patricia.");
   });
@@ -121,10 +129,14 @@ describe("cita sender", () => {
   });
 
   test("a failed send is retried on the next tick of the same day", async () => {
-    const t = setup({ voice: { failures: 1 } });
+    const t = setup({ voice: { failures: 2 } });
     await tickAt(t, "2026-10-19T22:30");
+    await tickAt(t, "2026-10-19T22:35");
 
     expect(t.whatsapp.outbox).toEqual([]);
+    const failures = t.app.store.decisions().filter((d) => d.motivo.startsWith("no salió"));
+    expect(failures).toHaveLength(1);
+    expect(failures[0]!.datos).toMatchObject({ error: "FakeVoice failed on purpose" });
     expect(t.app.store.mensajesSalientes()).toEqual([]);
     expect(t.app.store.citaOn("2026-10-19")?.mensajeSalienteId).toBeNull();
 

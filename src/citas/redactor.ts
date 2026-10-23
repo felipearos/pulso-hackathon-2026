@@ -24,8 +24,8 @@ export const REDACTOR_MODEL = "claude-opus-5-5";
 const CUOTA_STEP = 10_000;
 /** Most cuotas tried above the pago mínimo before la salida gives up. */
 const MAX_CUOTA_STEPS = 50;
-/** The audio must stay under this many seconds. */
-const MAX_SECONDS = 45;
+/** A cita's audio lasts this many seconds or less. */
+export const MAX_AUDIO_SECONDS = 45;
 
 /** The one figure a cita may carry, computed by the motor de cifras. */
 export type CifraPermitida = { kind: "pago-minimo"; monto: number } | { kind: "salida"; meses: number; cuota: number };
@@ -117,7 +117,7 @@ function draftPrompt(decision: DecisionDeCita): string {
 
 function shortenPrompt(decision: DecisionDeCita, acortar: { guion: string; durationSeconds: number }): string {
   return [
-    `Acorta este guion: duró ${acortar.durationSeconds} segundos y debe durar menos de ${MAX_SECONDS}.`,
+    `Acorta este guion: duró ${acortar.durationSeconds} segundos y debe durar menos de ${MAX_AUDIO_SECONDS}.`,
     `Mantén la buena noticia: «${decision.buenaNoticia.texto}».`,
     decision.cifra === null
       ? "No escribas ninguna cifra ni ningún número con dígitos."

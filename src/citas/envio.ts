@@ -4,23 +4,22 @@ import type { Store } from "../patricia/store";
 import type { Clock, Llm, SpokenAudio, Voice, WhatsApp } from "../ports";
 import type { ValidatorDecision } from "../validator/validator";
 import { montoEnPalabras, montoEnPantalla } from "../voz/montos";
-import { decisionDeCita, redactarGuion, type CifraPermitida } from "./redactor";
+import { decisionDeCita, MAX_AUDIO_SECONDS, redactarGuion, type CifraPermitida } from "./redactor";
+import { MADRUGADA_END } from "./scheduler";
 
 export type CitaSender = {
   /** Sends today's programada cita as a nota de voz, once; a failed send is retried on the next tick of the same day. */
   tick(): Promise<void>;
 };
 
-/** The madrugada ends at 05:30, exclusive, as in the scheduler. */
-const MADRUGADA_END = 5 * 60 + 30;
-/** An audio longer than this is rewritten shorter, once. */
-const MAX_SECONDS = 45;
-
 /** The guion as Luna says it: every peso amount of the cifra in words, not digits. */
 export function guionHablado(guion: string, cifra: CifraPermitida | null): string {
   if (cifra === null) return guion;
   const monto = cifra.kind === "pago-minimo" ? cifra.monto : cifra.cuota;
-  return guion.replaceAll(montoEnPantalla(monto), montoEnPalabras(monto));
+  // «$41.900», «41.900», «41900» and «41.900 pesos» all become words; the validator lets each through.
+  const digits = [montoEnPantalla(monto).slice(1), String(monto)].map((form) => form.replaceAll(".", "\\."));
+  const pattern = new RegExp(`(?:\\$\\s?)?(?<![\\d.])(?:${digits.join("|")})(?!\\d|[.,]\\d)(?:\\s+pesos)?`, "g");
+  return guion.replace(pattern, montoEnPalabras(monto));
 }
 
 /**
@@ -45,6 +44,8 @@ export function createCitaSender({
   whatsapp: WhatsApp;
 }): CitaSender {
   let sending = false;
+  // Citas whose failed send is already in the registro: retries every tick must not flood it.
+  const failureRecorded = new Set<number>();
 
   const send = async (): Promise<void> => {
     const now = clock.now();
@@ -65,7 +66,7 @@ export function createCitaSender({
     let id: string;
     try {
       audio = await voice.synthesize(guionHablado(guion, decision.cifra));
-      if (audio.durationSeconds > MAX_SECONDS) {
+      if (audio.durationSeconds > MAX_AUDIO_SECONDS) {
         ({ guion, source } = await redactarGuion({
           llm,
           decision,
@@ -81,15 +82,25 @@ export function createCitaSender({
         mimeType: audio.mimeType,
         durationSeconds: audio.durationSeconds,
       }));
-    } catch (error) {
-      console.error(`cita ${cita.id}: send failed: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : String(cause);
+      console.error(`cita ${cita.id}: send failed: ${error}`);
+      if (!failureRecorded.has(cita.id)) {
+        failureRecorded.add(cita.id);
+        store.recordDecision({
+          tipo: "mensaje",
+          motivo: `no salió la ${cita.motivo}: falló la voz o el envío; se reintenta en el próximo tick del día`,
+          datos: { citaId: cita.id, error },
+        });
+      }
       return;
     }
 
     const { durationSeconds } = audio;
     db.transaction(() => {
       const mensaje = store.addMensajeSaliente({ kind: "audio", text: guion, durationSeconds, whatsappId: id });
-      store.markCitaSent(cita.id, mensaje.id);
+      // Another sender got there first: roll the mensaje and its decision back.
+      if (!store.markCitaSent(cita.id, mensaje.id)) throw new Error(`cita ${cita.id} was already sent`);
       store.recordDecision({
         tipo: "mensaje",
         motivo: `salió la ${cita.motivo}: nota de voz de ${Math.round(durationSeconds)} s`,

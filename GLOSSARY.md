@@ -90,6 +90,23 @@ _programada_ (Luna speaks) or _callada_ (a pausa or the weekly cap of three
 keeps her silent).
 _Avoid:_ "appointment", "session".
 
+## Guion
+
+The text of one cita as Luna will say it: the buena noticia, at most one
+figure, and a closing question answered with an emoji. Claude writes it,
+the validador checks it, and it is kept as the text of the mensaje saliente;
+the voice hears it with every monto in words. Over 45 seconds of audio, it
+is shortened once.
+_Avoid:_ "script", "prompt", "copy".
+
+## Salida
+
+The way out shown in etapa 2: the smallest round cuota (a multiple of
+10.000) above the pago mínimo that clears the estado de cuenta, with the
+months it takes, both from the motor de cifras («17 meses pagando
+$50.000»). Its two figures count as the cita's one figure.
+_Avoid:_ "plan", "payoff plan", "exit".
+
 ## Pendiente
 
 Something Luna will bring up at the next cita, never before: a señal worth
