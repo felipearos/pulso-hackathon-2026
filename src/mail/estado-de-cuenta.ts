@@ -38,7 +38,8 @@ function statementFrom(cifras: CifrasExtraidas): Statement | null {
 /**
  * Reads the estado de cuenta of an S1 mail and stores it with its extraction.
  * Every figure not found gets a `callar-cifra` decision, so Luna never invents
- * it. Null for any other mail; the stored extraction when the mail was read.
+ * it. Null for any other mail, and when Claude failed twice: then nothing is
+ * stored, so the mail can be read again. The stored extraction when it was read.
  */
 export async function extractEstadoDeCuenta(
   deps: { store: Store; llm: Llm; db: Database },
@@ -49,7 +50,12 @@ export async function extractEstadoDeCuenta(
   const existing = store.extraccionForMail(mail.id);
   if (existing !== null) return existing;
 
-  const cifras = await extractCifras(mail.text, llm);
+  // One retry: a failed call is not an estado de cuenta without figures.
+  const cifras = (await extractCifras(mail.text, llm)) ?? (await extractCifras(mail.text, llm));
+  if (cifras === null) {
+    console.error(`estado de cuenta: ${mail.id} could not be read; nothing stored`);
+    return null;
+  }
 
   return db.transaction(() => {
     // Another call may have stored this mail while the LLM answered.

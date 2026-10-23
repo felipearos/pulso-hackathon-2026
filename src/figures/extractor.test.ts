@@ -19,23 +19,11 @@ const REPLY_8 = {
   ],
 };
 
-const ALL_NULL: CifrasExtraidas = {
-  pagoMinimo: null,
-  totalFacturado: null,
-  cupo: null,
-  tasaMensual: null,
-  fechaVencimiento: null,
-  fechaCierre: null,
-  mora: null,
-  pagosAnteriores: null,
-  comprasEnCuotas: null,
-};
-
 function llmReplying(reply: string): FakeLlm {
   return new FakeLlm([[/[\s\S]/, reply]]);
 }
 
-function extractWith(reply: object): Promise<CifrasExtraidas> {
+function extractWith(reply: object): Promise<CifrasExtraidas | null> {
   return extractCifras(ESTADO_DE_CUENTA_8_TEXTO, llmReplying(JSON.stringify(reply)));
 }
 
@@ -86,8 +74,8 @@ describe("extractCifras", () => {
   });
 
   test("accepts the 29th of February only in a leap year", async () => {
-    expect((await extractWith({ ...REPLY_8, fechaCierre: "2028-02-29" })).fechaCierre).toBe("2028-02-29");
-    expect((await extractWith({ ...REPLY_8, fechaCierre: "2026-02-29" })).fechaCierre).toBeNull();
+    expect((await extractWith({ ...REPLY_8, fechaCierre: "2028-02-29" }))?.fechaCierre).toBe("2028-02-29");
+    expect((await extractWith({ ...REPLY_8, fechaCierre: "2026-02-29" }))?.fechaCierre).toBeNull();
   });
 
   test("missing and null fields become null", async () => {
@@ -108,10 +96,10 @@ describe("extractCifras", () => {
   });
 
   test("converts the printed monthly percent into a fraction", async () => {
-    expect((await extractWith({ ...REPLY_8, tasaMensualPorcentaje: 2.95 })).tasaMensual).toBe(0.0295);
-    expect((await extractWith({ ...REPLY_8, tasaMensualPorcentaje: 0 })).tasaMensual).toBeNull();
-    expect((await extractWith({ ...REPLY_8, tasaMensualPorcentaje: 100 })).tasaMensual).toBeNull();
-    expect((await extractWith({ ...REPLY_8, tasaMensualPorcentaje: "3,10" })).tasaMensual).toBeNull();
+    expect((await extractWith({ ...REPLY_8, tasaMensualPorcentaje: 2.95 }))?.tasaMensual).toBe(0.0295);
+    expect((await extractWith({ ...REPLY_8, tasaMensualPorcentaje: 0 }))?.tasaMensual).toBeNull();
+    expect((await extractWith({ ...REPLY_8, tasaMensualPorcentaje: 100 }))?.tasaMensual).toBeNull();
+    expect((await extractWith({ ...REPLY_8, tasaMensualPorcentaje: "3,10" }))?.tasaMensual).toBeNull();
   });
 
   test("accepts JSON inside a Markdown fence", async () => {
@@ -120,19 +108,19 @@ describe("extractCifras", () => {
     expect(await extractCifras(ESTADO_DE_CUENTA_8_TEXTO, llm)).toEqual(ESTADO_DE_CUENTA_8_CIFRAS);
   });
 
-  test("a reply that is not JSON finds nothing", async () => {
+  test("a reply that is not JSON is a failed read, not figures not found", async () => {
     const llm = llmReplying("No pude leer el estado de cuenta.");
 
-    expect(await extractCifras(ESTADO_DE_CUENTA_8_TEXTO, llm)).toEqual(ALL_NULL);
+    expect(await extractCifras(ESTADO_DE_CUENTA_8_TEXTO, llm)).toBeNull();
   });
 
-  test("a failing llm finds nothing instead of throwing", async () => {
+  test("a failing llm is a failed read instead of throwing", async () => {
     const llm: Llm = {
       complete: async () => {
         throw new Error("timeout");
       },
     };
 
-    expect(await extractCifras(ESTADO_DE_CUENTA_8_TEXTO, llm)).toEqual(ALL_NULL);
+    expect(await extractCifras(ESTADO_DE_CUENTA_8_TEXTO, llm)).toBeNull();
   });
 });

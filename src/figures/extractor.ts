@@ -57,18 +57,6 @@ Ejemplo de un estado de cuenta sin ninguna cifra legible:
 {"pagoMinimo":null,"totalFacturado":null,"cupo":null,"tasaMensualPorcentaje":null,"fechaVencimiento":null,"fechaCierre":null,"mora":null,"pagosAnteriores":null,"comprasEnCuotas":null}
 No agregues explicaciones, formato Markdown ni texto fuera del JSON.`;
 
-const NADA_ENCONTRADO: CifrasExtraidas = {
-  pagoMinimo: null,
-  totalFacturado: null,
-  cupo: null,
-  tasaMensual: null,
-  fechaVencimiento: null,
-  fechaCierre: null,
-  mora: null,
-  pagosAnteriores: null,
-  comprasEnCuotas: null,
-};
-
 function pesos(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
@@ -145,13 +133,14 @@ function parseReply(reply: string): Record<string, unknown> | null {
 /**
  * Reads the figures of one estado de cuenta with Claude. Every field is checked
  * in code; a doubtful one becomes null without discarding the others. Never
- * throws: a failed or unreadable answer means nothing was found.
+ * throws: null when Claude failed or its answer was not JSON, so the caller can
+ * read again instead of taking a failed call for figures not found.
  */
 export async function extractCifras(
   text: string,
   llm: Llm,
   options?: { timeoutMs?: number },
-): Promise<CifrasExtraidas> {
+): Promise<CifrasExtraidas | null> {
   let reply: string;
   try {
     reply = await llm.complete({
@@ -162,11 +151,11 @@ export async function extractCifras(
       timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     });
   } catch {
-    return { ...NADA_ENCONTRADO };
+    return null;
   }
 
   const raw = parseReply(reply);
-  if (!raw) return { ...NADA_ENCONTRADO };
+  if (!raw) return null;
 
   return {
     pagoMinimo: pesos(raw.pagoMinimo),

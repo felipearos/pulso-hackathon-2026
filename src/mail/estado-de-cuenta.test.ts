@@ -77,13 +77,27 @@ describe("extractEstadoDeCuenta", () => {
     );
   });
 
-  test("an LLM that fails leaves every figure not found, nine callar-cifra and a tick that does not throw", async () => {
+  test("an LLM that fails twice stores nothing, so the mail can be read again", async () => {
     const { app, mail, llm } = createAllowedApp();
+    const ec8 = mail.inject({ id: "ec8", from: bank, subject: "Tu estado de cuenta de octubre", text: ESTADO_DE_CUENTA_8_TEXTO, receivedAt });
+    await app.tick();
+
+    expect(llm.calls).toHaveLength(2);
+    expect(app.store.extraccionForMail("ec8")).toBeNull();
+    expect(app.store.estadosDeCuenta()).toHaveLength(0);
+    expect(callarCifra(app.store.decisions())).toHaveLength(0);
+
+    const answering = createAllowedApp(FULL_REPLY);
+    answering.app.receiveMail(ec8);
+    expect(await answering.app.extractEstadoDeCuenta(ec8)).not.toBeNull();
+  });
+
+  test("a reply that every figure is missing from leaves nine callar-cifra", async () => {
+    const empty = Object.fromEntries(Object.keys(FULL_REPLY).map((key) => [key, null]));
+    const { app, mail } = createAllowedApp(empty);
     mail.inject({ id: "ec8", from: bank, subject: "Tu estado de cuenta de octubre", text: ESTADO_DE_CUENTA_8_TEXTO, receivedAt });
     await app.tick();
 
-    expect(llm.calls).toHaveLength(1);
-    expect(Object.values(app.store.extraccionForMail("ec8")!.cifras).every((v) => v === null)).toBe(true);
     const estado = app.store.estadosDeCuenta()[0]!;
     expect(estado.pagoMinimo).toBeNull();
     expect(estado.cifras).toBeNull();

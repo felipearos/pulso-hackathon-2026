@@ -24,7 +24,7 @@ export type App = {
   tick(): Promise<void>;
   /** Turns one mail into at most one señal; Gmail, the fake and the /demo injection all end here. */
   receiveMail(mail: IncomingMail): Promise<Senal | null>;
-  /** Reads an S1 mail's estado de cuenta; Gmail and the /demo injection both end here after `receiveMail`. */
+  /** Reads an S1 mail's estado de cuenta after `receiveMail`; `tick` calls it for every new S1. */
   extractEstadoDeCuenta(mail: IncomingMail): Promise<Extraccion | null>;
   /** Patricia's persisted state and the decision log. */
   store: Store;
