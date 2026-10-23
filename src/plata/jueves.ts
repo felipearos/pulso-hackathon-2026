@@ -173,7 +173,7 @@ export async function answerEleccion(
       store.recordDecision({
         tipo: "rechazar-propuesta",
         motivo: "dijo que no a la propuesta de plata apartada",
-        datos: { citaId: propuesta.citaId, tipoPropuesta: propuesta.tipoPropuesta ?? "plata-apartada", text: mensaje.text },
+        datos: { citaId: propuesta.citaId, tipoPropuesta: propuesta.tipoPropuesta ?? "plata-apartada", mensaje: mensaje.text },
       });
     }
     return;

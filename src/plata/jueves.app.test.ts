@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { IncomingMail } from "../ports";
+import { santiagoDate } from "../clock/santiago";
 import { createTestApp } from "../testing";
 
 const CATALOGO = "pedidos@catalogoaurora.example";
@@ -177,7 +178,7 @@ async function juevesLater(t: ReturnType<typeof createTestApp>, weeks: number) {
   t.clock.set(day(-1));
   t.app.receiveMail(mail(`Pagamos tu pedido #${10 + weeks} por $30.000`, t.clock.now()));
   t.clock.set(day(0));
-  const fecha = day(0).toLocaleDateString("en-CA", { timeZone: "America/Santiago" });
+  const fecha = santiagoDate(day(0));
   return jueves(t, fecha);
 }
 
@@ -204,6 +205,11 @@ describe("two «no» and Luna stops proposing", () => {
     expect(rest).toEqual([]);
     expect(callar!.datos).toMatchObject({ citaId: cita.id, tipoPropuesta: "plata-apartada", noes: 2 });
     expect(callar!.motivo).toBe("dos no a la plata apartada: no la repite hasta el próximo estado de cuenta");
+
+    // The silence lasts until the next estado de cuenta, not one week.
+    const fourth = await juevesLater(t, 3);
+    expect(forCita(t, "proponer-plata-apartada", fourth.id)).toEqual([]);
+    expect(forCita(t, "callar-propuesta", fourth.id)).toHaveLength(1);
   });
 
   test("one 👌 and one bare «no» silence it too, and the «no» gets no reply", async () => {
@@ -214,7 +220,7 @@ describe("two «no» and Luna stops proposing", () => {
     await answer(t, "No.", "in-2");
     expect(t.whatsapp.outbox).toEqual([]);
     const [rechazo] = forCita(t, "rechazar-propuesta", second.id);
-    expect(rechazo!.datos).toEqual({ citaId: second.id, tipoPropuesta: "plata-apartada", text: "No." });
+    expect(rechazo!.datos).toEqual({ citaId: second.id, tipoPropuesta: "plata-apartada", mensaje: "No." });
     expect(rechazo!.motivo).toBe("dijo que no a la propuesta de plata apartada");
 
     // The «no» closed the propuesta: a later 👍 answers nothing.
