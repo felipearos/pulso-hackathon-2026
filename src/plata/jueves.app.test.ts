@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { IncomingMail } from "../ports";
+import { santiagoDate } from "../clock/santiago";
 import { createTestApp } from "../testing";
 
 const CATALOGO = "pedidos@catalogoaurora.example";
@@ -33,9 +34,9 @@ function setup(options: { s3?: boolean; pagoMinimo?: number | null } = {}) {
   return t;
 }
 
-async function jueves(t: ReturnType<typeof createTestApp>) {
+async function jueves(t: ReturnType<typeof createTestApp>, fecha = "2026-10-22") {
   await t.app.tick();
-  const cita = t.app.store.citaOn("2026-10-22");
+  const cita = t.app.store.citaOn(fecha);
   expect(cita).toMatchObject({ tipo: "jueves", estado: "programada" });
   // Keep this suite focused on the propuesta, after the one-time bolsillo exchange is complete.
   t.app.store.recordDecision({
@@ -168,5 +169,99 @@ describe("the jueves propuesta through the app", () => {
     t.app.store.updatePatricia({ enPausa: false });
     await t.app.receiveMensaje({ text: "👍", whatsappId: "in-2" });
     expect(t.whatsapp.outbox).toEqual([{ kind: "text", text: `Anotado: $50.000 este mes. ${CIERRE}` }]);
+  });
+});
+
+/** Moves to the jueves `weeks` after the first one, with one pedido pagado that week so it has plata apartada. */
+async function juevesLater(t: ReturnType<typeof createTestApp>, weeks: number) {
+  const day = (offset: number) => new Date(JUEVES.getTime() + (weeks * 7 + offset) * 24 * 60 * 60 * 1000);
+  t.clock.set(day(-1));
+  t.app.receiveMail(mail(`Pagamos tu pedido #${10 + weeks} por $30.000`, t.clock.now()));
+  t.clock.set(day(0));
+  const fecha = santiagoDate(day(0));
+  return jueves(t, fecha);
+}
+
+/** A reply the next morning, outside the madrugada. */
+async function answer(t: ReturnType<typeof createTestApp>, text: string, whatsappId: string) {
+  t.clock.set(new Date(t.clock.now().getTime() + 12 * 60 * 60 * 1000));
+  await t.app.receiveMensaje({ text, whatsappId });
+}
+
+const forCita = (t: ReturnType<typeof createTestApp>, tipo: string, citaId: number) =>
+  decisionsOf(t, tipo).filter((d) => (d.datos as { citaId?: number }).citaId === citaId);
+
+describe("two «no» and Luna stops proposing", () => {
+  test("two 👌 on two jueves: the third jueves keeps the propuesta to herself", async () => {
+    const t = setup();
+    await jueves(t);
+    await answer(t, "👌", "in-1");
+    await juevesLater(t, 1);
+    await answer(t, "👌", "in-2");
+    const cita = await juevesLater(t, 2);
+
+    expect(forCita(t, "proponer-plata-apartada", cita.id)).toEqual([]);
+    const [callar, ...rest] = forCita(t, "callar-propuesta", cita.id);
+    expect(rest).toEqual([]);
+    expect(callar!.datos).toMatchObject({ citaId: cita.id, tipoPropuesta: "plata-apartada", noes: 2 });
+    expect(callar!.motivo).toBe("dos no a la plata apartada: no la repite hasta el próximo estado de cuenta");
+
+    // The silence lasts until the next estado de cuenta, not one week.
+    const fourth = await juevesLater(t, 3);
+    expect(forCita(t, "proponer-plata-apartada", fourth.id)).toEqual([]);
+    expect(forCita(t, "callar-propuesta", fourth.id)).toHaveLength(1);
+  });
+
+  test("one 👌 and one bare «no» silence it too, and the «no» gets no reply", async () => {
+    const t = setup();
+    await jueves(t);
+    await answer(t, "👌", "in-1");
+    const second = await juevesLater(t, 1);
+    await answer(t, "No.", "in-2");
+    expect(t.whatsapp.outbox).toEqual([]);
+    const [rechazo] = forCita(t, "rechazar-propuesta", second.id);
+    expect(rechazo!.datos).toEqual({ citaId: second.id, tipoPropuesta: "plata-apartada", mensaje: "No." });
+    expect(rechazo!.motivo).toBe("dijo que no a la propuesta de plata apartada");
+
+    // The «no» closed the propuesta: a later 👍 answers nothing.
+    await answer(t, "👍", "in-3");
+    expect(t.whatsapp.outbox).toEqual([]);
+    expect(forCita(t, "respuesta-propuesta", second.id)).toEqual([]);
+
+    const cita = await juevesLater(t, 2);
+    expect(forCita(t, "proponer-plata-apartada", cita.id)).toEqual([]);
+    expect(forCita(t, "callar-propuesta", cita.id)).toHaveLength(1);
+  });
+
+  test("a new estado de cuenta del banco brings the propuesta back", async () => {
+    const t = setup();
+    await jueves(t);
+    await answer(t, "👌", "in-1");
+    await juevesLater(t, 1);
+    await answer(t, "no gracias", "in-2");
+    t.app.store.addEstadoDeCuenta({
+      origen: "banco",
+      ciclo: 2,
+      fechaCierre: null,
+      fechaVencimiento: null,
+      cifras: null,
+      pagoMinimo: 41900,
+    });
+    const cita = await juevesLater(t, 2);
+
+    expect(forCita(t, "callar-propuesta", cita.id)).toEqual([]);
+    expect(forCita(t, "proponer-plata-apartada", cita.id)).toHaveLength(1);
+  });
+
+  test("one 👍 and one 👌 are only one «no»: the propuesta stays", async () => {
+    const t = setup();
+    await jueves(t);
+    await answer(t, "👍", "in-1");
+    await juevesLater(t, 1);
+    await answer(t, "👌", "in-2");
+    const cita = await juevesLater(t, 2);
+
+    expect(forCita(t, "callar-propuesta", cita.id)).toEqual([]);
+    expect(forCita(t, "proponer-plata-apartada", cita.id)).toHaveLength(1);
   });
 });
