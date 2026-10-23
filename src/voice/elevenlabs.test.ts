@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createElevenLabsVoice, oggOpusDurationSeconds, VoiceError, type Fetch } from "./elevenlabs";
+import { createElevenLabsTranscriber, createElevenLabsVoice, oggOpusDurationSeconds, VoiceError, type Fetch } from "./elevenlabs";
 
 const API_KEY = "sk_fake_key_123";
 
@@ -179,5 +179,66 @@ describe("createElevenLabsVoice", () => {
     await rejection(voice.synthesize("Hola"));
 
     expect(lines[0]!.match(/x+/)![0]).toHaveLength(200);
+  });
+});
+
+describe("createElevenLabsTranscriber", () => {
+  test("posts the nota de voz as multipart to speech-to-text and returns the trimmed text", async () => {
+    const { fetch, calls } = fakeFetch(() => Response.json({ text: "  Ya pagué la tarjeta. ", language_code: "spa" }));
+    const transcriber = createElevenLabsTranscriber({ apiKey: API_KEY, fetch, log: () => {} });
+
+    const text = await transcriber.transcribe(new Uint8Array([1, 2, 3]), "audio/ogg; codecs=opus");
+
+    expect(text).toBe("Ya pagué la tarjeta.");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toBe("https://api.elevenlabs.io/v1/speech-to-text");
+    expect(calls[0]!.init.method).toBe("POST");
+    expect(calls[0]!.init.headers).toEqual({ "xi-api-key": API_KEY });
+    const form = calls[0]!.init.body as FormData;
+    expect(form.get("model_id")).toBe("scribe_v1");
+    expect(form.get("language_code")).toBe("spa");
+    const file = form.get("file") as File;
+    expect(file.name).toBe("nota-de-voz.ogg");
+    expect(file.type).toBe("audio/ogg; codecs=opus");
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+  });
+
+  const failures: Array<[name: string, respond: () => Response, status: number, retryable: boolean]> = [
+    ["a 500", () => new Response(`server exploded ${API_KEY}`, { status: 500 }), 500, true],
+    ["a 429", () => new Response("too many requests", { status: 429 }), 429, true],
+    ["a 401", () => new Response('{"detail":"invalid_api_key"}', { status: 401 }), 401, false],
+    ["a response without text", () => Response.json({ language_code: "spa" }), 200, false],
+    ["a body that is not JSON", () => new Response("<html>nope</html>", { status: 200 }), 200, false],
+  ];
+
+  for (const [name, respond, status, retryable] of failures) {
+    test(`${name} logs one line and throws a VoiceError with retryable ${retryable}`, async () => {
+      const lines: string[] = [];
+      const { fetch } = fakeFetch(respond);
+      const transcriber = createElevenLabsTranscriber({ apiKey: API_KEY, fetch, log: (line) => lines.push(line) });
+
+      const error = await rejection(transcriber.transcribe(new Uint8Array([1]), "audio/ogg"));
+
+      expect(error).toBeInstanceOf(VoiceError);
+      expect((error as VoiceError).status).toBe(status);
+      expect((error as VoiceError).retryable).toBe(retryable);
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).not.toContain(API_KEY);
+    });
+  }
+
+  test("a network failure throws a retryable VoiceError", async () => {
+    const transcriber = createElevenLabsTranscriber({
+      apiKey: API_KEY,
+      fetch: async () => {
+        throw new TypeError(`fetch failed for ${API_KEY}`);
+      },
+      log: () => {},
+    });
+
+    const error = await rejection(transcriber.transcribe(new Uint8Array([1]), "audio/ogg"));
+
+    expect((error as VoiceError).retryable).toBe(true);
+    expect((error as VoiceError).message).not.toContain(API_KEY);
   });
 });

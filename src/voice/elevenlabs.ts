@@ -22,6 +22,8 @@ export class VoiceError extends Error {
   }
 }
 
+export type ElevenLabsTranscriberOptions = Omit<ElevenLabsOptions, "voiceId">;
+
 const OPUS_SAMPLE_RATE = 48_000;
 const BODY_PREVIEW_CHARS = 200;
 
@@ -64,6 +66,15 @@ export function oggOpusDurationSeconds(bytes: Uint8Array): number {
   return samples / OPUS_SAMPLE_RATE;
 }
 
+/** Logs one line and throws; the key is scrubbed in case a body or error echoes it. */
+function failer(apiKey: string, log: (line: string) => void) {
+  return (message: string, status: number | undefined, retryable: boolean): never => {
+    const line = `voice port: ${apiKey ? message.replaceAll(apiKey, "[redacted]") : message}`;
+    log(line);
+    throw new VoiceError(line, status, retryable);
+  };
+}
+
 function startsWith(bytes: Uint8Array, offset: number, ascii: string): boolean {
   for (let i = 0; i < ascii.length; i++) {
     if (bytes[offset + i] !== ascii.charCodeAt(i)) return false;
@@ -80,15 +91,9 @@ export function createElevenLabsVoice({
   voiceId,
   fetch: fetchAudio = fetch,
   log = console.error,
-}: ElevenLabsOptions): Voice {
+}: ElevenLabsOptions): Pick<Voice, "synthesize"> {
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=opus_48000_64`;
-
-  /** Logs one line and throws; the key is scrubbed in case a body or error echoes it. */
-  function fail(message: string, status: number | undefined, retryable: boolean): never {
-    const line = `voice port: ${apiKey ? message.replaceAll(apiKey, "[redacted]") : message}`;
-    log(line);
-    throw new VoiceError(line, status, retryable);
-  }
+  const fail = failer(apiKey, log);
 
   return {
     async synthesize(text: string): Promise<SpokenAudio> {
@@ -122,6 +127,47 @@ export function createElevenLabsVoice({
         return fail(`ElevenLabs audio is unusable: ${(error as Error).message}`, response.status, false);
       }
       return { audio, mimeType: "audio/ogg", durationSeconds };
+    },
+  };
+}
+
+/**
+ * The voice port's speech-to-text on ElevenLabs Scribe, for the notas de voz
+ * Patricia sends. It needs no voice id, and keeps no state, so calling again is the retry.
+ */
+export function createElevenLabsTranscriber({
+  apiKey,
+  fetch: fetchText = fetch,
+  log = console.error,
+}: ElevenLabsTranscriberOptions): Required<Pick<Voice, "transcribe">> {
+  const fail = failer(apiKey, log);
+
+  return {
+    async transcribe(audio: Uint8Array, mimeType: string): Promise<string> {
+      const form = new FormData();
+      form.append("model_id", "scribe_v1");
+      form.append("language_code", "spa");
+      form.append("file", new Blob([audio], { type: mimeType }), "nota-de-voz.ogg");
+      let response: Response;
+      try {
+        response = await fetchText("https://api.elevenlabs.io/v1/speech-to-text", {
+          method: "POST",
+          headers: { "xi-api-key": apiKey },
+          body: form,
+        });
+      } catch (error) {
+        return fail(`ElevenLabs request failed: ${error instanceof Error ? error.message : String(error)}`, undefined, true);
+      }
+
+      if (!response.ok) {
+        const body = (await response.text().catch(() => "")).slice(0, BODY_PREVIEW_CHARS);
+        const retryable = response.status === 429 || response.status >= 500;
+        return fail(`ElevenLabs answered ${response.status}: ${body}`, response.status, retryable);
+      }
+
+      const result = (await response.json().catch(() => undefined)) as { text?: unknown } | undefined;
+      if (typeof result?.text !== "string") return fail("ElevenLabs transcript has no text", response.status, false);
+      return result.text.trim();
     },
   };
 }

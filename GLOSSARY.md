@@ -162,8 +162,10 @@ _Avoid:_ "event", "notification".
 
 Anything Patricia sends Luna over WhatsApp: a text, an emoji she types, an
 emoji she reacts to Luna's audio with, a nota de voz or a foto. Every one is
-kept (`mensajes_entrantes`), with its intención once Luna can read it — a nota
-de voz and a foto are kept unread until that lands. Reacting with an emoji
+kept (`mensajes_entrantes`), with its intención once Luna can read it. A nota
+de voz is transcribed and read as a text; one that cannot be transcribed is
+kept unread and Luna asks for an emoji instead. A foto is kept unread until
+reading one lands. Reacting with an emoji
 counts the same as typing it. Meta may deliver one twice, so each is taken in
 once, by its own id.
 _Avoid:_ "inbound message", "reply".

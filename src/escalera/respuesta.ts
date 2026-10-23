@@ -18,9 +18,10 @@ export type MensajeInput = {
   /**
    * How it reached Luna, when it came in over WhatsApp. The registro de
    * decisiones keeps it, so the control room can tell a message Patricia typed
-   * from an emoji she reacted with, and from whose number either arrived.
+   * from an emoji she reacted with or a nota de voz she spoke (its transcript
+   * is the text), and from whose number any of them arrived.
    */
-  arrival?: { from: string; kind: "text" | "reaction"; toWhatsappId?: string | null };
+  arrival?: { from: string; kind: "text" | "reaction" | "audio"; toWhatsappId?: string | null };
 };
 
 function rank(etapa: Etapa): number {
