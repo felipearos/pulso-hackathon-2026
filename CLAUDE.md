@@ -150,6 +150,7 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `WHATSAPP_API_VERSION` | dev, prd | whatsapp port: Graph API version; defaults to `v21.0` |
 | `WHATSAPP_SMOKE_TO` | dev | whatsapp port: Meta test number the smoke test writes to |
 | `WHATSAPP_SMOKE` | none (command line) | set it for one run to let the smoke test send a real message; unset everywhere else, so `bun run test` never does |
+| `DEMO_OPERATOR_KEY` | dev, prd | control room: the key that lets `/demo` move the clock and send the test audio; the operator opens `/demo?clave=<key>` once. Unset, `/demo` is view-only |
 | `ANTHROPIC_API_KEY` | dev, prd | llm port: Claude API |
 | `ELEVENLABS_API_KEY` | dev, prd | voice port: ElevenLabs API |
 | `ELEVENLABS_VOICE_ID` | dev, prd | voice port: the voice Patricia hears |

@@ -20,15 +20,25 @@ export type App = {
 const demoPage = Bun.file(new URL("./demo/page.html", import.meta.url));
 const nightAudio = Bun.file(new URL("../assets/night-audio-test.ogg", import.meta.url));
 
+export type AppOptions = {
+  /** The control room's operator key (`DEMO_OPERATOR_KEY`); unset leaves `/demo` view-only. */
+  demoOperatorKey?: string;
+};
+
 /**
  * Builds the app from its ports. The schema is brought up to date first, so a
  * deploy against the live file keeps every night Patricia already heard.
  */
-export function createApp(ports: Ports): App {
+export function createApp(ports: Ports, options: AppOptions = {}): App {
   migrate(ports.db);
   const clock = createDemoClock(ports.db, ports.clock);
   return {
-    handle: createHandler({ demoPage, nightAudio, sendNightAudio: nightAudioSender(ports.whatsapp, nightAudio) }),
+    handle: createHandler({
+      demoPage,
+      nightAudio,
+      sendNightAudio: nightAudioSender(ports.whatsapp, nightAudio),
+      operatorKey: options.demoOperatorKey,
+    }),
     // The scheduler tickets fill this pass; until then a tick has nothing to do.
     tick: async () => {},
     store: createStore(ports.db, clock),

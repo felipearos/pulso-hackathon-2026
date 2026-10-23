@@ -1,27 +1,39 @@
 import { describe, expect, test } from "bun:test";
 import { NIGHT_AUDIO_URL, type Snapshot } from "./demo/moments";
 import type { NightAudioResult } from "./demo/night-audio";
-import { createHandler } from "./server";
+import { OPERATOR_KEY_HEADER, createHandler } from "./server";
 
 type Moved = { snapshot: Snapshot; whatsapp?: NightAudioResult };
+
+const KEY = "operator-key";
 
 async function json<T>(response: Promise<Response>): Promise<T> {
   return (await (await response).json()) as T;
 }
 
-function app(result: NightAudioResult = { sent: true, messageId: "wamid.test" }) {
-  const sends: number[] = [];
+function app(
+  result: NightAudioResult = { sent: true, messageId: "wamid.test" },
+  operatorKey: string | null = KEY,
+) {
+  let sends = 0;
   const handle = createHandler({
     demoPage: new Blob(["<h1>Luna · sala de control</h1>"]),
     nightAudio: new Blob(["ogg"]),
     sendNightAudio: async () => {
-      sends.push(Date.now());
+      sends++;
       return result;
     },
+    operatorKey: operatorKey ?? undefined,
   });
   const get = (path: string) => handle(new Request(`http://localhost${path}`));
-  const post = (path: string) => handle(new Request(`http://localhost${path}`, { method: "POST" }));
-  return { get, post, sends };
+  const post = (path: string, key: string | null = KEY) =>
+    handle(
+      new Request(`http://localhost${path}`, {
+        method: "POST",
+        headers: key === null ? {} : { [OPERATOR_KEY_HEADER]: key },
+      }),
+    );
+  return { get, post, sends: () => sends };
 }
 
 describe("handle", () => {
@@ -60,11 +72,23 @@ describe("handle", () => {
   test("sends the voice note only on Monday night and reports the outcome", async () => {
     const { post, sends } = app({ sent: false, reason: "whatsapp port needs WHATSAPP_ACCESS_TOKEN" });
     await post("/demo/moments/monday-email");
-    expect(sends).toHaveLength(0);
+    expect(sends()).toBe(0);
 
     const body = await json<Moved>(post("/demo/moments/monday-night"));
-    expect(sends).toHaveLength(1);
+    expect(sends()).toBe(1);
     expect(body.whatsapp).toEqual({ sent: false, reason: "whatsapp port needs WHATSAPP_ACCESS_TOKEN" });
+  });
+
+  test("pressing Monday night again while there does not send a second audio", async () => {
+    const { post, sends } = app();
+    await post("/demo/moments/monday-night");
+    const again = await json<Moved>(post("/demo/moments/monday-night"));
+    expect(sends()).toBe(1);
+    expect(again.whatsapp).toBeUndefined();
+
+    await post("/demo/reset");
+    await post("/demo/moments/monday-night");
+    expect(sends()).toBe(2);
   });
 
   test("resets to the start", async () => {
@@ -72,5 +96,26 @@ describe("handle", () => {
     await post("/demo/moments/week-5");
     await post("/demo/reset");
     expect((await json<Snapshot>(get("/demo/state"))).moment).toBe("start");
+  });
+});
+
+describe("operator key", () => {
+  test("a request without the key or with a wrong one moves nothing and sends nothing", async () => {
+    const { get, post, sends } = app();
+    expect((await post("/demo/moments/monday-night", null)).status).toBe(401);
+    expect((await post("/demo/moments/monday-night", "wrong")).status).toBe(401);
+    expect((await post("/demo/reset", "operator-kez")).status).toBe(401);
+    expect(sends()).toBe(0);
+    expect((await json<Snapshot>(get("/demo/state"))).moment).toBe("start");
+  });
+
+  test("without a configured key the room is view-only", async () => {
+    const { get, post, sends } = app(undefined, null);
+    const response = await post("/demo/moments/monday-night", "anything");
+    expect(response.status).toBe(503);
+    expect(((await response.json()) as { error: string }).error).toContain("DEMO_OPERATOR_KEY");
+    expect(sends()).toBe(0);
+    expect((await get("/demo")).status).toBe(200);
+    expect((await get("/demo/state")).status).toBe(200);
   });
 });

@@ -265,14 +265,31 @@ function whatsapp(result) {
   wa.textContent = result.sent ? "✓ Nota de voz enviada al celular de Patricia" : "WhatsApp no salió: " + result.reason;
 }
 
+// The operator opens /demo?clave=… once; the key stays in this browser and
+// leaves the address bar, so the projector never shows it.
+const KEY_STORE = "luna-demo-key";
+let operatorKey = "";
+try { operatorKey = localStorage.getItem(KEY_STORE) || ""; } catch { /* private window: memory only */ }
+const keyFromUrl = new URLSearchParams(location.search).get("clave");
+if (keyFromUrl) {
+  operatorKey = keyFromUrl;
+  try { localStorage.setItem(KEY_STORE, keyFromUrl); } catch { /* memory only */ }
+  history.replaceState(null, "", location.pathname);
+}
+
 async function post(path, button) {
   document.querySelectorAll("footer button").forEach((b) => (b.disabled = true));
   if (path.endsWith("monday-night")) { $("wa").className = "wa"; $("wa").textContent = "Mandando la nota de voz…"; }
   try {
-    const response = await fetch(path, { method: "POST" });
+    const response = await fetch(path, { method: "POST", headers: operatorKey ? { "x-demo-key": operatorKey } : {} });
     const body = await response.json();
+    if (!response.ok) { $("wa").className = "wa err"; $("wa").textContent = body.error; return; }
     render(body.snapshot);
     whatsapp(body.whatsapp);
+    if (path.endsWith("monday-night") && !body.whatsapp) {
+      $("wa").className = "wa";
+      $("wa").textContent = "Ya estaba en Lun 22:30: para mandar otra nota de voz, aprieta Reiniciar.";
+    }
   } catch (error) {
     $("wa").className = "wa err";
     $("wa").textContent = "No respondió el servidor: " + error.message;

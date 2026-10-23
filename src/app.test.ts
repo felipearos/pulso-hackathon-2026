@@ -25,8 +25,10 @@ describe("createApp", () => {
   });
 
   test("the control room's Monday night sends the test audio through the WhatsApp port", async () => {
-    const { app, whatsapp } = createTestApp();
-    const response = await app.handle(new Request("http://localhost/demo/moments/monday-night", { method: "POST" }));
+    const { app, whatsapp } = createTestApp({ demoOperatorKey: "operator-key" });
+    const response = await app.handle(
+      new Request("http://localhost/demo/moments/monday-night", { method: "POST", headers: { "x-demo-key": "operator-key" } }),
+    );
     const body = (await response.json()) as { whatsapp: unknown };
     expect(body.whatsapp).toEqual({ sent: true, messageId: "wamid-1" });
     expect(whatsapp.outbox.map((message) => message.kind)).toEqual(["audio"]);

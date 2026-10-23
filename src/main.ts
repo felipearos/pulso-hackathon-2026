@@ -1,7 +1,7 @@
 import { createApp } from "./app";
 import { realPorts } from "./real-ports";
 
-const app = createApp(realPorts());
+const app = createApp(realPorts(), { demoOperatorKey: process.env.DEMO_OPERATOR_KEY });
 const port = Number(process.env.PORT ?? 3000);
 const server = Bun.serve({ hostname: process.env.HOST, port, fetch: app.handle });
 console.log(`listening on ${server.url}`);
