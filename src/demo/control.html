@@ -96,6 +96,19 @@
   </section>
 </div>
 
+<div class="columnas">
+  <section>
+    <h2>Próxima cita</h2>
+    <ul id="proxima-cita"></ul>
+    <h2>De dónde salió la cifra del último audio</h2>
+    <ul id="cifra"></ul>
+  </section>
+  <section>
+    <h2>Historial de etapa</h2>
+    <ul id="etapas"></ul>
+  </section>
+</div>
+
 <section>
   <h2>Correos de muestra</h2>
   <div class="botones">
@@ -141,6 +154,8 @@
   const shortTime = new Intl.DateTimeFormat("es-CL", {
     timeZone: "America/Santiago", weekday: "short", hour: "2-digit", minute: "2-digit",
   });
+  const pesos = new Intl.NumberFormat("es-CL");
+  const peso = (monto) => `$${pesos.format(monto)}`;
   let busy = false;
   let renderedGuion = "";
   let renderedChat = "";
@@ -177,6 +192,35 @@
     list.append(...rows);
   }
 
+  function etapaLabel(etapa) {
+    return etapa === "graduada" ? "graduada" : String(etapa);
+  }
+
+  function cifraText(cifra) {
+    if (cifra.kind === "pago-minimo") return `pago mínimo ${peso(cifra.monto)}`;
+    if (cifra.kind === "salida") return `salida en ${cifra.meses} meses, cuota ${peso(cifra.cuota)}`;
+    return `libre el ${cifra.freeOn}, ${cifra.mesesAdelantados} meses antes que pagando solo el mínimo`;
+  }
+
+  function cifraRows(origen) {
+    if (!origen) return [];
+    const rows = [item(shortTime.format(new Date(origen.at)), cifraText(origen.cifra))];
+    const estado = origen.estadoDeCuenta;
+    if (estado) {
+      const detalle = [`ciclo ${estado.ciclo}`];
+      if (estado.pagoMinimo !== null) detalle.push(`mínimo ${peso(estado.pagoMinimo)}`);
+      if (estado.fechaVencimiento) detalle.push(`vence ${estado.fechaVencimiento}`);
+      const de = estado.origen === "banco" ? "estado de cuenta del banco" : "estado de cuenta de la tienda";
+      rows.push(item(de, detalle.join(" · ")));
+    } else {
+      rows.push(item("estado de cuenta", "sin registro"));
+    }
+    const fuente = origen.fuente;
+    if (fuente && fuente.kind === "foto") rows.push(item("foto", "por WhatsApp"));
+    else if (fuente) rows.push(item("correo", `«${fuente.subject ?? fuente.mailId}» de ${fuente.from ?? "remitente desconocido"}`));
+    return rows;
+  }
+
   function render(state) {
     $("reloj").textContent = fullTime.format(new Date(state.now));
     $("reloj-tipo").textContent = state.relojReal ? "Reloj real" : "Reloj de la demo";
@@ -203,6 +247,13 @@
     fillList($("decisiones"), [...state.decisiones].reverse().map((decision) =>
       item(`${shortTime.format(new Date(decision.at))} · ${decision.tipo}`, decision.motivo ?? "")),
       "Sin decisiones");
+    fillList($("etapas"), [...(state.etapaHistorial ?? [])].reverse().map((cambio) =>
+      item(`${shortTime.format(new Date(cambio.at))} · Etapa ${etapaLabel(cambio.from)} → ${etapaLabel(cambio.to)}`,
+        cambio.motivo ?? "")), "Sin cambios de etapa");
+    fillList($("cifra"), cifraRows(state.cifraDelUltimoAudio), "Ningún audio con cifra todavía");
+    const proxima = state.proximaCita;
+    fillList($("proxima-cita"), proxima ? [item(`${proxima.fecha} · ${proxima.tipo}`, proxima.motivo ?? "")] : [],
+      "Sin cita programada");
     fillList($("correos"), [...state.correos].reverse().map((correo) => {
       const li = item(`${shortTime.format(new Date(correo.at))} · ${correo.etiqueta}`, `${correo.subject} — ${correo.from}`);
       if (correo.tipo === "S7") li.className = "sospechoso";

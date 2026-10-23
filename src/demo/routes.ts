@@ -1,7 +1,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import type { CifraPermitida } from "../citas/redactor";
 import type { DemoClock } from "../clock/demo-clock";
+import { santiagoDate } from "../clock/santiago";
 import { SAMPLE_MAILS, type SampleMailKind } from "../mail/samples";
-import type { Senal, TipoSenal } from "../patricia/entities";
+import type { Decision, Senal, TipoSenal } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { IncomingMail } from "../ports";
 import type { Canal, Simulador } from "../whatsapp/simulador";
@@ -49,6 +51,32 @@ const ETIQUETAS: Record<TipoSenal, string> = {
 /** Own keys only, so `toString` or `__proto__` is not a sample. */
 const isSampleMailKind = (kind: string): kind is SampleMailKind => Object.hasOwn(SAMPLE_MAILS, kind);
 
+/** How many of the latest decisions /sala/state answers with. */
+const MAX_DECISIONES = 50;
+
+/** What an audio's decision stores in `datos` (see `citas/envio.ts`); older rows lack `estadoDeCuentaId`. */
+type DatosDeAudio = {
+  guion: string;
+  citaId: number;
+  decision: { cifra: CifraPermitida | null };
+  estadoDeCuentaId?: number | null;
+};
+
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
+/** Whether a decision's `datos` are those of an audio that went out. */
+function isDatosDeAudio(datos: unknown): datos is DatosDeAudio {
+  return (
+    isObject(datos) &&
+    typeof datos.guion === "string" &&
+    typeof datos.citaId === "number" &&
+    isObject(datos.decision) &&
+    (datos.estadoDeCuentaId === undefined ||
+      datos.estadoDeCuentaId === null ||
+      typeof datos.estadoDeCuentaId === "number")
+  );
+}
+
 /** One line of the conversation the simulador page shows. */
 export type MensajeDeLaConversacion = {
   de: "luna" | "patricia";
@@ -85,6 +113,56 @@ function givenToken(request: Request, url: URL): string | null {
  * published on the internet.
  */
 export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<Response | null> {
+  /** The latest audio that carried a cifra, with the estado de cuenta and the mail or foto it came from. */
+  const cifraDelUltimoAudio = () => {
+    let found: { decision: Decision; datos: DatosDeAudio; cifra: CifraPermitida } | null = null;
+    for (const decision of deps.store.decisions()) {
+      const { datos } = decision;
+      if (decision.tipo !== "mensaje" || !isDatosDeAudio(datos)) continue;
+      const cifra = datos.decision.cifra;
+      if (cifra === null || cifra === undefined) continue;
+      found = { decision, datos, cifra };
+    }
+    if (!found) return null;
+    const id = found.datos.estadoDeCuentaId ?? null;
+    const estado = id === null ? undefined : deps.store.estadosDeCuenta().find((row) => row.id === id);
+    const extraccion = id === null ? null : deps.store.extraccionForEstadoDeCuenta(id);
+    let fuente = null;
+    if (extraccion?.mailId.startsWith("whatsapp:")) {
+      fuente = { kind: "foto" as const, mailId: extraccion.mailId };
+    } else if (extraccion) {
+      const senal = deps.store.senalForMail(extraccion.mailId);
+      fuente = {
+        kind: "correo" as const,
+        mailId: extraccion.mailId,
+        subject: senal?.origen.subject ?? null,
+        from: senal?.origen.from ?? null,
+      };
+    }
+    return {
+      at: found.decision.at.toISOString(),
+      cifra: found.cifra,
+      estadoDeCuenta: estado
+        ? {
+            origen: estado.origen,
+            ciclo: estado.ciclo,
+            fechaVencimiento: estado.fechaVencimiento,
+            pagoMinimo: estado.pagoMinimo,
+            receivedAt: estado.receivedAt.toISOString(),
+          }
+        : null,
+      fuente,
+    };
+  };
+  /** The earliest cita still to go out, from today on. */
+  const proximaCita = (now: Date) => {
+    const today = santiagoDate(now);
+    const [next] = deps.store
+      .citas()
+      .filter((cita) => cita.estado === "programada" && cita.mensajeSalienteId === null && cita.fecha >= today)
+      .sort((a, b) => a.fecha.localeCompare(b.fecha));
+    return next ? { fecha: next.fecha, tipo: next.tipo, etapa: next.etapa, motivo: next.motivo } : null;
+  };
   const state = () => {
     const now = deps.clock.now();
     return {
@@ -96,8 +174,13 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
       citas: deps.store.citas().slice(-5),
       decisiones: deps.store
         .decisions()
-        .slice(-10)
+        .slice(-MAX_DECISIONES)
         .map(({ at, tipo, motivo }) => ({ at: at.toISOString(), tipo, motivo })),
+      etapaHistorial: deps.store
+        .etapaHistory()
+        .map(({ at, from, to, motivo }) => ({ at: at.toISOString(), from, to, motivo })),
+      cifraDelUltimoAudio: cifraDelUltimoAudio(),
+      proximaCita: proximaCita(now),
       correos: deps.store
         .senales()
         .slice(-10)
