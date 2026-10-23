@@ -76,6 +76,32 @@ describe("the domingo cita and her angustia through the app", () => {
     expect(bajar[0]!.motivo).toBe("bajó: angustia 5");
   });
 
+  test("a 😰 after the domingo cita's estado de cuenta image is still read as her angustia", async () => {
+    const t = setup();
+    t.app.store.addEstadoDeCuenta({
+      origen: "banco",
+      ciclo: 8,
+      fechaCierre: "2026-10-15",
+      fechaVencimiento: "2026-11-05",
+      cifras: {
+        totalBilled: 650_000,
+        monthlyRate: 0.031,
+        minimumRule: { percent: 0.0645, floor: 10_500, roundTo: 100 },
+        overdue: 0,
+      },
+      pagoMinimo: 41_900,
+    });
+    t.app.store.setEtapa(3, "subió: respondió la cita de la etapa 2");
+    await domingo(t);
+    expect(t.app.store.mensajesSalientes().at(-1)?.kind).toBe("image");
+
+    t.clock.set(parseSantiago("2026-10-25T21:40"));
+    await t.app.receiveMensaje({ text: "😰", whatsappId: "in-1" });
+
+    expect(t.app.store.mensajesEntrantes().at(-1)?.intencion).toEqual({ kind: "angustia", value: 5 });
+    expect(t.app.store.getPatricia().etapa).toBe(2);
+  });
+
   test("a 😟 to Luna's answer after the domingo cita is not read as an angustia answer", async () => {
     const t = createTestApp({
       now: parseSantiago("2026-10-19T09:00"),
