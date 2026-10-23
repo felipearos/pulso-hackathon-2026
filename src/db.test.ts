@@ -45,6 +45,28 @@ describe("migrate", () => {
     expect(migrate(db, [steps[0]!])).toEqual([1]);
   });
 
+  test("every migration has a unique version and name", () => {
+    expect(new Set(migrations.map((m) => m.version)).size).toBe(migrations.length);
+    expect(new Set(migrations.map((m) => m.name)).size).toBe(migrations.length);
+  });
+
+  test("refuses a version recorded under another name and applies nothing", () => {
+    dir = mkdtempSync(join(tmpdir(), "pulso-db-"));
+    const path = join(dir, "pulso.db");
+
+    const first = openDatabase(path);
+    expect(migrate(first, [steps[0]!])).toEqual([1]);
+    first.close();
+
+    const second = openDatabase(path);
+    const clash: Migration = { version: 1, name: "webhook", sql: "CREATE TABLE webhook (id INTEGER PRIMARY KEY)" };
+    expect(() => migrate(second, [clash, steps[1]!])).toThrow(/"notes".*"webhook"/);
+    expect(second.query<{ version: number }, []>("SELECT version FROM schema_migrations").all()).toEqual([{ version: 1 }]);
+    expect(() => second.run("SELECT tag FROM notes")).toThrow();
+    expect(() => second.run("SELECT 1 FROM webhook")).toThrow();
+    second.close();
+  });
+
   test("the one-señal-per-mail step keeps the first of duplicates a v1 base already holds", () => {
     const db = openDatabase(":memory:");
     migrate(db, migrations.filter((m) => m.version < 3));
