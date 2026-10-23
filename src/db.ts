@@ -89,6 +89,16 @@ export const migrations: Migration[] = [
       INSERT INTO reloj_demo (id, offset_ms) VALUES (1, NULL);
     `,
   },
+  {
+    version: 3,
+    name: "senales-por-correo",
+    // One señal per mail: the poll may see the same Gmail message twice. A base
+    // from v1 may already hold duplicates; the first señal of each mail stays.
+    sql: `
+      DELETE FROM senales WHERE id NOT IN (SELECT MIN(id) FROM senales GROUP BY mail_id);
+      CREATE UNIQUE INDEX senales_mail_id ON senales (mail_id);
+    `,
+  },
 ];
 
 /** Opens the SQLite file, creating its directory, or an in-memory database for `:memory:`. */

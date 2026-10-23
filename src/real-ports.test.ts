@@ -9,7 +9,7 @@ const memory = { DATABASE_PATH: ":memory:" };
 type Call = [port: string, call: (ports: Ports) => Promise<unknown>, names: string[]];
 
 const stubs: Call[] = [
-  ["mail", (ports) => ports.mail.fetchNew(), ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET"]],
+  ["mail", (ports) => ports.mail.fetchNew([]), ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET"]],
 ];
 
 const wired: Call[] = [

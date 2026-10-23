@@ -105,6 +105,13 @@ vencimiento, S7 correo sospechoso, or «ignorado». In `src/escalera/policy.ts`
 the type `Senal` is a different thing: an intención answering a cita.
 _Avoid:_ "event", "notification".
 
+## Remitente permitido
+
+One of the few senders Luna may read: her bank, her store and her catálogo,
+matched by exact domain (`src/mail/senders.ts`). Mail from anyone else is
+never downloaded; a look-alike domain is not a remitente permitido.
+_Avoid:_ "whitelist".
+
 ## Registro de decisiones
 
 The append-only log of everything Luna decided (move the etapa, stay quiet,
