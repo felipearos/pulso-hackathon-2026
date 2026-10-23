@@ -5,7 +5,8 @@
  * the full guion through the validador. It never synthesizes, sends or stores.
  */
 
-import { buenaNoticia, type BuenaNoticia } from "../figures/buena-noticia";
+import { ANGUSTIA_EMOJIS } from "../escalera/policy";
+import { buenaNoticia, PAGO_RECIBIDO, type BuenaNoticia } from "../figures/buena-noticia";
 import { payoff } from "../figures/payoff";
 import type { Cita, Etapa, EstadoDeCuenta, TipoCita } from "../patricia/entities";
 import type { Llm } from "../ports";
@@ -42,6 +43,8 @@ export type DecisionDeCita = {
 
 const PREGUNTA_BIENVENIDA = "¿Te parece si seguimos conversando así? Respóndeme con un 💛 o un 🤔";
 const PREGUNTA = "¿Cómo te cayó escuchar esto? Respóndeme con un 💛 o un 🤔";
+/** Sunday asks how the plata feels, in words only: a digit would spend the cita's one figure. */
+const PREGUNTA_ANGUSTIA = `¿Cómo te sientes con la plata esta semana, del uno al cinco? Respóndeme con un emoji, de tranquila a muy angustiada: ${ANGUSTIA_EMOJIS.join(" ")}`;
 
 /** La salida: the smallest round cuota above the pago mínimo that ends the balance. */
 function salida(cifras: NonNullable<EstadoDeCuenta["cifras"]>, fecha: string): CifraPermitida | null {
@@ -55,11 +58,21 @@ function salida(cifras: NonNullable<EstadoDeCuenta["cifras"]>, fecha: string): C
   return null;
 }
 
-/** What tonight's cita says, decided from the cita and her latest estado de cuenta. */
-export function decisionDeCita(input: { cita: Cita; estadoDeCuenta: EstadoDeCuenta | null }): DecisionDeCita {
-  const { cita, estadoDeCuenta } = input;
+/**
+ * What tonight's cita says, decided from the cita and her latest estado de
+ * cuenta. The domingo cita carries the same cifra as any other, asks the
+ * angustia and celebrates when a «recibimos tu pago» arrived this week
+ * (`pagoRecibido`).
+ */
+export function decisionDeCita(input: {
+  cita: Cita;
+  estadoDeCuenta: EstadoDeCuenta | null;
+  pagoRecibido?: boolean;
+}): DecisionDeCita {
+  const { cita, estadoDeCuenta, pagoRecibido = false } = input;
   const cifras = estadoDeCuenta?.cifras ?? null;
   const bienvenida = cita.tipo === "bienvenida" || cita.tipo === "bienvenida-de-vuelta";
+  const domingo = cita.tipo === "domingo";
 
   let cifra: CifraPermitida | null = null;
   if (cifras !== null && !bienvenida) {
@@ -72,9 +85,12 @@ export function decisionDeCita(input: { cita: Cita; estadoDeCuenta: EstadoDeCuen
   return {
     tipo: cita.tipo,
     etapa: cita.etapa,
-    buenaNoticia: buenaNoticia({ mora: cifras?.overdue ?? null, pagosAnteriores: null, comprasEnCuotas: null }),
+    buenaNoticia:
+      domingo && pagoRecibido
+        ? PAGO_RECIBIDO
+        : buenaNoticia({ mora: cifras?.overdue ?? null, pagosAnteriores: null, comprasEnCuotas: null }),
     cifra,
-    pregunta: bienvenida ? PREGUNTA_BIENVENIDA : PREGUNTA,
+    pregunta: domingo ? PREGUNTA_ANGUSTIA : bienvenida ? PREGUNTA_BIENVENIDA : PREGUNTA,
     motivo: cita.motivo,
   };
 }

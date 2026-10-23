@@ -23,7 +23,7 @@ export interface DatosBuenaNoticia {
   comprasEnCuotas: CompraEnCuotas[] | null;
 }
 
-export type ReglaBuenaNoticia = "pagos-a-tiempo" | "sin-mora" | "cuota-termina" | "calida";
+export type ReglaBuenaNoticia = "pagos-a-tiempo" | "sin-mora" | "cuota-termina" | "calida" | "pago-recibido";
 
 export interface BuenaNoticia {
   regla: ReglaBuenaNoticia;
@@ -45,6 +45,12 @@ const MONTH_WORDS: Record<number, string> = {
 };
 
 const WARM = "qué bueno que estemos conversando";
+
+/** The domingo celebration when a «recibimos tu pago» arrived this week. */
+export const PAGO_RECIBIDO: BuenaNoticia = {
+  regla: "pago-recibido",
+  texto: "llegó tu pago esta semana, ya te confirmaron que lo recibieron",
+};
 
 /** Months paid on time at the end of the history, counting back from the latest. */
 function trailingStreak(pagos: boolean[]): number {
