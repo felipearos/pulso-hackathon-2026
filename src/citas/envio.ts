@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import { santiagoDate, santiagoParts } from "../clock/santiago";
 import { estadoDeCuenta8Pdf } from "../figures/fixtures/pdf";
 import { imagenDifuminada, type ImagenDifuminada } from "../figures/imagen-difuminada";
-import type { Cita } from "../patricia/entities";
+import type { Cita, EstadoDeCuenta } from "../patricia/entities";
 import { pagoRecibidoEstaSemana, pagoSobreElMinimoEstaSemana } from "../plata/apartado";
 import { aCompraEnCuotas, comprasEnCuotas as comprasRegistradas } from "../plata/cuotas";
 import type { Store } from "../patricia/store";
@@ -71,8 +71,10 @@ export function createCitaSender({
   const imagenCallada = new Set<number>();
 
   // The bank's: a tienda estado de cuenta must not replace the figure Patricia hears on Monday.
-  const decisionFor = (cita: Cita, now: Date): DecisionDeCita => {
-    const estadoDeCuenta = store.estadosDeCuenta().findLast((e) => e.origen === "banco" && e.cifras !== null) ?? null;
+  const estadoDeCuentaDelBanco = (): EstadoDeCuenta | null =>
+    store.estadosDeCuenta().findLast((e) => e.origen === "banco" && e.cifras !== null) ?? null;
+
+  const decisionFor = (cita: Cita, now: Date, estadoDeCuenta: EstadoDeCuenta | null): DecisionDeCita => {
     const pagoRecibido = pagoRecibidoEstaSemana(store.senales(), now);
     const comprasEnCuotas = comprasRegistradas(store.senales(), now).map(aCompraEnCuotas);
     const pagoSobreElMinimo = pagoSobreElMinimoEstaSemana(store.senales(), estadoDeCuenta?.pagoMinimo ?? null, now);
@@ -192,7 +194,8 @@ export function createCitaSender({
     // A pausa that began after the cita was programada still silences it.
     if (store.getPatricia().enPausa) return;
 
-    const decision = decisionFor(cita, now);
+    const estadoDeCuenta = estadoDeCuentaDelBanco();
+    const decision = decisionFor(cita, now, estadoDeCuenta);
     const recordDecision = (d: ValidatorDecision) => {
       store.recordDecision({ tipo: "mensaje", motivo: d.reason, datos: { citaId: cita.id, ...d.input } });
     };
@@ -247,7 +250,15 @@ export function createCitaSender({
       store.recordDecision({
         tipo: "mensaje",
         motivo: `salió la ${cita.motivo}: nota de voz de ${Math.round(durationSeconds)} s`,
-        datos: { citaId: cita.id, decision, guion, source, durationSeconds, acortado },
+        datos: {
+          citaId: cita.id,
+          decision,
+          guion,
+          source,
+          durationSeconds,
+          acortado,
+          estadoDeCuentaId: estadoDeCuenta?.id ?? null,
+        },
       });
     })();
 

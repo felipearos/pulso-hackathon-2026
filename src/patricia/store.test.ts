@@ -109,6 +109,29 @@ describe("store", () => {
     expect(() => app.store.addExtraccion({ estadoDeCuentaId: estado.id, mailId: "mail-8", cifras })).toThrow();
   });
 
+  test("an estado de cuenta's extraction is found by its id, the latest if more than one", () => {
+    const { app } = createTestApp();
+    const input = { origen: "banco" as const, ciclo: 8, fechaCierre: "2026-10-15", fechaVencimiento: "2026-11-05" };
+    const estado = app.store.addEstadoDeCuenta({ ...input, cifras: null, pagoMinimo: null });
+    const sinExtraccion = app.store.addEstadoDeCuenta({ ...input, ciclo: 9, cifras: null, pagoMinimo: null });
+    const cifras = {
+      pagoMinimo: 41_900,
+      totalFacturado: 650_000,
+      cupo: null,
+      tasaMensual: 0.031,
+      fechaVencimiento: "2026-11-05",
+      fechaCierre: "2026-10-15",
+      mora: 0,
+      pagosAnteriores: [],
+      comprasEnCuotas: [],
+    };
+    app.store.addExtraccion({ estadoDeCuentaId: estado.id, mailId: "mail-8", cifras });
+    const latest = app.store.addExtraccion({ estadoDeCuentaId: estado.id, mailId: "mail-8b", cifras });
+
+    expect(app.store.extraccionForEstadoDeCuenta(estado.id)).toEqual(latest);
+    expect(app.store.extraccionForEstadoDeCuenta(sinExtraccion.id)).toBeNull();
+  });
+
   test("señales round-trip with the clock time", () => {
     const { app, clock } = createTestApp();
     clock.set(NIGHT);
