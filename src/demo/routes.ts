@@ -99,12 +99,12 @@ const NOT_FOUND = () => new Response("Not found", { status: 404 });
 const digest = (text: string) => createHash("sha256").update(text).digest();
 
 /** Compares in constant time; hashing first gives both sides the same length. */
-function tokenMatches(expected: string, given: string | null): boolean {
+export function tokenMatches(expected: string, given: string | null): boolean {
   return given !== null && timingSafeEqual(digest(expected), digest(given));
 }
 
 /** The operator's token: the `x-demo-token` header (the page's calls) or else `?token=` (the projector's URL). */
-function givenToken(request: Request, url: URL): string | null {
+export function givenToken(request: Request, url: URL): string | null {
   return request.headers.get("x-demo-token") || url.searchParams.get("token");
 }
 

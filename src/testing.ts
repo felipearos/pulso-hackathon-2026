@@ -40,6 +40,8 @@ export function createTestApp(
     demoToken?: string;
     webhook?: WebhookConfig;
     simulador?: boolean;
+    entradaPhone?: string;
+    publicBaseUrl?: string;
   } = {},
 ): TestApp {
   const ports = {
@@ -56,6 +58,8 @@ export function createTestApp(
     demoToken: options.demoToken,
     webhook: options.webhook ?? TEST_WEBHOOK_CONFIG,
     simulador: options.simulador,
+    entradaPhone: options.entradaPhone,
+    publicBaseUrl: options.publicBaseUrl,
   });
   return { app, ...ports };
 }

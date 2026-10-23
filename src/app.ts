@@ -6,6 +6,7 @@ import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
 import { GUION } from "./demo/guion";
 import { nightAudioSender } from "./demo/night-audio";
+import { createQrRoutes } from "./demo/qr";
 import { createDemoRoutes } from "./demo/routes";
 import controlPage from "./demo/control.html" with { type: "text" };
 import { pauseIfSilent } from "./escalera/pausa";
@@ -13,7 +14,7 @@ import type { EtapaMove } from "./escalera/policy";
 import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
 import { extractEstadoDeCuenta, linkDelEstadoDeCuenta } from "./mail/estado-de-cuenta";
 import { receiveMail } from "./mail/ingest";
-import { createPermitir } from "./mail/permitir";
+import { createPermitir, DEFAULT_PUBLIC_BASE_URL } from "./mail/permitir";
 import { allowedSenderDomains } from "./mail/senders";
 import type { Extraccion, Senal } from "./patricia/entities";
 import { resetPatricia } from "./patricia/fixtures";
@@ -92,6 +93,10 @@ export type AppOptions = {
   webhook?: WebhookConfig;
   /** Whether the /sala simulador is the channel at boot instead of Meta (`WHATSAPP_SIMULADOR`); /sala can switch it. */
   simulador?: boolean;
+  /** The WhatsApp number the entrada QR opens a chat with (`WHATSAPP_ENTRADA_PHONE`); unset, that page answers 503. */
+  entradaPhone?: string;
+  /** The public base the jurado QR points at (`PUBLIC_BASE_URL`); defaults to the Funnel URL. */
+  publicBaseUrl?: string;
 };
 
 /**
@@ -284,8 +289,17 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     inject: (inbound) => webhook.inject(inbound),
     injectMail: ingestMail,
   });
+  // The jurado gets a simulador of their own, never the canal: nothing reaches Meta or Patricia's conversation.
+  const qr = createQrRoutes({
+    token: options.demoToken,
+    entradaPhone: options.entradaPhone,
+    publicBaseUrl: options.publicBaseUrl?.replace(/\/+$/, "") || DEFAULT_PUBLIC_BASE_URL,
+    voice: ports.voice,
+    simulador: createSimulador(),
+  });
   return {
-    handle: async (request) => (await demo(request)) ?? permitir.handle(request) ?? routes(request),
+    // The QR routes go first: the control room answers 404 for any /sala path it does not know.
+    handle: async (request) => (await qr(request)) ?? (await demo(request)) ?? permitir.handle(request) ?? routes(request),
     tick,
     receiveMail: receive,
     extractEstadoDeCuenta: extract,

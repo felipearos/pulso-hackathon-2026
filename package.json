@@ -14,12 +14,14 @@
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
+    "@types/qrcode": "^1.5.6",
     "oxlint": "^1.89.0",
     "typescript": "^7.0.2"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.13",
     "pdfjs-dist": "~6.4.299",
+    "qrcode": "^1.5.4",
     "unpdf": "^1.9.1"
   }
 }
