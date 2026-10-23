@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { extractText } from "unpdf";
 import { ESTADO_DE_CUENTA_8_TEXTO } from "./fixtures/estado-de-cuenta-8";
-import { estadoDeCuenta8Pdf } from "./fixtures/estado-de-cuenta-8-pdf";
+import { estadoDeCuenta8Pdf } from "./fixtures/pdf";
 import { ESCALA, imagenDifuminada, renderPagina, type Recuadro } from "./imagen-difuminada";
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
