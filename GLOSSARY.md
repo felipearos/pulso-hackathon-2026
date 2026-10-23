@@ -74,6 +74,28 @@ then graduada). Luna decides when Patricia moves up or back, and checks
 which etapa she is in when she returns.
 _Avoid:_ "estado" (that is the estado de cuenta), "semana", "peldaño", "nivel".
 
+## Cita
+
+A moment Luna has set to speak to Patricia, usually the audio de la noche.
+Each cita belongs to an etapa; answering the cita of her current etapa is
+what can move her up.
+_Avoid:_ "appointment", "session".
+
+## Intención
+
+What a message from Patricia means, from a closed list (escuchó / 👌,
+acepta / 👍, mínimo, angustia, no quiero ver, pausa, hola, pregunta por
+qué, qué leíste, crisis, otra). The LLM only classifies into it; the code
+policy turns intenciones into etapa moves (ADR 0001).
+_Avoid:_ "intent", "command".
+
+## Angustia
+
+How distressed Patricia says she feels, from 1 to 5. At 4 or more Luna
+goes down one etapa at once; she only moves up while her last angustia is
+3 or less.
+_Avoid:_ "distress", "stress", "anxiety", "level".
+
 ## Bienvenida de vuelta
 
 The first cita after Patricia returns from a pausa or a crisis: no reproach,
