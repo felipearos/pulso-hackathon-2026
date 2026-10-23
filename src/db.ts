@@ -99,6 +99,31 @@ export const migrations: Migration[] = [
       CREATE UNIQUE INDEX senales_mail_id ON senales (mail_id);
     `,
   },
+  {
+    version: 4,
+    name: "citas",
+    sql: `
+      -- At most one cita per Santiago day: two ticks in the same minute meet this key.
+      CREATE TABLE citas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT NOT NULL UNIQUE,
+        tipo TEXT NOT NULL CHECK (tipo IN ('lunes', 'jueves', 'domingo', 'bienvenida', 'bienvenida-de-vuelta', 'graduada')),
+        estado TEXT NOT NULL CHECK (estado IN ('programada', 'callada')),
+        etapa TEXT NOT NULL CHECK (etapa IN ('1', '2', '3', '4', '5', 'graduada')),
+        motivo TEXT NOT NULL,
+        programada_at TEXT NOT NULL
+      );
+      CREATE TABLE pendientes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tipo TEXT NOT NULL CHECK (tipo IN ('bienvenida', 'bienvenida-de-vuelta', 'preocupacion', 'senal')),
+        motivo TEXT NOT NULL,
+        datos TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        diferido_at TEXT,
+        cita_id INTEGER REFERENCES citas (id)
+      );
+    `,
+  },
 ];
 
 /** Opens the SQLite file, creating its directory, or an in-memory database for `:memory:`. */

@@ -85,8 +85,19 @@ _Avoid:_ "estado" (that is the estado de cuenta), "semana", "peldaño", "nivel".
 
 A moment Luna has set to speak to Patricia, usually the audio de la noche.
 Each cita belongs to an etapa; answering the cita of her current etapa is
-what can move her up.
+what can move her up. The scheduler decides each slot of the week once:
+_programada_ (Luna speaks) or _callada_ (a pausa or the weekly cap of three
+keeps her silent).
 _Avoid:_ "appointment", "session".
+
+## Pendiente
+
+Something Luna will bring up at the next cita, never before: a señal worth
+telling, a worry Patricia said in the madrugada, a bienvenida or a
+bienvenida de vuelta still owed. The next programada cita takes every
+pendiente waiting; one that waited through a madrugada is recorded as
+«diferido por madrugada».
+_Avoid:_ "queue", "backlog", "task".
 
 ## Intención
 
@@ -115,8 +126,9 @@ _Avoid:_ "whitelist".
 ## Registro de decisiones
 
 The append-only log of everything Luna decided (move the etapa, stay quiet,
-defer a cita, propose plata apartada, read a señal), each with the demo
-clock's time, its tipo, a motivo in Spanish and the input it was taken on.
+defer a cita or what waits for it, propose plata apartada, read a señal),
+each with the demo clock's time, its tipo, a motivo in Spanish and the input
+it was taken on.
 Nothing in it is ever edited or deleted; the control room shows it.
 _Avoid:_ "audit log", "history".
 
