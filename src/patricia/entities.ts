@@ -134,7 +134,11 @@ export type TipoDecision =
   /** Luna set a cita for tonight. */
   | "programar-cita"
   /** Patricia chose between the propuesta and the mínimo, and Luna answered. */
-  | "respuesta-propuesta";
+  | "respuesta-propuesta"
+  /** She went into pausa: she asked for it, or 14 days passed without a reply. */
+  | "pausa"
+  /** She came back from a pausa: the etapa she returns to and why. */
+  | "vuelta";
 
 /** One entry of the append-only decision log. */
 export type Decision = {

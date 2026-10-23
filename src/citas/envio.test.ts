@@ -102,6 +102,21 @@ describe("cita sender", () => {
     expect(t.voice.calls).toHaveLength(1);
   });
 
+  test("a later tienda estado de cuenta does not replace the bank's in the cita", async () => {
+    const t = setup();
+    t.app.store.addEstadoDeCuenta({
+      origen: "tienda",
+      ciclo: 1,
+      fechaCierre: "2026-10-16",
+      fechaVencimiento: "2026-11-06",
+      cifras: { totalBilled: 180_000, monthlyRate: 0.035, minimumRule: { percent: 0.05, floor: 5_000, roundTo: 100 } },
+      pagoMinimo: 9_000,
+    });
+    await tickAt(t, "2026-10-19T22:30");
+
+    expect(findFigures(t.app.store.mensajesSalientes()[0]!.text!)).toEqual([41_900]);
+  });
+
   test("etapa 2 carries la salida", async () => {
     const t = setup({
       llm: [

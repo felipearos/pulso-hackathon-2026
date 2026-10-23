@@ -5,6 +5,7 @@ import type { Clock, Ports } from "./ports";
 import { anthropicLlm } from "./anthropic";
 import { createElevenLabsVoice, type Fetch } from "./voice/elevenlabs";
 import { voiceIdFor, VOZ_PRINCIPAL } from "./voice/voces";
+import { createHttpWeb } from "./web/http";
 import { createWhatsAppCloud } from "./whatsapp-cloud";
 
 type Env = Record<string, string | undefined>;
@@ -60,6 +61,7 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
         return createElevenLabsVoice({ apiKey: apiKey!, voiceId, fetch: options.fetch, log: options.log }).synthesize(text);
       },
     },
+    web: createHttpWeb({ fetch: options.fetch }),
     db: openDatabase(databasePath(env)),
   };
 }

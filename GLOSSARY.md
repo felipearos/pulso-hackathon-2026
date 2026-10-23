@@ -156,6 +156,13 @@ matched by exact domain (`src/mail/senders.ts`). Mail from anyone else is
 never downloaded; a look-alike domain is not a remitente permitido.
 _Avoid:_ "whitelist".
 
+## Link permitido
+
+The only links Luna follows: https links to her tienda's own domain or its
+subdomains (`src/web/link.ts`), for the S2 estado de cuenta that only brings
+a link. Anything else is never downloaded.
+_Avoid:_ "whitelist".
+
 ## Registro de decisiones
 
 The append-only log of everything Luna decided (move the etapa, stay quiet,

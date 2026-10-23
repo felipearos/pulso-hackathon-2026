@@ -7,10 +7,13 @@ import type {
   OutgoingWhatsApp,
   SpokenAudio,
   Voice,
+  Web,
+  WebDocument,
   WhatsApp,
 } from "./ports";
 import { senderDomain } from "./mail/senders";
 import { VOZ_PRINCIPAL, type Voz } from "./voice/voces";
+import { allowedLink } from "./web/link";
 
 export class FakeClock implements Clock {
   private current: Date;
@@ -125,5 +128,29 @@ export class FakeVoice implements Voice {
       mimeType: "audio/ogg",
       durationSeconds,
     };
+  }
+}
+
+export class FakeWeb implements Web {
+  readonly calls: string[] = [];
+  /** By url; a test may add or remove entries between fetches. */
+  readonly documents: Map<string, WebDocument>;
+
+  /** A string document is served as UTF-8 HTML. */
+  constructor(documents: Record<string, WebDocument | string> = {}) {
+    this.documents = new Map(
+      Object.entries(documents).map(([url, doc]) => [
+        url,
+        typeof doc === "string" ? { contentType: "text/html; charset=utf-8", body: new TextEncoder().encode(doc) } : doc,
+      ]),
+    );
+  }
+
+  async fetchDocument(url: string, domains: readonly string[]): Promise<WebDocument> {
+    this.calls.push(url);
+    if (allowedLink(url, domains) === null) throw new Error(`web: refused link outside the allowed domains: ${url}`);
+    const doc = this.documents.get(url);
+    if (!doc) throw new Error(`FakeWeb has no document for ${url}`);
+    return doc;
   }
 }
