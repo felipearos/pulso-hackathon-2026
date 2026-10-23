@@ -10,6 +10,7 @@ describe("store", () => {
     expect(app.store.getPatricia()).toEqual({
       nombre: "Patricia",
       voz: null,
+      hora: null,
       gmailPermitido: false,
       etapa: 1,
       bolsillo: null,
@@ -30,6 +31,12 @@ describe("store", () => {
     expect(updated).toEqual({ ...app.store.getPatricia(), bolsillo: "Para la mamá", gmailPermitido: true });
     expect(app.store.getPatricia().nombre).toBe("Patricia");
     expect(app.store.getPatricia().enPausa).toBe(false);
+  });
+
+  test("her bienvenida answers are kept", () => {
+    const { app } = createTestApp();
+    app.store.updatePatricia({ nombre: "Paty", hora: "21:30", voz: "clara" });
+    expect(app.store.getPatricia()).toMatchObject({ nombre: "Paty", hora: "21:30", voz: "clara" });
   });
 
   test("setEtapa moves her and appends history with the clock time", () => {

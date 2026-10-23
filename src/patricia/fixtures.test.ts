@@ -88,6 +88,13 @@ describe("Patricia's story", () => {
     ]);
   });
 
+  test("she starts owed one bienvenida, which the first cita takes", () => {
+    const { app } = resetApp();
+    expect(app.store.pendientes().map(({ tipo, motivo }) => ({ tipo, motivo }))).toEqual([
+      { tipo: "bienvenida", motivo: "su primera cita" },
+    ]);
+  });
+
   test("she starts at etapa 1 with no history, no messages, no decisions, at the start instant", () => {
     const { app } = resetApp();
     expect(app.store.getPatricia()).toEqual(PATRICIA_AT_START);

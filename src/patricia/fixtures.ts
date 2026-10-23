@@ -19,6 +19,7 @@ export const PATRICIA_START = new Date("2026-10-19T09:00:00-03:00");
 export const PATRICIA_AT_START: Patricia = {
   nombre: "Patricia",
   voz: null,
+  hora: null,
   gmailPermitido: true,
   etapa: 1,
   bolsillo: null,
@@ -191,6 +192,9 @@ function loadPatriciaStory(db: Database, clock: DemoClock): void {
     at = event.at;
     event.add();
   }
+  // Her story starts before Luna has ever spoken: the first cita owes her the bienvenida.
+  at = PATRICIA_START;
+  stamped.addPendiente({ tipo: "bienvenida", motivo: "su primera cita", datos: null });
   clock.set(PATRICIA_START);
 }
 
@@ -214,11 +218,12 @@ export function resetPatricia(db: Database, clock: DemoClock): void {
       ...RESET_TABLES,
     ]);
     db.run(
-      `UPDATE patricia SET nombre = ?, voz = ?, gmail_permitido = ?, etapa = ?, bolsillo = ?, en_pausa = ?
+      `UPDATE patricia SET nombre = ?, voz = ?, hora_cita = ?, gmail_permitido = ?, etapa = ?, bolsillo = ?, en_pausa = ?
        WHERE id = 1`,
       [
         PATRICIA_AT_START.nombre,
         PATRICIA_AT_START.voz,
+        PATRICIA_AT_START.hora,
         PATRICIA_AT_START.gmailPermitido ? 1 : 0,
         String(PATRICIA_AT_START.etapa),
         PATRICIA_AT_START.bolsillo,

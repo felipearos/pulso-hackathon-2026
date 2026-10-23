@@ -93,6 +93,8 @@ export type Patricia = {
   nombre: string;
   /** The voice id she hears; null for the default. */
   voz: string | null;
+  /** The hora de la cita she answered in the bienvenida, `HH:MM`; null until she answers. */
+  hora: string | null;
   /** She allowed Luna to read her Gmail. */
   gmailPermitido: boolean;
   etapa: Etapa;
