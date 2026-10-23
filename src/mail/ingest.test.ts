@@ -165,7 +165,9 @@ describe("receiveMail", () => {
     await app.tick();
     mail.inject(incoming);
     await app.tick();
+    const again = await app.receiveMail({ ...incoming, links: [] });
 
+    expect(again).toEqual(app.store.senales()[0]!);
     expect(llm.calls).toHaveLength(1);
     expect(app.store.senales()).toHaveLength(1);
     expect(app.store.decisions()).toHaveLength(1);

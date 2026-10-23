@@ -80,7 +80,7 @@ export async function classifyByLlm(
   const hosts = mail.links.map(getLinkHost).filter((host): host is string => host !== null);
   const prompt = [
     `Remitente: ${mail.from}`,
-    `Asunto: ${mail.subject}`,
+    `Asunto: ${redactUrls(mail.subject)}`,
     `Dominios de los links: ${hosts.length === 0 ? "ninguno" : hosts.join(", ")}`,
     `Texto del correo (máximo 2000 caracteres):\n${redactUrls(mail.text).slice(0, 2000)}`,
   ].join("\n");

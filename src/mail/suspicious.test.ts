@@ -70,9 +70,17 @@ describe("suspiciousReason", () => {
     ).toBeNull();
   });
 
-  test("does not flag the bank's own warning that it never asks for the clave", () => {
+  test.each([
+    "Banco Andino nunca te pedirá tu clave ni códigos por correo.",
+    "No compartas tu clave con nadie.",
+    "Protege tu clave y tu PIN.",
+  ])("does not flag a security footer: %p", (text) => {
+    expect(suspiciousReason({ subject: "Tu estado de cuenta de octubre", text, links: [] })).toBeNull();
+  });
+
+  test("still flags a request hidden after a reassuring sentence", () => {
     expect(
-      suspiciousReason({ subject: "Tu estado de cuenta", text: "Banco Andino nunca te pedirá tu clave ni códigos por correo.", links: [] }),
-    ).toBeNull();
+      suspiciousReason({ subject: "Aviso", text: "Nunca bloqueamos sin aviso: ingresa tu clave para seguir.", links: [] }),
+    ).not.toBeNull();
   });
 });

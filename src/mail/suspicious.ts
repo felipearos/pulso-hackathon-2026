@@ -1,13 +1,13 @@
 import type { IncomingMail } from "../ports";
 import { SENDERS } from "./senders";
 
+// A request is a verb asking her to hand over a secret, so a footer like «no compartas tu clave»
+// or «nunca te pediremos tu clave» does not turn a real estado de cuenta into S7.
+const ASK = String.raw`\b(?:ingresa|ingrese|confirma|confirme|actualiza|actualice|envia|envie|enviar|digita|digite|indica|indique|escribe|escriba|responde|responda|usa|use|comparte|comparta)\b`;
+const SECRET = String.raw`\b(?:claves?|contrasenas?|pin|cvv|coordenadas|codigo)\b`;
+
 const SECRET_PATTERNS = [
-  /\bclaves?\b/,
-  /\bcontrasenas?\b/,
-  /\bpins?\b/,
-  /\bcvvs?\b/,
-  /\bcoordenadas?\b/,
-  /\bcodigos?\s+(?:de\s+verificacion|sms|de\s+seguridad|que\s+te\s+enviamos(?:\s+por\s+sms)?)\b/,
+  new RegExp(`${ASK}[^.!?\\n]{0,60}${SECRET}`),
   /\bactualiza\s+tus\s+datos\b/,
   /\bconfirma\s+tus\s+datos\b/,
   /\bverifica\s+tu\s+cuenta\b/,
@@ -89,8 +89,7 @@ export function suspiciousReason(mail: Pick<IncomingMail, "subject" | "text" | "
     if (!isAllowedLinkHost(host)) return outsideLinkReason(link);
   }
 
-  // A bank's own warning («nunca te pediremos tu clave») is not a request for it.
-  const content = normalize(`${mail.subject}\n${mail.text}`).replace(/\bnunca\b[^.!?\n]*/g, "");
+  const content = normalize(`${mail.subject}\n${mail.text}`);
   if (SECRET_PATTERNS.some((pattern) => pattern.test(content))) {
     return "El correo pide o intenta confirmar datos privados. No abrimos sus links.";
   }

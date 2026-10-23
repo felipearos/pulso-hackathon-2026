@@ -109,7 +109,8 @@ _Avoid:_ "intent", "command".
 
 ## Señal
 
-A mail from Patricia's inbox, classified by rules into S1 estado de cuenta
+A mail from Patricia's inbox, classified by rules (Claude Haiku when the rules
+cannot tell) into S1 estado de cuenta
 del banco, S2 estado de cuenta de la tienda, S3 pago de un pedido del
 catálogo, S4 compra en cuotas, S5 «recibimos tu pago», S6 aviso de
 vencimiento, S7 correo sospechoso, or «ignorado». In `src/escalera/policy.ts`
