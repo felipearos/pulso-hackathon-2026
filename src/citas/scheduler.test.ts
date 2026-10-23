@@ -126,6 +126,18 @@ describe("cita scheduler", () => {
     });
   });
 
+  test("the bienvenida goes out once, even with a second one waiting", async () => {
+    const t = createTestApp();
+    t.app.store.addPendiente({ tipo: "bienvenida", motivo: "su primera cita", datos: {} });
+    await tickAt(t, "2026-10-19T22:30");
+    const otra = t.app.store.addPendiente({ tipo: "bienvenida", motivo: "otra bienvenida", datos: {} });
+    await tickAt(t, "2026-10-22T22:30");
+    const jueves = t.app.store.citaOn("2026-10-22");
+    expect(jueves).toMatchObject({ tipo: "jueves", estado: "programada" });
+    expect(jueves!.pendientes.map((p) => p.id)).toEqual([otra.id]);
+    expect(t.app.store.citas().filter((c) => c.tipo === "bienvenida")).toHaveLength(1);
+  });
+
   test("a bienvenida de vuelta wins over a bienvenida still waiting", async () => {
     const t = createTestApp();
     t.app.store.addPendiente({ tipo: "bienvenida", motivo: "su primera cita", datos: {} });
