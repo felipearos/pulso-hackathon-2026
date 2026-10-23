@@ -1,9 +1,9 @@
 import type { CifrasExtraidas } from "../extractor";
 
 /** Plain text of a fictional bank estado de cuenta, as a PDF-to-text dump reads. */
-export const ESTADO_DE_CUENTA_8_TEXTO = `BANCO FICTICIO
+export const ESTADO_DE_CUENTA_8_TEXTO = `BANCO ANDINO
 ESTADO DE CUENTA TARJETA DE CRÉDITO
-Tarjeta Ficticia Visa                         N° de tarjeta: XXXX XXXX XXXX 0000
+Tarjeta Andina Visa                         N° de tarjeta: XXXX XXXX XXXX 0000
 
 Titular: Patricia
 
@@ -36,7 +36,7 @@ Refrigerador         10 de 12     $45.000
 Zapatillas           03 de 03     $20.000
 
 Pague a tiempo y evite intereses de mora.
-Banco Ficticio. Documento de ejemplo sin valor comercial.
+Banco Andino. Documento de ejemplo sin valor comercial.
 `;
 
 /** What the extractor must read from `ESTADO_DE_CUENTA_8_TEXTO`. */
