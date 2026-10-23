@@ -4,8 +4,13 @@ import { MissingEnvError } from "./missing-env";
 /*
  * Meta WhatsApp Cloud client. Outside the 24 h customer-service window Meta only
  * accepts an approved template, so a closed window sends the `audio_noche`
- * template instead of the free-form message: the cita goes out as the template
- * and the audio waits for Patricia's reply (spec #17).
+ * template INSTEAD of the free-form message, which is dropped: the cita goes out
+ * as the template, and once Patricia answers, the window opens and the next cita
+ * carries the audio (spec #17). Re-sending the dropped content is the scheduler's
+ * job, not this client's.
+ *
+ * `recordInbound` is what opens the window, and the webhook ticket is what calls
+ * it. The window lives in memory, so a deploy closes it until Patricia writes again.
  */
 
 type Env = Record<string, string | undefined>;
@@ -35,7 +40,6 @@ export type WhatsAppCloudDeps = {
 
 /** The WhatsApp port plus the window's inbound record and the failure log. */
 export type WhatsAppCloud = WhatsApp & {
-  recordInbound(at: Date): void;
   readonly failures: SendLogEntry[];
 };
 
@@ -138,8 +142,11 @@ export function createWhatsAppCloud(deps: WhatsAppCloudDeps): WhatsAppCloud {
     const attempts: SendLogEntry[] = [];
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       if (attempt > 1) {
+        // Checked on both sides of the wait: a retry decided at 23:59:59 must not
+        // land after midnight, when Luna starts nothing (GLOSSARY, Madrugada).
         if (isMadrugada(clock.now())) throw new WhatsAppSendError(attempts, true);
         await sleep(1000 * 2 ** (attempt - 2));
+        if (isMadrugada(clock.now())) throw new WhatsAppSendError(attempts, true);
       }
       const { body, json } = init();
       const headers: Record<string, string> = { Authorization: `Bearer ${config.token}` };
@@ -182,7 +189,17 @@ export function createWhatsAppCloud(deps: WhatsAppCloudDeps): WhatsAppCloud {
       return { body: data, json: false };
     };
     const result = (await request(config, kind, "/media", form)) as { id?: string };
-    if (!result.id) throw new Error("whatsapp media upload returned no id");
+    if (!result.id) {
+      const entry: SendLogEntry = {
+        at: clock.now(),
+        kind,
+        attempt: MAX_ATTEMPTS,
+        status: 200,
+        detail: "media upload returned no id",
+      };
+      fail(entry, []);
+      throw new WhatsAppSendError([entry], false);
+    }
     return result.id;
   }
 

@@ -148,7 +148,8 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `WHATSAPP_TEMPLATE_NAME` | dev, prd | whatsapp port: approved template outside the 24 h window; defaults to `audio_noche` |
 | `WHATSAPP_TEMPLATE_LANGUAGE` | dev, prd | whatsapp port: template language code; defaults to `es` |
 | `WHATSAPP_API_VERSION` | dev, prd | whatsapp port: Graph API version; defaults to `v21.0` |
-| `WHATSAPP_SMOKE_TO` | dev | whatsapp port: Meta test number for the smoke test; unset skips it |
+| `WHATSAPP_SMOKE_TO` | dev | whatsapp port: Meta test number the smoke test writes to |
+| `WHATSAPP_SMOKE` | none (command line) | set it for one run to let the smoke test send a real message; unset everywhere else, so `bun run test` never does |
 | `ANTHROPIC_API_KEY` | dev, prd | llm port: Claude API |
 | `ELEVENLABS_API_KEY` | dev, prd | voice port: ElevenLabs API |
 | `ELEVENLABS_VOICE_ID` | dev, prd | voice port: the voice Patricia hears |

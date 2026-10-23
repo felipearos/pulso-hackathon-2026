@@ -24,9 +24,14 @@ export type OutgoingWhatsApp =
   | { kind: "audio"; audio: Uint8Array; mimeType: string; durationSeconds: number }
   | { kind: "image"; image: Uint8Array; mimeType: string; caption?: string };
 
-/** Meta WhatsApp Cloud: how messages reach Patricia. */
+/**
+ * Meta WhatsApp Cloud: how messages reach Patricia. `recordInbound` is how the
+ * webhook tells the port that she wrote, which opens Meta's 24 h window; outside
+ * it only the approved template goes out.
+ */
 export type WhatsApp = {
   send(message: OutgoingWhatsApp): Promise<{ id: string }>;
+  recordInbound(at: Date): void;
 };
 
 export type LlmRequest = {

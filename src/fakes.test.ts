@@ -56,6 +56,14 @@ describe("FakeMail", () => {
 });
 
 describe("FakeWhatsApp", () => {
+  test("records when Patricia wrote, which is what opens Meta's window", () => {
+    const whatsapp = new FakeWhatsApp();
+    const at = new Date("2026-10-23T23:10:00Z");
+    whatsapp.recordInbound(at);
+    at.setUTCFullYear(2000);
+    expect(whatsapp.inbound).toEqual([new Date("2026-10-23T23:10:00Z")]);
+  });
+
   test("records every message in order and returns sequential ids", async () => {
     const whatsapp = new FakeWhatsApp();
     const image = new Uint8Array([1, 2]);

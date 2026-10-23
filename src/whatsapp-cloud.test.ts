@@ -22,11 +22,20 @@ type Recorded = {
   form?: FormData;
 };
 
-function setup(options: { now?: Date; responses?: Array<Response | Error>; env?: Record<string, string> } = {}) {
+type SetupOptions = {
+  now?: Date;
+  responses?: Array<Response | Error>;
+  env?: Record<string, string>;
+  /** How far the fake clock jumps on each backoff wait; 0 keeps the clock still. */
+  sleepAdvancesMs?: number;
+};
+
+function setup(options: SetupOptions = {}) {
   const clock = new FakeClock(options.now ?? NOON_SANTIAGO);
   const requests: Recorded[] = [];
   const responses = [...(options.responses ?? [])];
   const delays: number[] = [];
+  const sleepAdvancesMs = options.sleepAdvancesMs ?? 0;
   const logged: SendLogEntry[] = [];
   const fakeFetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const headers = { ...(init?.headers as Record<string, string>) };
@@ -48,6 +57,7 @@ function setup(options: { now?: Date; responses?: Array<Response | Error>; env?:
     fetch: fakeFetch,
     sleep: async (ms) => {
       delays.push(ms);
+      clock.advance(sleepAdvancesMs);
     },
     log: (entry) => logged.push(entry),
   });
@@ -234,6 +244,32 @@ describe("createWhatsAppCloud", () => {
     expect((error as WhatsAppSendError).message).toContain("madrugada");
     expect(requests).toHaveLength(1);
     expect(delays).toEqual([]);
+  });
+
+  test("a retry that would wake up inside the madrugada is dropped after the wait", async () => {
+    const { whatsapp, requests, delays, clock } = setup({
+      now: new Date("2026-10-24T02:59:59Z"), // 23:59:59 in Santiago
+      responses: [serverError(), ok("never")],
+      sleepAdvancesMs: 2000,
+    });
+    whatsapp.recordInbound(clock.now());
+    const error = await whatsapp.send({ kind: "text", text: "hola" }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(WhatsAppSendError);
+    expect((error as WhatsAppSendError).message).toContain("madrugada");
+    expect(delays).toEqual([1000]);
+    expect(requests).toHaveLength(1);
+  });
+
+  test("a media upload answering without an id is logged, not thrown bare", async () => {
+    const { whatsapp, logged, clock } = setup({ responses: [Response.json({})] });
+    whatsapp.recordInbound(clock.now());
+    const error = await whatsapp
+      .send({ kind: "audio", audio: new Uint8Array([1]), mimeType: "audio/ogg; codecs=opus", durationSeconds: 3 })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(WhatsAppSendError);
+    expect(whatsapp.failures).toHaveLength(1);
+    expect(whatsapp.failures[0]).toMatchObject({ kind: "audio", status: 200, detail: "media upload returned no id" });
+    expect(logged).toEqual(whatsapp.failures);
   });
 
   test("no failure entry or log line contains the access token", async () => {
