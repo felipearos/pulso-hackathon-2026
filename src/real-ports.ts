@@ -1,6 +1,7 @@
 import { databasePath } from "./config";
 import { openDatabase } from "./db";
 import type { Clock, Ports } from "./ports";
+import { anthropicLlm } from "./anthropic";
 import { createElevenLabsVoice, type Fetch } from "./voice/elevenlabs";
 
 type Env = Record<string, string | undefined>;
@@ -49,7 +50,13 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
     clock: systemClock,
     mail: { fetchNew: () => notWiredYet(env, "mail", ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET"]) },
     whatsapp: { send: () => notWiredYet(env, "whatsapp", ["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID"]) },
-    llm: { complete: () => notWiredYet(env, "llm", ["ANTHROPIC_API_KEY"]) },
+    llm: {
+      complete: (request) => {
+        const apiKey = env.ANTHROPIC_API_KEY;
+        if (!apiKey) return Promise.reject(new MissingEnvError("llm", ["ANTHROPIC_API_KEY"]));
+        return anthropicLlm({ apiKey }).complete(request);
+      },
+    },
     voice: {
       synthesize: async (text) => {
         const [apiKey, voiceId] = requireEnv(env, "voice", ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"]);
