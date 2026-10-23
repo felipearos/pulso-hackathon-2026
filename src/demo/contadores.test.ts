@@ -5,7 +5,7 @@ import { nochesDeLaSemana, pagosSobreElMinimo } from "./contadores";
 const at = (iso: string) => new Date(`${iso}-03:00`);
 
 type Cita = { fecha: string; estado: "programada" | "callada"; mensajeSalienteId: number | null };
-type Saliente = { id: number; sentAt: Date };
+type Saliente = { id: number; kind: "text" | "audio" | "image"; sentAt: Date };
 type Entrante = { intencion: Intencion | null; receivedAt: Date };
 
 const cita = (fecha: string, mensajeSalienteId: number | null, estado: Cita["estado"] = "programada"): Cita => ({
@@ -13,7 +13,7 @@ const cita = (fecha: string, mensajeSalienteId: number | null, estado: Cita["est
   estado,
   mensajeSalienteId,
 });
-const saliente = (id: number, iso: string): Saliente => ({ id, sentAt: at(iso) });
+const saliente = (id: number, iso: string, kind: Saliente["kind"] = "audio"): Saliente => ({ id, kind, sentAt: at(iso) });
 const entrante = (kind: Intencion["kind"] | null, iso: string): Entrante => ({
   intencion: kind === null ? null : ({ kind } as Intencion),
   receivedAt: at(iso),
@@ -45,6 +45,30 @@ describe("nochesDeLaSemana", () => {
       now: NOW,
     });
     expect(result).toEqual({ conInvitacion: 1, escuchadas: 0, sinPresion: 0 });
+  });
+
+  test("the estado de cuenta image and the «Permitir» link that follow the cita are not pressure", () => {
+    const result = nochesDeLaSemana({
+      citas: [cita("2026-10-21", 1)],
+      salientes: [
+        saliente(1, "2026-10-21T21:00:00"),
+        saliente(2, "2026-10-21T21:01:00", "image"),
+        saliente(3, "2026-10-21T21:02:00", "text"),
+      ],
+      entrantes: [],
+      now: NOW,
+    });
+    expect(result).toEqual({ conInvitacion: 1, escuchadas: 0, sinPresion: 1 });
+  });
+
+  test("an angustia answer to the domingo cita counts as escuchada", () => {
+    const result = nochesDeLaSemana({
+      citas: [cita("2026-10-25", 1)],
+      salientes: [saliente(1, "2026-10-25T21:30:00")],
+      entrantes: [{ intencion: { kind: "angustia", value: 3 }, receivedAt: at("2026-10-25T21:40:00") }],
+      now: NOW,
+    });
+    expect(result).toEqual({ conInvitacion: 1, escuchadas: 1, sinPresion: 0 });
   });
 
   test("an unheard night where Luna only answered her still counts as sin presión", () => {

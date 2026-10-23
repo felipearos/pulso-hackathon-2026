@@ -9,8 +9,11 @@ import type { Cita, EstadoDeCuenta, MensajeEntrante, MensajeSaliente, Senal } fr
 import { inicioDeSemana } from "../plata/apartado";
 
 /**
- * The intenciones that show she heard the cita: she can only accept, ask
- * about it or talk about the mínimo after listening to it.
+ * The intenciones that show she heard the cita: each one answers what the
+ * audio said. She can accept it, ask why or what Luna read, talk about the
+ * mínimo, give the angustia the domingo cita asks for, or say she does not
+ * want to see it, only after listening. A greeting, a pausa or anything else
+ * does not show it.
  */
 const INTENCIONES_ESCUCHADA: ReadonlySet<Intencion["kind"]> = new Set([
   "listened",
@@ -18,6 +21,8 @@ const INTENCIONES_ESCUCHADA: ReadonlySet<Intencion["kind"]> = new Set([
   "minimum",
   "askWhy",
   "askWhatRead",
+  "angustia",
+  "doesNotWantToSee",
 ]);
 
 export type NochesDeLaSemana = {
@@ -25,13 +30,13 @@ export type NochesDeLaSemana = {
   conInvitacion: number;
   /** Of those, nights she showed she heard it. */
   escuchadas: number;
-  /** Of the nights she did not show it, those where Luna did not write again unprompted. */
+  /** Of the nights she did not show it, those where Luna sent no further audio before she wrote. */
   sinPresion: number;
 };
 
 export function nochesDeLaSemana(input: {
   citas: readonly Pick<Cita, "fecha" | "estado" | "mensajeSalienteId">[];
-  salientes: readonly Pick<MensajeSaliente, "id" | "sentAt">[];
+  salientes: readonly Pick<MensajeSaliente, "id" | "kind" | "sentAt">[];
   entrantes: readonly Pick<MensajeEntrante, "intencion" | "receivedAt">[];
   now: Date;
 }): NochesDeLaSemana {
@@ -41,7 +46,7 @@ export function nochesDeLaSemana(input: {
   const entrantes = input.entrantes.filter((m) => m.receivedAt.getTime() <= hasta);
   const porId = new Map(salientes.map((m) => [m.id, m]));
 
-  // Every invitation up to now, in time order: a night ends where the next one starts.
+  // Every invitation up to now, last week's included, in time order: a night ends where the next one starts.
   const invitaciones = input.citas
     .filter((c) => c.estado === "programada" && c.mensajeSalienteId !== null)
     .flatMap((c) => {
@@ -64,8 +69,13 @@ export function nochesDeLaSemana(input: {
       return;
     }
     const primerEntrante = Math.min(...suyos.map((m) => m.receivedAt.getTime()));
+    // The image of the estado de cuenta and the «Permitir» link go out with the cita, so only a further audio insists.
     const insistio = salientes.some(
-      (m) => m.id !== invitacion.id && enLaNoche(m.sentAt.getTime()) && m.sentAt.getTime() < primerEntrante,
+      (m) =>
+        m.kind === "audio" &&
+        m.id !== invitacion.id &&
+        enLaNoche(m.sentAt.getTime()) &&
+        m.sentAt.getTime() < primerEntrante,
     );
     if (!insistio) noches.sinPresion += 1;
   });
