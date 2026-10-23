@@ -35,6 +35,10 @@ describe("/sala without the operator token", () => {
     ["POST", "/sala/tick"],
     ["POST", "/sala/reset"],
     ["POST", "/sala/momentos/jue-2230"],
+    ["GET", "/sala/conversacion"],
+    ["GET", "/sala/simulador/media/sim-out-1"],
+    ["POST", "/sala/simulador"],
+    ["POST", "/sala/simulador/mensaje"],
   ];
 
   test("every endpoint answers 404 when no token is configured, whatever is sent", async () => {
