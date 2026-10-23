@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { parseSantiago, santiagoDate, santiagoParts } from "./clock/santiago";
 import { createTestApp } from "./testing";
+
+const MINUTE_MS = 60 * 1000;
 
 describe("createApp", () => {
   test("serves health through the assembled app", async () => {
@@ -28,5 +31,56 @@ describe("createApp", () => {
     });
     expect(clock.now().toISOString()).toBe("2026-10-24T01:30:00.000Z");
     expect(await llm.complete({ prompt: "Dame una buena noticia" })).toBe("Pagaste más que el mínimo.");
+  });
+});
+
+describe("demo clock", () => {
+  test("starts on the source's time", () => {
+    const { app, clock } = createTestApp();
+    expect(app.clock.now().toISOString()).toBe(clock.now().toISOString());
+    expect(app.clock.isReal()).toBe(true);
+  });
+
+  test("set to jueves 22:30 keeps flowing with the source", () => {
+    const { app, clock } = createTestApp();
+    app.clock.set(parseSantiago("2026-10-22T22:30"));
+    clock.advance(10 * MINUTE_MS);
+    const parts = santiagoParts(app.clock.now());
+    expect(app.clock.isReal()).toBe(false);
+    expect([parts.weekday, parts.hour, parts.minute]).toEqual([4, 22, 40]);
+  });
+
+  test("advancing across midnight lands on Friday", () => {
+    const { app } = createTestApp();
+    app.clock.set(parseSantiago("2026-10-22T23:50"));
+    app.clock.advance(20 * MINUTE_MS);
+    const now = app.clock.now();
+    const parts = santiagoParts(now);
+    expect(santiagoDate(now)).toBe("2026-10-23");
+    expect([parts.weekday, parts.hour, parts.minute]).toEqual([5, 0, 10]);
+  });
+
+  test("reset returns to the source's time", () => {
+    const { app, clock } = createTestApp();
+    app.clock.set(parseSantiago("2026-10-22T22:30"));
+    app.clock.reset();
+    expect(app.clock.now().toISOString()).toBe(clock.now().toISOString());
+    expect(app.clock.isReal()).toBe(true);
+  });
+
+  test("the store stamps what it writes with the demo clock", () => {
+    const { app } = createTestApp();
+    const at = parseSantiago("2026-10-22T22:30");
+    app.clock.set(at);
+    const decision = app.store.recordDecision({ tipo: "callar", motivo: "calla: es tarde", datos: null });
+    expect(decision.at.toISOString()).toBe(at.toISOString());
+  });
+
+  test("the offset survives a restart over the same database", () => {
+    const first = createTestApp();
+    first.app.clock.set(parseSantiago("2026-10-22T22:30"));
+    const restarted = createTestApp({ now: first.clock.now(), db: first.db });
+    expect(restarted.app.clock.now().toISOString()).toBe(first.app.clock.now().toISOString());
+    expect(restarted.app.clock.isReal()).toBe(false);
   });
 });
