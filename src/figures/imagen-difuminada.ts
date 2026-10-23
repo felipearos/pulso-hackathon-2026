@@ -4,6 +4,8 @@
  * real document and only the one number she needs.
  */
 
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { getDocumentProxy, renderPageAsImage } from "unpdf";
 
@@ -27,14 +29,25 @@ export const ESCALA = 2;
 const BLUR_PX = 8;
 /** Pixels added around the cifra's line on every side. */
 const PADDING_PX = 6;
+/** pdfjs-dist's standard fonts as a plain path: pdf.js reads them with `readFile`, which refuses a file URL string. */
+const STANDARD_FONTS = `${dirname(fileURLToPath(import.meta.resolve("pdfjs-dist/package.json")))}/standard_fonts/`;
 
-/** Page 1 of `pdf` rendered sharp as PNG bytes at `ESCALA`. */
+/**
+ * Page 1 of `pdf` rendered sharp as PNG bytes at `ESCALA`. Fonts the PDF does
+ * not embed are drawn from pdfjs-dist's standard font data, never the host's
+ * fonts: a host without fonts (the CI container) would render a blank page.
+ */
 export async function renderPagina(pdf: Uint8Array): Promise<Uint8Array> {
-  const png = await renderPageAsImage(new Uint8Array(pdf), 1, {
-    canvasImport: () => import("@napi-rs/canvas"),
-    scale: ESCALA,
-  });
-  return new Uint8Array(png);
+  const doc = await getDocumentProxy(new Uint8Array(pdf), { useSystemFonts: false, standardFontDataUrl: STANDARD_FONTS });
+  try {
+    const png = await renderPageAsImage(doc, 1, {
+      canvasImport: () => import("@napi-rs/canvas"),
+      scale: ESCALA,
+    });
+    return new Uint8Array(png);
+  } finally {
+    await doc.loadingTask.destroy();
+  }
 }
 
 /**
