@@ -75,6 +75,7 @@ function simulate(
   let balance = statement.totalBilled + (statement.overdue ?? 0);
   let months = 0;
   let totalInterest = 0;
+  if (balance <= 0) return { ends: true, months, totalInterest, freeOn: from };
   while (months < MAX_CYCLES) {
     const payment = Math.min(balance, paymentFor(balance, months + 1));
     if (payment <= 0 && balance > 0) return { ends: false, reason: "zero-payment" };

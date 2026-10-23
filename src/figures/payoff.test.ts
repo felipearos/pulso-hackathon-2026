@@ -3,8 +3,8 @@ import { addMonths, minimumPayment, payoff, type Payoff, type Statement } from "
 
 /**
  * Estado de cuenta 8 from the case. These figures were chosen so the engine
- * reproduces the case's «unos 59 meses y $451.000» and «unos 17 meses y
- * $162.700»; the fixtures (#24, #68) must use the same ones.
+ * reproduces the figures in issue #29, «unos 59 meses y $451.000» and «unos
+ * 17 meses y $162.700», until the real fixtures exist.
  */
 const statementEight: Statement = {
   totalBilled: 650_000,
@@ -52,43 +52,77 @@ describe("payoff for estado de cuenta 8", () => {
   });
 });
 
+interface EdgeCase {
+  name: string;
+  statement: Statement;
+  payment: number;
+  firstMinimum: number;
+  fixed: Payoff;
+  onlyMinimum: Payoff;
+}
+
+const neverEndsOnMinimum: Payoff = { ends: false, reason: "zero-payment" };
+const eightOnMinimum: Payoff = { ends: true, months: 59, totalInterest: 450_865, freeOn: "2031-09-24" };
+
+const edgeCases: EdgeCase[] = [
+  {
+    name: "minimum zero never ends",
+    statement: { ...statementEight, minimumRule: { percent: 0, floor: 0, roundTo: 100 } },
+    payment: 50_000,
+    firstMinimum: 0,
+    fixed: { ends: true, months: 17, totalInterest: 162_060, freeOn: "2028-03-24" },
+    onlyMinimum: neverEndsOnMinimum,
+  },
+  {
+    name: "rate zero",
+    statement: { ...statementEight, monthlyRate: 0 },
+    payment: 50_000,
+    firstMinimum: 41_900,
+    fixed: { ends: true, months: 13, totalInterest: 0, freeOn: "2027-11-24" },
+    onlyMinimum: { ends: true, months: 37, totalInterest: 0, freeOn: "2029-11-24" },
+  },
+  {
+    name: "mora is added to the balance and to the first pago mínimo",
+    statement: { ...statementEight, overdue: 80_000 },
+    payment: 50_000,
+    firstMinimum: 121_900,
+    fixed: { ends: true, months: 19, totalInterest: 216_713, freeOn: "2028-05-24" },
+    onlyMinimum: eightOnMinimum,
+  },
+  {
+    name: "payment below interest never ends",
+    statement: statementEight,
+    payment: 10_000,
+    firstMinimum: 41_900,
+    fixed: { ends: false, reason: "payment-below-interest" },
+    onlyMinimum: eightOnMinimum,
+  },
+  {
+    name: "payment larger than the balance",
+    statement: statementEight,
+    payment: 1_000_000,
+    firstMinimum: 41_900,
+    fixed: { ends: true, months: 1, totalInterest: 0, freeOn: "2026-11-24" },
+    onlyMinimum: eightOnMinimum,
+  },
+  {
+    name: "zero balance is already free",
+    statement: { ...statementEight, totalBilled: 0 },
+    payment: 50_000,
+    firstMinimum: 0,
+    fixed: { ends: true, months: 0, totalInterest: 0, freeOn: "2026-10-24" },
+    onlyMinimum: { ends: true, months: 0, totalInterest: 0, freeOn: "2026-10-24" },
+  },
+];
+
 describe("payoff edge cases", () => {
-  test.each([
-    {
-      name: "minimum zero never ends",
-      statement: { ...statementEight, minimumRule: { percent: 0, floor: 0, roundTo: 100 } },
-      payment: 50_000,
-      fixed: { ends: true, months: 17, totalInterest: 162_060, freeOn: "2028-03-24" },
-      onlyMinimum: { ends: false, reason: "zero-payment" },
-    },
-    {
-      name: "rate zero",
-      statement: { ...statementEight, monthlyRate: 0 },
-      payment: 50_000,
-      fixed: { ends: true, months: 13, totalInterest: 0, freeOn: "2027-11-24" },
-      onlyMinimum: undefined,
-    },
-    {
-      name: "payment below interest never ends",
-      statement: statementEight,
-      payment: 10_000,
-      fixed: { ends: false, reason: "payment-below-interest" },
-      onlyMinimum: undefined,
-    },
-    {
-      name: "payment larger than the balance",
-      statement: statementEight,
-      payment: 1_000_000,
-      fixed: { ends: true, months: 1, totalInterest: 0, freeOn: "2026-11-24" },
-      onlyMinimum: undefined,
-    },
-  ])("$name", ({ statement, payment, fixed, onlyMinimum }) => {
+  test.each(edgeCases)("$name", ({ statement, payment, firstMinimum, fixed, onlyMinimum }) => {
     const figures = payoff(statement, payment, "2026-10-24");
-    expect(figures.fixedPayment).toEqual(fixed as Payoff);
+    expect(figures.firstMinimum).toBe(firstMinimum);
+    expect(figures.fixedPayment).toEqual(fixed);
+    expect(figures.onlyMinimum).toEqual(onlyMinimum);
     expectIntegers(figures.fixedPayment);
-    if (onlyMinimum) expect(figures.onlyMinimum).toEqual(onlyMinimum as Payoff);
     expectIntegers(figures.onlyMinimum);
-    expect(Number.isInteger(figures.firstMinimum)).toBe(true);
   });
 
   test("minimum zero makes versus the pago mínimo explicit", () => {
@@ -98,17 +132,6 @@ describe("payoff edge cases", () => {
       "2026-10-24",
     );
     expect(figures.versusMinimum).toEqual({ comparable: false, reason: "minimum-never-ends" });
-  });
-
-  test("mora is added to the first pago mínimo and lengthens the payoff", () => {
-    const withoutMora = ended(payoff(statementEight, 50_000, "2026-10-24").fixedPayment);
-    const figures = payoff({ ...statementEight, overdue: 80_000 }, 50_000, "2026-10-24");
-    expect(figures.firstMinimum).toBe(41_900 + 80_000);
-    const withMora = ended(figures.fixedPayment);
-    expect(withMora.months).toBeGreaterThan(withoutMora.months);
-    expect(withMora.totalInterest).toBeGreaterThan(withoutMora.totalInterest);
-    expectIntegers(figures.fixedPayment);
-    expectIntegers(figures.onlyMinimum);
   });
 });
 
