@@ -23,14 +23,20 @@ export type TestApp = {
  * `demoOperatorKey` to drive the control room.
  */
 export function createTestApp(
-  options: { now?: Date; llm?: ConstructorParameters<typeof FakeLlm>[0]; db?: Database; demoOperatorKey?: string } = {},
+  options: {
+    now?: Date;
+    llm?: ConstructorParameters<typeof FakeLlm>[0];
+    voice?: ConstructorParameters<typeof FakeVoice>[0];
+    db?: Database;
+    demoOperatorKey?: string;
+  } = {},
 ): TestApp {
   const ports = {
     clock: new FakeClock(options.now ?? TEST_START),
     mail: new FakeMail(),
     whatsapp: new FakeWhatsApp(),
     llm: new FakeLlm(options.llm ?? []),
-    voice: new FakeVoice(),
+    voice: new FakeVoice(options.voice),
     db: options.db ?? openDatabase(":memory:"),
   };
   return { app: createApp(ports, { demoOperatorKey: options.demoOperatorKey }), ...ports };

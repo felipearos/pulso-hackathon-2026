@@ -130,6 +130,12 @@ export const migrations: Migration[] = [
     // The monto an S3's pedido was paid, read from its mail; the plata apartada is its 10 %.
     sql: "ALTER TABLE senales ADD COLUMN monto INTEGER;",
   },
+  {
+    version: 6,
+    name: "cita-enviada",
+    // The mensaje saliente a programada cita went out as; null until it is sent.
+    sql: `ALTER TABLE citas ADD COLUMN mensaje_saliente_id INTEGER REFERENCES mensajes_salientes (id);`,
+  },
 ];
 
 /** Opens the SQLite file, creating its directory, or an in-memory database for `:memory:`. */

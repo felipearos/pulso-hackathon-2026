@@ -1,3 +1,4 @@
+import { createCitaSender } from "./citas/envio";
 import { createScheduler } from "./citas/scheduler";
 import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
@@ -15,10 +16,14 @@ import { createHandler } from "./server";
 export type App = {
   /** Answers one HTTP request; `Bun.serve` in `main` and tests call it alike. */
   handle(request: Request): Response | Promise<Response>;
-  /** Runs one pass at the clock's current time: reads new mail into señales if Patricia allowed it, then fixes the cita. */
+  /**
+   * Runs one pass at the clock's current time: reads new mail into señales if
+   * Patricia allowed it, fixes the cita, then sends today's programada cita as
+   * a nota de voz if it has not gone out yet.
+   */
   tick(): Promise<void>;
   /** Turns one mail into at most one señal; Gmail, the fake and the /demo injection all end here. */
-  receiveMail(mail: IncomingMail): Senal | null;
+  receiveMail(mail: IncomingMail): Promise<Senal | null>;
   /** Patricia's persisted state and the decision log. */
   store: Store;
   /** The demo clock: every domain time read goes through it (ADR 0002). */
@@ -47,7 +52,8 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   const clock = createDemoClock(ports.db, ports.clock);
   const store = createStore(ports.db, clock);
   // The señal and its decision land together or not at all.
-  const receive = (mail: IncomingMail) => ports.db.transaction(() => receiveMail(store, mail))();
+  const receive = (mail: IncomingMail) =>
+    receiveMail(store, ports.llm, mail, (fn) => ports.db.transaction(fn)());
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
     if (!store.getPatricia().gmailPermitido) return;
@@ -61,7 +67,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     }
     for (const mail of mails) {
       try {
-        receive(mail);
+        await receive(mail);
       } catch (error) {
         // One mail that fails must not cost the rest of the batch.
         console.error(`mail: ${mail.id} failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -69,6 +75,14 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     }
   };
   const scheduler = createScheduler({ db: ports.db, store, clock });
+  const sender = createCitaSender({
+    db: ports.db,
+    store,
+    clock,
+    llm: ports.llm,
+    voice: ports.voice,
+    whatsapp: ports.whatsapp,
+  });
   return {
     handle: createHandler({
       demoPage,
@@ -80,6 +94,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
       // Mail first, so tonight's cita is decided with every señal already in.
       await pollMail();
       scheduler.tick();
+      await sender.tick();
     },
     receiveMail: receive,
     store,

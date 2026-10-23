@@ -45,6 +45,13 @@ describe("checkText", () => {
     });
   }
 
+  test("a pair from one motor result passes with maxFigures 2, a third figure does not", () => {
+    expect(checkText("Son 17 meses pagando $50.000.", [17, 50000], 2)).toEqual([]);
+    expect(checkText("Son 17 meses pagando $50.000, y $41.900 el mínimo.", [17, 50000, 41900], 2).map((r) => r.kind)).toEqual([
+      "too-many-figures",
+    ]);
+  });
+
   test("forbidden word is matched without accents", () => {
     expect(checkText("Deberias revisar.", [])).toEqual([{ kind: "forbidden-word", word: "deberías" }]);
   });

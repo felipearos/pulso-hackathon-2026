@@ -193,6 +193,7 @@ describe("store", () => {
       motivo: "cita del lunes",
       pendientes: [{ ...pendiente, citaId: cita!.id }],
       programadaAt: NIGHT,
+      mensajeSalienteId: null,
     });
     expect(app.store.pendientes()).toEqual([]);
     expect(app.store.citaOn("2026-10-20")).toEqual(cita);
@@ -208,6 +209,24 @@ describe("store", () => {
     expect(app.store.addCita({ ...base, tipo: "bienvenida", pendienteIds: [pendiente.id] })).toBeNull();
     expect(app.store.citas()).toHaveLength(1);
     expect(app.store.pendientes()).toEqual([pendiente]);
+  });
+
+  test("markCitaSent stamps the mensaje saliente once", () => {
+    const { app } = createTestApp();
+    const cita = app.store.addCita({
+      fecha: "2026-10-20",
+      tipo: "lunes",
+      estado: "programada",
+      etapa: 1,
+      motivo: "cita del lunes",
+      pendienteIds: [],
+    })!;
+    const first = app.store.addMensajeSaliente({ kind: "audio", text: "hola", durationSeconds: 3, whatsappId: "w1" });
+    const second = app.store.addMensajeSaliente({ kind: "audio", text: "hola", durationSeconds: 3, whatsappId: "w2" });
+
+    expect(app.store.markCitaSent(cita.id, first.id)).toBe(true);
+    expect(app.store.markCitaSent(cita.id, second.id)).toBe(false);
+    expect(app.store.citaOn("2026-10-20")!.mensajeSalienteId).toBe(first.id);
   });
 
   test("deferPendientes keeps the first madrugada time", () => {
