@@ -94,6 +94,16 @@ const rows: [string, DatosBuenaNoticia, ReglaBuenaNoticia, string][] = [
     "al refrigerador le queda una sola cuota",
   ],
   [
+    "a known last month says when it ends",
+    {
+      ...empty,
+      mora: 35_000,
+      comprasEnCuotas: [{ descripcion: "la compra en Farmacia Ejemplo", cuotasRestantes: 1, mesTermino: "enero" }],
+    },
+    "cuota-termina",
+    "a la compra en Farmacia Ejemplo le queda una sola cuota, termina en enero",
+  ],
+  [
     "unknown mora with a cuota ending soon",
     { ...empty, comprasEnCuotas: [{ descripcion: "la tele", cuotasRestantes: 1 }] },
     "cuota-termina",
