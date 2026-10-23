@@ -35,6 +35,10 @@ describe("/sala without the operator token", () => {
     ["POST", "/sala/tick"],
     ["POST", "/sala/reset"],
     ["POST", "/sala/momentos/jue-2230"],
+    ["GET", "/sala/conversacion"],
+    ["GET", "/sala/simulador/media/sim-out-1"],
+    ["POST", "/sala/simulador"],
+    ["POST", "/sala/simulador/mensaje"],
   ];
 
   test("every endpoint answers 404 when no token is configured, whatever is sent", async () => {
@@ -80,7 +84,16 @@ describe("/sala with the operator token", () => {
   test("the control room page calls every /sala endpoint with the token header", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
     const page = await (await get(app, `/sala?token=${TOKEN}`)).text();
-    for (const reference of ["/sala/state", "/sala/momentos/", "/sala/reset", "/sala/tick", "x-demo-token"]) {
+    for (const reference of [
+      "/sala/state",
+      "/sala/momentos/",
+      "/sala/reset",
+      "/sala/tick",
+      "/sala/conversacion",
+      "/sala/simulador",
+      "/sala/simulador/mensaje",
+      "x-demo-token",
+    ]) {
       expect(page).toContain(reference);
     }
   });

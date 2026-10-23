@@ -332,3 +332,62 @@ describe("whatsapp webhook: POST", () => {
     ]);
   });
 });
+
+describe("whatsapp webhook: inject", () => {
+  function typed(whatsappId: string, text = "hola"): InboundMensaje {
+    return { whatsappId, from: FROM, when: NOW, body: { kind: "text", text } };
+  }
+
+  test("an injected message is processed once, after a macrotask", async () => {
+    const { webhook, received } = setup();
+    expect(webhook.inject(typed("sim-in-1"))).toBe(true);
+    expect(received).toHaveLength(0);
+    await webhook.drain();
+    expect(received).toEqual([typed("sim-in-1")]);
+  });
+
+  test("the same id injected twice is refused the second time", async () => {
+    const { webhook, received } = setup();
+    expect(webhook.inject(typed("sim-in-1"))).toBe(true);
+    expect(webhook.inject(typed("sim-in-1", "otra vez"))).toBe(false);
+    await webhook.drain();
+    expect(received).toEqual([typed("sim-in-1")]);
+  });
+
+  test("an injected message does not open Meta's 24 h window", async () => {
+    const { webhook, inbound } = setup();
+    webhook.inject(typed("sim-in-1"));
+    await webhook.drain();
+    expect(inbound).toEqual([]);
+  });
+
+  test("drain waits for an injected message still being processed", async () => {
+    let finished = false;
+    const { webhook } = setup({
+      async onMensaje() {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        finished = true;
+      },
+    });
+    webhook.inject(typed("sim-in-1"));
+    await webhook.drain();
+    expect(finished).toBe(true);
+  });
+
+  test("a handler that failed gives the injected id back", async () => {
+    let attempts = 0;
+    const { webhook, claimed, logs } = setup({
+      async onMensaje() {
+        attempts += 1;
+        if (attempts === 1) throw new Error("database is locked");
+      },
+    });
+    webhook.inject(typed("sim-in-1"));
+    await webhook.drain();
+    expect(claimed.has("sim-in-1")).toBe(false);
+    expect(logs).toContain("whatsapp webhook: handler failed, releasing the claim");
+    expect(webhook.inject(typed("sim-in-1"))).toBe(true);
+    await webhook.drain();
+    expect(attempts).toBe(2);
+  });
+});
