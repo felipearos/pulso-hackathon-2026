@@ -244,7 +244,7 @@ describe("redactarGuion", () => {
     ]);
     const { decisions, recordDecision } = recorder();
 
-    const { guion, source } = await redactarGuion({ llm, decision, recordDecision });
+    const { guion, source } = await redactarGuion({ llm, decision, nombre: "Patricia", recordDecision });
 
     expect(source).toBe("draft");
     expect(guion).toContain(escrita);
