@@ -64,7 +64,7 @@ confirming the retry is justified. Do not loop blindly or override red CI.
    within the hour, and leaves its findings as inline review threads with a
    P1–P3 badge. Do not comment `@codex review` and do not wait or poll for
    a review that has not arrived: §5 step 6's review-thread check judges
-   whatever is there when you check it. Mergify's thirty-minute settling
+   whatever is there when you check it. Mergify's five-minute settling
    rule is what gives Codex its window, so leave it alone.
 
    Every Codex thread the check lists gets the treatment step 6 describes:

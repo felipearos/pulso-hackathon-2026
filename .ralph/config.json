@@ -60,7 +60,7 @@
     "branches": [
       "felipearosr/*"
     ],
-    "quietMinutes": 15,
+    "quietMinutes": 10,
     "maxPushes": 3
   },
   "loops": [
