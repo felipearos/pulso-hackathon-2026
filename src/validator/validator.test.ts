@@ -33,6 +33,8 @@ describe("checkText", () => {
     ["urgente", "Esto es URGENTE.", [], ["forbidden-word"]],
     ["tu deuda as blame", "Tu deuda sigue ahí.", [], ["forbidden-word"]],
     ["neutral deuda passes", "La deuda baja este mes.", [], []],
+    ["reassuring negation passes", "No tienes que hacer nada hoy, y no es tu culpa.", [], []],
+    ["culpa alone is still blame", "La culpa es de las cuotas.", [], ["forbidden-word"]],
     ["calm text with one allowed figure", "Este mes pagaste $41.900. Bien hecho, con calma.", [41900], []],
     ["text with no figure", "Hoy te escribo solo para saludarte.", [], []],
   ];
@@ -151,6 +153,57 @@ describe("validateText", () => {
     expect(decisions[0]?.input.draft).toBe(draft);
     expect(decisions[0]?.input.redraft).toBe(redraft);
     expect(decisions[0]?.reason).toContain("plantilla segura");
+  });
+
+  test("tone reply must be exactly OK", async () => {
+    const llm = new FakeLlm([[/.*/, "OKAY, pero suena frío"]]);
+    const decisions: ValidatorDecision[] = [];
+    const result = await validateText({
+      draft: good,
+      allowedFigures: [41900],
+      llm,
+      redraft: async () => good,
+      safeTemplate: SAFE_TEMPLATE,
+      recordDecision: (d) => decisions.push(d),
+    });
+    expect(result.source).toBe("safe-template");
+    expect(decisions).toHaveLength(1);
+  });
+
+  test("a failing tone review falls back to the safe template with a decision", async () => {
+    const llm = new FakeLlm([]);
+    const decisions: ValidatorDecision[] = [];
+    const result = await validateText({
+      draft: good,
+      allowedFigures: [41900],
+      llm,
+      redraft: async () => good,
+      safeTemplate: SAFE_TEMPLATE,
+      recordDecision: (d) => decisions.push(d),
+    });
+    expect(result).toEqual({ text: SAFE_TEMPLATE, source: "safe-template" });
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]?.input.redraft).toBeNull();
+    expect(decisions[0]?.input.error).toContain("FakeLlm has no reply");
+    expect(decisions[0]?.reason).toContain("No se pudo revisar");
+  });
+
+  test("a failing redraft falls back to the safe template with a decision", async () => {
+    const llm = new FakeLlm([[/.*/, "NO: suena frío"]]);
+    const decisions: ValidatorDecision[] = [];
+    const result = await validateText({
+      draft: good,
+      allowedFigures: [41900],
+      llm,
+      redraft: async () => {
+        throw new Error("redraft timed out");
+      },
+      safeTemplate: SAFE_TEMPLATE,
+      recordDecision: (d) => decisions.push(d),
+    });
+    expect(result.source).toBe("safe-template");
+    expect(decisions[0]?.input.rejections).toEqual([{ kind: "tone", reason: "NO: suena frío" }]);
+    expect(decisions[0]?.input.error).toBe("redraft timed out");
   });
 
   test("a safe template with a figure is a programming error", async () => {

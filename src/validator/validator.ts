@@ -47,7 +47,8 @@ export type Rejection =
 export type ValidatorDecision = {
   kind: "safe-template";
   reason: string;
-  input: { draft: string; redraft: string; rejections: Rejection[] };
+  /** `redraft` is null and `error` set when the LLM or the redraft failed before a verdict. */
+  input: { draft: string; redraft: string | null; rejections: Rejection[]; error?: string };
 };
 
 export type ValidatedText = {
@@ -57,7 +58,10 @@ export type ValidatedText = {
 
 export type ValidateInput = {
   draft: string;
-  /** Figures the motor de cifras computed for this decision. */
+  /**
+   * Figures the motor de cifras computed for this decision, as the text writes
+   * them: pesos as integers, a rate in percent (3.1, not 0.031), a year as 2027.
+   */
   allowedFigures: readonly number[];
   llm: Llm;
   redraft: (rejections: Rejection[]) => Promise<string>;
@@ -77,6 +81,9 @@ function normalize(text: string): string {
   return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
+/** Reassuring negations that contain a forbidden word and must still pass. */
+const SAFE_NEGATIONS: readonly string[] = ["no tienes que", "no es tu culpa", "no es culpa tuya", "sin culpa"];
+
 const FORBIDDEN_PATTERNS = FORBIDDEN_WORDS.map((word) => ({
   word,
   pattern: new RegExp(`(?<![\\p{L}\\p{N}])${normalize(word).replaceAll(" ", "\\s+")}(?![\\p{L}\\p{N}])`, "u"),
@@ -90,7 +97,7 @@ export function checkText(text: string, allowedFigures: readonly number[]): Reje
     if (!allowedFigures.includes(figure)) rejections.push({ kind: "figure-not-allowed", figure });
   }
   if (figures.length > 1) rejections.push({ kind: "too-many-figures", figures });
-  const normalized = normalize(text);
+  const normalized = SAFE_NEGATIONS.reduce((rest, phrase) => rest.replaceAll(phrase, " "), normalize(text));
   for (const { word, pattern } of FORBIDDEN_PATTERNS) {
     if (pattern.test(normalized)) rejections.push({ kind: "forbidden-word", word });
   }
@@ -105,7 +112,7 @@ const TONE_SYSTEM = [
 
 async function reviewTone(llm: Llm, text: string): Promise<Rejection[]> {
   const reply = await llm.complete({ model: TONE_REVIEW_MODEL, system: TONE_SYSTEM, prompt: text });
-  return reply.trim().startsWith("OK") ? [] : [{ kind: "tone", reason: reply.trim() }];
+  return /^ok\.?$/i.test(reply.trim()) ? [] : [{ kind: "tone", reason: reply.trim() }];
 }
 
 /** Code checks first; the LLM is only asked when they pass. */
@@ -134,18 +141,30 @@ export async function validateText(input: ValidateInput): Promise<ValidatedText>
     throw new Error(`Safe template does not pass the validator: ${templateRejections.map(describeRejection).join("; ")}`);
   }
 
-  const draftRejections = await check(input.llm, input.draft, input.allowedFigures);
-  if (draftRejections.length === 0) return { text: input.draft, source: "draft" };
+  let draftRejections: Rejection[] = [];
+  let redraft: string | null = null;
+  try {
+    draftRejections = await check(input.llm, input.draft, input.allowedFigures);
+    if (draftRejections.length === 0) return { text: input.draft, source: "draft" };
 
-  const redraft = await input.redraft(draftRejections);
-  const redraftRejections = await check(input.llm, redraft, input.allowedFigures);
-  if (redraftRejections.length === 0) return { text: redraft, source: "redraft" };
+    redraft = await input.redraft(draftRejections);
+    const redraftRejections = await check(input.llm, redraft, input.allowedFigures);
+    if (redraftRejections.length === 0) return { text: redraft, source: "redraft" };
 
-  const rejections = [...draftRejections, ...redraftRejections];
-  input.recordDecision({
-    kind: "safe-template",
-    reason: `El texto se rechazó dos veces (${rejections.map(describeRejection).join("; ")}); salió la plantilla segura sin cifra.`,
-    input: { draft: input.draft, redraft, rejections },
-  });
+    const rejections = [...draftRejections, ...redraftRejections];
+    input.recordDecision({
+      kind: "safe-template",
+      reason: `El texto se rechazó dos veces (${rejections.map(describeRejection).join("; ")}); salió la plantilla segura sin cifra.`,
+      input: { draft: input.draft, redraft, rejections },
+    });
+  } catch (cause) {
+    // An unchecked text never goes out: a failed review or redraft falls back to the template too.
+    const error = cause instanceof Error ? cause.message : String(cause);
+    input.recordDecision({
+      kind: "safe-template",
+      reason: `No se pudo revisar el texto (${error}); salió la plantilla segura sin cifra.`,
+      input: { draft: input.draft, redraft: null, rejections: draftRejections, error },
+    });
+  }
   return { text: input.safeTemplate, source: "safe-template" };
 }
