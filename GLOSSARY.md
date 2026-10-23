@@ -25,6 +25,13 @@ The minimum payment the statement asks for. Paying exactly it is how she
 "pays without looking".
 _Avoid:_ "minimum due" in prose (use it only as a field name).
 
+## Monto
+
+An amount of money, always in whole Chilean pesos. Luna says it in words,
+the way it is said in Chile («cuarenta y un mil novecientos pesos»), and
+shows it on screen with thousands dots («$41.900»).
+_Avoid:_ "amount", "importe".
+
 ## Sobre el mínimo
 
 Paying more than the pago mínimo. Half of the case's success condition.
