@@ -79,7 +79,7 @@ describe("store", () => {
     const added = app.store.addSenal({ tipo: "S1", origen });
     app.store.addSenal({ tipo: "ignorado", origen: { ...origen, mailId: "mail-2" } });
 
-    expect(added).toEqual({ id: added.id, tipo: "S1", origen, receivedAt: NIGHT });
+    expect(added).toEqual({ id: added.id, tipo: "S1", origen, monto: null, receivedAt: NIGHT });
     expect(app.store.senales().map((s) => s.tipo)).toEqual(["S1", "ignorado"]);
     expect(app.store.senales()[0]).toEqual(added);
   });
