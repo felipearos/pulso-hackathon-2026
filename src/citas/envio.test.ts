@@ -156,6 +156,30 @@ describe("cita sender", () => {
     });
   });
 
+  test("a compra en cuotas from October gives December's buena noticia: its last cuota, ending in enero", async () => {
+    const t = createTestApp({
+      now: parseSantiago("2026-10-22T10:00"),
+      llm: [
+        ["Escribe el guion", "Hola, Patricia. A la compra en Farmacia Ejemplo le queda una sola cuota."],
+        ["", "OK"],
+      ],
+    });
+    t.app.store.addSenal({
+      tipo: "S4",
+      origen: { mailId: "mail-cuotas", from: "avisos@banco.example", subject: "Compra en 3 cuotas en Farmacia Ejemplo" },
+    });
+    await tickAt(t, "2026-12-07T22:30");
+
+    expect(sentDecision(t)?.datos).toMatchObject({
+      decision: {
+        buenaNoticia: {
+          regla: "cuota-termina",
+          texto: "a la compra en Farmacia Ejemplo le queda una sola cuota, termina en enero",
+        },
+      },
+    });
+  });
+
   test("an audio over 45 seconds is rewritten shorter once", async () => {
     const t = setup({ voice: { durations: [52, 30] } });
     await tickAt(t, "2026-10-19T22:30");

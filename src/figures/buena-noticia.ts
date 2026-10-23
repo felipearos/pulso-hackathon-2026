@@ -8,6 +8,8 @@
 export interface CompraEnCuotas {
   descripcion: string;
   cuotasRestantes: number;
+  /** Spanish month name of the last cuota, e.g. «enero»; absent when unknown. */
+  mesTermino?: string;
 }
 
 /** What the extractor read about her payments, for the buena noticia. Null fields: not found. */
@@ -89,7 +91,8 @@ export function buenaNoticia(datos: DatosBuenaNoticia): BuenaNoticia {
   if (ending !== undefined) {
     const quedan = ending.cuotasRestantes === 1 ? "le queda una sola cuota" : "le quedan dos cuotas";
     // «a el refrigerador» contracts to «al refrigerador».
-    const texto = `a ${ending.descripcion} ${quedan}`.replace(/^a el /, "al ");
+    const termina = ending.mesTermino === undefined ? "" : `, termina en ${ending.mesTermino}`;
+    const texto = `a ${ending.descripcion} ${quedan}${termina}`.replace(/^a el /, "al ");
     return { regla: "cuota-termina", texto };
   }
 
