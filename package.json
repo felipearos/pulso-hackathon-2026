@@ -4,11 +4,13 @@
   "type": "module",
   "scripts": {
     "start": "bun src/main.ts",
+    "reset": "bun src/patricia/reset-cli.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --deny-warnings src",
     "build": "bun build src/main.ts --target bun --outdir dist",
-    "check": "bun run test && bun run typecheck && bun run lint && bun run build"
+    "check": "bun run test && bun run typecheck && bun run lint && bun run build",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",

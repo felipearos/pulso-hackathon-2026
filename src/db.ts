@@ -89,6 +89,47 @@ export const migrations: Migration[] = [
       INSERT INTO reloj_demo (id, offset_ms) VALUES (1, NULL);
     `,
   },
+  {
+    version: 3,
+    name: "senales-por-correo",
+    // One señal per mail: the poll may see the same Gmail message twice. A base
+    // from v1 may already hold duplicates; the first señal of each mail stays.
+    sql: `
+      DELETE FROM senales WHERE id NOT IN (SELECT MIN(id) FROM senales GROUP BY mail_id);
+      CREATE UNIQUE INDEX senales_mail_id ON senales (mail_id);
+    `,
+  },
+  {
+    version: 4,
+    name: "citas",
+    sql: `
+      -- At most one cita per Santiago day: two ticks in the same minute meet this key.
+      CREATE TABLE citas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha TEXT NOT NULL UNIQUE,
+        tipo TEXT NOT NULL CHECK (tipo IN ('lunes', 'jueves', 'domingo', 'bienvenida', 'bienvenida-de-vuelta', 'graduada')),
+        estado TEXT NOT NULL CHECK (estado IN ('programada', 'callada')),
+        etapa TEXT NOT NULL CHECK (etapa IN ('1', '2', '3', '4', '5', 'graduada')),
+        motivo TEXT NOT NULL,
+        programada_at TEXT NOT NULL
+      );
+      CREATE TABLE pendientes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tipo TEXT NOT NULL CHECK (tipo IN ('bienvenida', 'bienvenida-de-vuelta', 'preocupacion', 'senal')),
+        motivo TEXT NOT NULL,
+        datos TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        diferido_at TEXT,
+        cita_id INTEGER REFERENCES citas (id)
+      );
+    `,
+  },
+  {
+    version: 5,
+    name: "monto-del-pedido",
+    // The monto an S3's pedido was paid, read from its mail; the plata apartada is its 10 %.
+    sql: "ALTER TABLE senales ADD COLUMN monto INTEGER;",
+  },
 ];
 
 /** Opens the SQLite file, creating its directory, or an in-memory database for `:memory:`. */

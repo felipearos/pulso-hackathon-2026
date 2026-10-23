@@ -31,13 +31,14 @@ describe("FakeClock", () => {
 
 describe("FakeMail", () => {
   const receivedAt = new Date("2026-10-23T12:00:00Z");
+  const senders = ["example.com"];
 
   test("fills defaults for omitted fields", async () => {
     const mail = new FakeMail();
     mail.inject({ from: "banco@example.com", subject: "Estado de cuenta", receivedAt });
     mail.inject({ id: "custom", from: "a@example.com", subject: "b", receivedAt, text: "hola", links: ["https://example.com"] });
     mail.inject({ from: "c@example.com", subject: "d", receivedAt });
-    const fetched = await mail.fetchNew();
+    const fetched = await mail.fetchNew(senders);
     expect(fetched).toEqual([
       { id: "mail-1", from: "banco@example.com", subject: "Estado de cuenta", text: "", receivedAt, links: [] },
       { id: "custom", from: "a@example.com", subject: "b", text: "hola", receivedAt, links: ["https://example.com"] },
@@ -48,10 +49,19 @@ describe("FakeMail", () => {
   test("fetchNew drains what was injected since the last call", async () => {
     const mail = new FakeMail();
     mail.inject({ from: "a@example.com", subject: "uno", receivedAt });
-    expect((await mail.fetchNew()).map((m) => m.subject)).toEqual(["uno"]);
-    expect(await mail.fetchNew()).toEqual([]);
+    expect((await mail.fetchNew(senders)).map((m) => m.subject)).toEqual(["uno"]);
+    expect(await mail.fetchNew(senders)).toEqual([]);
     mail.inject({ from: "a@example.com", subject: "dos", receivedAt });
-    expect((await mail.fetchNew()).map((m) => m.subject)).toEqual(["dos"]);
+    expect((await mail.fetchNew(senders)).map((m) => m.subject)).toEqual(["dos"]);
+  });
+
+  test("fetchNew returns only mails from the given sender domains and drops the rest", async () => {
+    const mail = new FakeMail();
+    mail.inject({ from: "Banco <aviso@BancoAndino.example>", subject: "uno", receivedAt });
+    mail.inject({ from: "amiga@correo.example", subject: "dos", receivedAt });
+    mail.inject({ from: "aviso@bancoandino.example.otro", subject: "tres", receivedAt });
+    expect((await mail.fetchNew(["bancoandino.example"])).map((m) => m.subject)).toEqual(["uno"]);
+    expect(await mail.fetchNew(["correo.example"])).toEqual([]);
   });
 });
 

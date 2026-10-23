@@ -34,6 +34,8 @@ export type Senal = {
   tipo: TipoSenal;
   /** The mail it came from. */
   origen: { mailId: string; from: string; subject: string };
+  /** What an S3's pedido del catálogo was paid, in pesos; null when unknown or not an S3. */
+  monto: number | null;
   receivedAt: Date;
 };
 
@@ -107,14 +109,16 @@ export type TipoDecision =
   | "quedarse"
   /** Luna chose not to speak tonight. */
   | "callar"
-  /** Luna moved a cita to later. */
+  /** Luna moved a cita, or the pendientes the madrugada holds back, to later. */
   | "diferir"
   /** Luna proposed setting plata apartada. */
   | "proponer-plata-apartada"
   /** A mail was classified into a señal. */
   | "senal"
   /** A message was sent or received. */
-  | "mensaje";
+  | "mensaje"
+  /** Luna set a cita for tonight. */
+  | "programar-cita";
 
 /** One entry of the append-only decision log. */
 export type Decision = {
@@ -125,4 +129,49 @@ export type Decision = {
   motivo: string;
   /** The input the decision was taken on, stored as JSON. */
   datos: unknown;
+};
+
+/** Which cita it is: the three of the week, or one that takes a slot's place. */
+export type TipoCita = "lunes" | "jueves" | "domingo" | "bienvenida" | "bienvenida-de-vuelta" | "graduada";
+
+/** What waits for the next cita. */
+export type TipoPendiente =
+  /** Her first cita has not happened yet. */
+  | "bienvenida"
+  /** She came back from a pausa or a crisis. */
+  | "bienvenida-de-vuelta"
+  /** Something she said, kept for the next cita. */
+  | "preocupacion"
+  /** A señal worth telling her. */
+  | "senal";
+
+/** Something Luna will bring up at the next cita, never before. */
+export type Pendiente = {
+  id: number;
+  tipo: TipoPendiente;
+  /** In Spanish, readable by the team and the jury. */
+  motivo: string;
+  datos: unknown;
+  createdAt: Date;
+  /** When the madrugada deferred it; null if it never had to wait. */
+  diferidoAt: Date | null;
+  /** The cita that carried it; null while it still waits. */
+  citaId: number | null;
+};
+
+/**
+ * One slot of the week, decided. A `programada` cita is a decisión de cita for
+ * the redactor; a `callada` one is a slot in which Luna chose silence.
+ */
+export type Cita = {
+  id: number;
+  /** The Santiago calendar day, `YYYY-MM-DD`. */
+  fecha: string;
+  tipo: TipoCita;
+  estado: "programada" | "callada";
+  etapa: Etapa;
+  motivo: string;
+  /** What it carries, oldest first. */
+  pendientes: Pendiente[];
+  programadaAt: Date;
 };
