@@ -56,7 +56,8 @@ export function createCitaSender({
     // A pausa that began after the cita was programada still silences it.
     if (store.getPatricia().enPausa) return;
 
-    const estadoDeCuenta = store.estadosDeCuenta().findLast((e) => e.cifras !== null) ?? null;
+    // The bank's: a tienda estado de cuenta must not replace the figure Patricia hears on Monday.
+    const estadoDeCuenta = store.estadosDeCuenta().findLast((e) => e.origen === "banco" && e.cifras !== null) ?? null;
     const decision = decisionDeCita({ cita, estadoDeCuenta });
     const recordDecision = (d: ValidatorDecision) => {
       store.recordDecision({ tipo: "mensaje", motivo: d.reason, datos: { citaId: cita.id, ...d.input } });

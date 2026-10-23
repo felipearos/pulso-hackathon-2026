@@ -1,7 +1,7 @@
 import { createApp, type App } from "./app";
 import { openDatabase } from "./db";
 import type { Database } from "bun:sqlite";
-import { FakeClock, FakeLlm, FakeMail, FakeVoice, FakeWhatsApp } from "./fakes";
+import { FakeClock, FakeLlm, FakeMail, FakeVoice, FakeWeb, FakeWhatsApp } from "./fakes";
 
 /** Monday 19 October 2026, 09:00 in Santiago: the default start of a test. */
 export const TEST_START = new Date("2026-10-19T09:00:00-03:00");
@@ -13,6 +13,7 @@ export type TestApp = {
   whatsapp: FakeWhatsApp;
   llm: FakeLlm;
   voice: FakeVoice;
+  web: FakeWeb;
   db: Database;
 };
 
@@ -27,6 +28,7 @@ export function createTestApp(
     now?: Date;
     llm?: ConstructorParameters<typeof FakeLlm>[0];
     voice?: ConstructorParameters<typeof FakeVoice>[0];
+    web?: ConstructorParameters<typeof FakeWeb>[0];
     db?: Database;
     demoOperatorKey?: string;
   } = {},
@@ -37,6 +39,7 @@ export function createTestApp(
     whatsapp: new FakeWhatsApp(),
     llm: new FakeLlm(options.llm ?? []),
     voice: new FakeVoice(options.voice),
+    web: new FakeWeb(options.web ?? {}),
     db: options.db ?? openDatabase(":memory:"),
   };
   return { app: createApp(ports, { demoOperatorKey: options.demoOperatorKey }), ...ports };
