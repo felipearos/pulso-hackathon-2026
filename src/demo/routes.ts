@@ -1,6 +1,9 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { DemoClock } from "../clock/demo-clock";
+import { SAMPLE_MAILS } from "../mail/samples";
+import type { Senal, TipoSenal } from "../patricia/entities";
 import type { Store } from "../patricia/store";
+import type { IncomingMail } from "../ports";
 import type { Canal, Simulador } from "../whatsapp/simulador";
 import type { InboundMensaje } from "../whatsapp/webhook";
 import { findMomento, type MomentoDelGuion } from "./guion";
@@ -22,6 +25,20 @@ export type DemoDeps = {
   simulador: Simulador;
   /** The webhook's way in for a message that did not come through Meta. */
   inject(mensaje: InboundMensaje): boolean;
+  /** The way in a Gmail mail takes in `tick` (its señal, then an S1's or S2's estado de cuenta), for a sample mail. */
+  injectMail(mail: IncomingMail): Promise<Senal | null>;
+};
+
+/** What the control room calls each señal on screen. */
+const ETIQUETAS: Record<TipoSenal, string> = {
+  S1: "estado de cuenta del banco",
+  S2: "estado de cuenta de la tienda",
+  S3: "pedido del catálogo pagado",
+  S4: "compra en cuotas",
+  S5: "recibimos tu pago",
+  S6: "aviso de vencimiento",
+  S7: "sospechoso",
+  ignorado: "ignorado",
 };
 
 /** One line of the conversation the simulador page shows. */
@@ -73,6 +90,16 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
         .decisions()
         .slice(-10)
         .map(({ at, tipo, motivo }) => ({ at: at.toISOString(), tipo, motivo })),
+      correos: deps.store
+        .senales()
+        .slice(-10)
+        .map(({ receivedAt, tipo, origen }) => ({
+          at: receivedAt.toISOString(),
+          tipo,
+          subject: origen.subject,
+          from: origen.from,
+          etiqueta: ETIQUETAS[tipo],
+        })),
     };
   };
   const run = async (step: () => void | Promise<void>): Promise<Response> => {
@@ -207,6 +234,21 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
       // The webhook's own way in, so her answer takes the same flow as one Meta delivered.
       deps.inject({ whatsappId, from: "simulador", when: deps.clock.now(), body });
       return Response.json({ whatsappId }, { status: 202 });
+    }
+    const correoMatch = /^\/sala\/correos\/([^/]+)$/.exec(pathname);
+    if (request.method === "POST" && correoMatch) {
+      let kind: string;
+      try {
+        kind = decodeURIComponent(correoMatch[1]!);
+      } catch {
+        return badRequest(`no hay correo de muestra ${correoMatch[1]}`);
+      }
+      if (!Object.hasOwn(SAMPLE_MAILS, kind)) return badRequest(`no hay correo de muestra ${kind}`);
+      const sample = SAMPLE_MAILS[kind as keyof typeof SAMPLE_MAILS];
+      // It arrives now on the room's clock; its fixed id makes a second press the señal already stored.
+      return run(async () => {
+        await deps.injectMail({ ...sample, receivedAt: deps.clock.now() });
+      });
     }
     const match = /^\/sala\/momentos\/([^/]+)$/.exec(pathname);
     if (request.method === "POST" && match) {

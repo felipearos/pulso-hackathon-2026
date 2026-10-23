@@ -58,6 +58,14 @@
   .burbuja .meta { display: block; font-size: 22px; color: #e0e0e0; }
   .burbuja audio { width: 100%; margin: 8px 0; }
   .burbuja img { max-width: 100%; max-height: 360px; border-radius: 8px; margin: 8px 0; display: block; }
+  #correos li.sospechoso {
+    padding: 14px 16px;
+    border: 4px solid #ff8a80;
+    border-radius: 12px;
+    background: #3a1414;
+    font-weight: 700;
+  }
+  #correos li.ignorado { color: #9a9aa0; }
   #responder[hidden] { display: none; }
   #responder .fila { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; margin: 16px 0; }
   #responder input { font: inherit; font-size: 28px; }
@@ -87,6 +95,20 @@
     <ul id="decisiones"></ul>
   </section>
 </div>
+
+<section>
+  <h2>Correos de muestra</h2>
+  <div class="botones">
+    <button type="button" data-correo="banco">Banco</button>
+    <button type="button" data-correo="tienda">Tienda</button>
+    <button type="button" data-correo="pedido">Pedido</button>
+    <button type="button" data-correo="cuotas">Cuotas</button>
+    <button type="button" data-correo="pago">Pago</button>
+    <button type="button" data-correo="falso">Falso del banco</button>
+    <button type="button" data-correo="publicidad">Publicidad</button>
+  </div>
+  <ul id="correos"></ul>
+</section>
 
 <section>
   <h2>Conversación con Patricia</h2>
@@ -180,6 +202,12 @@
     fillList($("decisiones"), [...state.decisiones].reverse().map((decision) =>
       item(`${shortTime.format(new Date(decision.at))} · ${decision.tipo}`, decision.motivo ?? "")),
       "Sin decisiones");
+    fillList($("correos"), [...state.correos].reverse().map((correo) => {
+      const li = item(`${shortTime.format(new Date(correo.at))} · ${correo.etiqueta}`, correo.subject);
+      if (correo.tipo === "S7") li.className = "sospechoso";
+      if (correo.tipo === "ignorado") li.className = "ignorado";
+      return li;
+    }), "Sin correos");
     renderSimulador(state.simulador);
   }
 
@@ -288,6 +316,11 @@
   $("reiniciar").addEventListener("click", () => {
     if (confirm("¿Reiniciar todo al punto de partida?")) call("POST", "/sala/reset", "Reiniciando");
   });
+
+  for (const button of document.querySelectorAll("[data-correo]")) {
+    button.addEventListener("click", () =>
+      call("POST", `/sala/correos/${encodeURIComponent(button.dataset.correo)}`, `Correo: ${button.textContent}`));
+  }
 
   $("simulador").addEventListener("click", () =>
     call("POST", "/sala/simulador", simuladorActivo ? "Apagando el simulador" : "Activando el simulador",
