@@ -159,6 +159,9 @@ export const SENALES: StoryEvent<SenalInput>[] = [...S1, ...S5, ...S3, ...S4].so
 
 /** Tables holding Patricia's history: a reset empties them and restarts their ids. */
 export const RESET_TABLES = [
+  // pendientes.cita_id references citas, so pendientes empties first.
+  "pendientes",
+  "citas",
   "etapa_cambios",
   "estados_de_cuenta",
   "senales",
