@@ -66,8 +66,14 @@ export class FakeMail implements Mail {
 export class FakeWhatsApp implements WhatsApp {
   readonly outbox: OutgoingWhatsApp[] = [];
   readonly inbound: Date[] = [];
+  /** The next this-many text sends throw instead of reaching the outbox. */
+  failNextTexts = 0;
 
   async send(message: OutgoingWhatsApp): Promise<{ id: string }> {
+    if (message.kind === "text" && this.failNextTexts > 0) {
+      this.failNextTexts--;
+      throw new Error("FakeWhatsApp failed on purpose");
+    }
     this.outbox.push(message);
     return { id: `wamid-${this.outbox.length}` };
   }

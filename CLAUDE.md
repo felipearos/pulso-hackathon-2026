@@ -141,6 +141,7 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | --- | --- | --- |
 | `DATABASE_PATH` | none (unit) | SQLite file; defaults to `data/pulso.db` locally |
 | `HOST` | none (unit) | listen address; unset means all interfaces |
+| `PUBLIC_BASE_URL` | none (optional) | public base of the «Permitir» link the bienvenida sends; defaults to the Funnel URL |
 | `GMAIL_CLIENT_ID` | dev, prd | mail port: Gmail OAuth client |
 | `GMAIL_CLIENT_SECRET` | dev, prd | mail port: Gmail OAuth client |
 | `WHATSAPP_ACCESS_TOKEN` | dev, prd | whatsapp port: Meta WhatsApp Cloud token |

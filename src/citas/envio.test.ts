@@ -162,3 +162,58 @@ describe("cita sender", () => {
     expect(t.whatsapp.outbox).toHaveLength(1);
   });
 });
+
+describe("bienvenida", () => {
+  const PERMITIR = "https://desktop.taild8ed7e.ts.net/permitir";
+
+  function setupBienvenida(): TestApp {
+    const t = setup();
+    t.app.store.addPendiente({ tipo: "bienvenida", motivo: "su primera cita", datos: null });
+    return t;
+  }
+
+  test("speaks the fixed guion, then sends the «Permitir» link, without the LLM", async () => {
+    const t = setupBienvenida();
+    const llmCalls = t.llm.calls.length;
+    await tickAt(t, "2026-10-19T22:30");
+
+    expect(t.llm.calls).toHaveLength(llmCalls);
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio", "text"]);
+    const link = t.whatsapp.outbox[1] as Extract<OutgoingWhatsApp, { kind: "text" }>;
+    expect(link.text).toContain(PERMITIR);
+
+    const [audio, text] = t.app.store.mensajesSalientes();
+    expect(audio!.kind).toBe("audio");
+    expect(findFigures(audio!.text!)).toEqual([]);
+    expect(audio!.text).toContain("¿Cómo te gusta que te llamen?");
+    expect(audio!.text).toContain("diez y media");
+    expect(audio!.text).toContain("otra voz");
+    expect(t.app.store.citaOn("2026-10-19")?.mensajeSalienteId).toBe(audio!.id);
+    expect(text).toMatchObject({ kind: "text", text: link.text, durationSeconds: null, whatsappId: "wamid-2" });
+    expect(t.app.store.decisions().some((d) => d.motivo.startsWith("salió el enlace «Permitir»"))).toBe(true);
+
+    await tickAt(t, "2026-10-19T22:31");
+    await tickAt(t, "2026-10-19T22:45");
+    expect(t.whatsapp.outbox).toHaveLength(2);
+    expect(t.voice.calls).toHaveLength(1);
+  });
+
+  test("a failed link is retried alone on the next tick, and recorded once", async () => {
+    const t = setupBienvenida();
+    t.whatsapp.failNextTexts = 2;
+    await tickAt(t, "2026-10-19T22:30");
+    await tickAt(t, "2026-10-19T22:31");
+
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
+    const failures = t.app.store.decisions().filter((d) => d.motivo.startsWith("no salió el enlace"));
+    expect(failures).toHaveLength(1);
+
+    await tickAt(t, "2026-10-19T22:32");
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio", "text"]);
+    expect(t.voice.calls).toHaveLength(1);
+    expect(t.app.store.mensajesSalientes().map((m) => m.kind)).toEqual(["audio", "text"]);
+
+    await tickAt(t, "2026-10-19T22:33");
+    expect(t.whatsapp.outbox).toHaveLength(2);
+  });
+});
