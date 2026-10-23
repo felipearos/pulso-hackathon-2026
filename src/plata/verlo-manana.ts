@@ -35,7 +35,7 @@ function normalize(text: string): string {
 }
 
 function mentionsCare(text: string): boolean {
-  return /(?:^|[^\p{L}\p{N}])(?:remedios?|medicamentos?|farmacia|mama|mami)(?=$|[^\p{L}\p{N}])/u.test(
+  return /(?:^|[^\p{L}\p{N}])(?:remedios?|medicamentos?|mama|mami)(?=$|[^\p{L}\p{N}])/u.test(
     normalize(text),
   );
 }
@@ -105,7 +105,8 @@ export async function answerCompraEnCuotas(
       PROPUESTA_VERLO_MANANA,
       "could not send the proposal to see a cuotas purchase tomorrow",
     );
-    if (sent !== null) {
+    // The plantilla segura proposes nothing, so it opens no window.
+    if (sent !== null && sent.source !== "safe-template") {
       store.recordDecision({
         tipo: "proponer-verlo-manana",
         motivo: "propone ver la compra en cuotas mañana en la noche",

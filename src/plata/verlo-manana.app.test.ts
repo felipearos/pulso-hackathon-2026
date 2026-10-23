@@ -9,6 +9,8 @@ const LLM_REPLIES: Array<[string, string]> = [
   ["Ahora compraré una cocina en cuotas", '{"intencion":"installmentPurchase"}'],
   ["Estoy pensando comprar un refrigerador en cuotas", '{"intencion":"installmentPurchase"}'],
   ["Le compré el remedio a mi mamá en cuotas", '{"intencion":"installmentPurchase"}'],
+  ["Mañana compro en cuotas lo de MI MAMÁ", '{"intencion":"installmentPurchase"}'],
+  ["Saqué en cuotas los remedios del mes", '{"intencion":"installmentPurchase"}'],
   ["Hoy quiero conversar con mi hija", '{"intencion":"other"}'],
   [PROPUESTA_VERLO_MANANA, "OK"],
   [RESPUESTA_CUIDADO, "OK"],
@@ -69,6 +71,18 @@ describe("answerCompraEnCuotas through the app", () => {
     expect(decisionsOf(t, "acompanar-compra")).toHaveLength(1);
     expect(decisionsOf(t, "proponer-verlo-manana")).toHaveLength(0);
   });
+
+  test.each(["Mañana compro en cuotas lo de MI MAMÁ", "Saqué en cuotas los remedios del mes"])(
+    "answers warmly without proposing when %p mentions only one of the two",
+    async (text) => {
+      const t = setup();
+
+      await t.app.receiveMensaje({ text, whatsappId: "in-1" });
+
+      expect(outboxTexts(t)).toEqual([RESPUESTA_CUIDADO]);
+      expect(decisionsOf(t, "proponer-verlo-manana")).toHaveLength(0);
+    },
+  );
 
   test("does not propose during the madrugada", async () => {
     const t = setup();

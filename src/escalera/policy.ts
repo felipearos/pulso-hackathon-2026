@@ -18,7 +18,7 @@ export type Intencion =
   | { kind: "listened" }
   /** 👍 or an equivalent answer to the cita. */
   | { kind: "accepted" }
-  /** She told Luna she bought something in cuotas. */
+  /** She told Luna she bought, or is going to buy, something in cuotas. */
   | { kind: "installmentPurchase" }
   | { kind: "minimum" }
   | { kind: "angustia"; value: Angustia }
