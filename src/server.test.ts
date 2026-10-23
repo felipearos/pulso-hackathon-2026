@@ -40,6 +40,9 @@ function app(
   let sends = 0;
   const handle = createHandler({
     demoPage: new Blob(["<h1>Luna · sala de control</h1>"]),
+    landingPage: new Blob(["<h1>Mira tus cuentas sin angustia.</h1>"]),
+    soonPage: new Blob(["<h1>Esto está por llegar.</h1>"]),
+    landingImages: { "taza-te.webp": new Blob(["webp"]) },
     nightAudio: new Blob(["ogg"]),
     sendNightAudio: async () => {
       sends++;
@@ -69,6 +72,38 @@ describe("handle", () => {
   test("answers 404 for unknown paths", async () => {
     expect((await app().get("/nope")).status).toBe(404);
     expect((await app().post("/demo/moments/friday")).status).toBe(404);
+  });
+
+  test("serves the landing at the root", async () => {
+    const page = await app().get("/");
+    expect(page.status).toBe(200);
+    expect(page.headers.get("Content-Type")).toContain("text/html");
+    expect(await page.text()).toContain("Mira tus cuentas sin angustia.");
+  });
+
+  test("serves the coming-soon page where starting and signing in will live", async () => {
+    const { get } = app();
+    for (const path of ["/empezar", "/entrar"]) {
+      const page = await get(path);
+      expect(page.status).toBe(200);
+      expect(page.headers.get("Content-Type")).toContain("text/html");
+      expect(await page.text()).toContain("Esto está por llegar.");
+    }
+  });
+
+  test("serves the landing's photos as webp and nothing else under /img", async () => {
+    const { get } = app();
+    const photo = await get("/img/taza-te.webp");
+    expect(photo.status).toBe(200);
+    expect(photo.headers.get("Content-Type")).toBe("image/webp");
+    expect(await photo.text()).toBe("webp");
+    expect((await get("/img/otra.webp")).status).toBe(404);
+    expect((await get("/img/CREDITOS.md")).status).toBe(404);
+    expect((await get("/img/../server.ts")).status).toBe(404);
+  });
+
+  test("answers 404 when posting to the root", async () => {
+    expect((await app().post("/", null)).status).toBe(404);
   });
 
   test("serves the control room page and the test audio", async () => {
