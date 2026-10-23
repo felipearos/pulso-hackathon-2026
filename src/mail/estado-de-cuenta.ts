@@ -46,12 +46,14 @@ function statementFrom(cifras: CifrasExtraidas, minimumRule: MinimumRule): State
 
 /**
  * The link an S2 mail's estado de cuenta is read from: the first of its links
- * on the domain of its remitente permitido or a subdomain of it. Null when
- * the mail has none, so a link to anyone else is never followed.
+ * on the domain of the tienda that sent it or a subdomain of it. Null when the
+ * mail is not the tienda's or has no such link, so nothing else is followed.
  */
 export function linkDelEstadoDeCuenta(mail: IncomingMail): URL | null {
-  const domain = allowedSender(mail.from)?.domain;
-  if (domain === undefined) return null;
+  // Only the tienda's own mail: a bank mail Claude took for an S2 must not open the etapa 4 gate.
+  const sender = allowedSender(mail.from);
+  if (sender?.kind !== "tienda") return null;
+  const domain = sender.domain;
   for (const link of mail.links) {
     const url = allowedLink(link, [domain]);
     if (url !== null) return url;

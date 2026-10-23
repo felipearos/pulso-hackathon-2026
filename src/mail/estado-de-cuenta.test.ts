@@ -5,7 +5,7 @@ import { openDatabase } from "../db";
 import { FakeClock, FakeMail, FakeVoice, FakeWeb, FakeWhatsApp } from "../fakes";
 import type { Llm } from "../ports";
 import { createTestApp } from "../testing";
-import { BANCO_ANDINO_MINIMUM_RULE, TIENDA_PLAZA_MINIMUM_RULE } from "./estado-de-cuenta";
+import { BANCO_ANDINO_MINIMUM_RULE, TIENDA_PLAZA_MINIMUM_RULE, linkDelEstadoDeCuenta } from "./estado-de-cuenta";
 
 const receivedAt = new Date("2026-10-19T08:00:00-03:00");
 const bank = "Banco Andino <avisos@bancoandino.example>";
@@ -304,5 +304,17 @@ describe("extractEstadoDeCuenta for an S2 mail", () => {
     expect(app.store.decisions().find((d) => d.tipo === "callar-cifra")!.motivo).toBe(
       "Callo esta cifra: no encontré el cupo en el estado de cuenta de la tienda del ciclo 1.",
     );
+  });
+});
+
+describe("linkDelEstadoDeCuenta", () => {
+  test("a bank mail never yields a link, even one on the bank's own domain", () => {
+    const mail = { id: "b1", from: bank, subject: "Estado de cuenta", text: "", receivedAt, links: ["https://bancoandino.example/estado"] };
+    expect(linkDelEstadoDeCuenta(mail)).toBeNull();
+  });
+
+  test("the tienda's mail yields its first link on the tienda's domain", () => {
+    const mail = { id: "t1", from: tienda, subject: "Estado de cuenta", text: "", receivedAt, links: ["https://bancoandino.example/x", statementUrl] };
+    expect(linkDelEstadoDeCuenta(mail)?.href).toBe(statementUrl);
   });
 });
