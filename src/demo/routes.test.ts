@@ -49,7 +49,8 @@ describe("/demo without the operator token", () => {
   test("every endpoint answers 404 without the token or with a wrong one", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
     for (const [method, path] of paths) {
-      for (const headers of [{}, { "x-demo-token": "otro" }, { "x-demo-token": `${TOKEN}x` }]) {
+      const attempts: Record<string, string>[] = [{}, { "x-demo-token": "otro" }, { "x-demo-token": `${TOKEN}x` }];
+      for (const headers of attempts) {
         const response = await app.handle(new Request(`http://localhost${path}`, { method, headers }));
         expect([method, path, response.status]).toEqual([method, path, 404]);
       }
