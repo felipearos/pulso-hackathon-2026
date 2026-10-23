@@ -70,6 +70,20 @@ describe("decisionDeCita", () => {
     expect(decision.buenaNoticia.regla).toBe("calida");
   });
 
+  test("a compra with one cuota left gives the buena noticia when there is mora", () => {
+    const compra = { descripcion: "la compra en Farmacia Ejemplo", cuotasRestantes: 1, mesTermino: "enero" };
+    const conMora: EstadoDeCuenta = { ...estadoOcho, cifras: { ...statementEight, overdue: 25_000 } };
+    for (const estadoDeCuenta of [conMora, null]) {
+      const decision = decisionDeCita({ cita: cita(1), estadoDeCuenta, comprasEnCuotas: [compra] });
+      expect(decision.buenaNoticia).toEqual({
+        regla: "cuota-termina",
+        texto: "a la compra en Farmacia Ejemplo le queda una sola cuota, termina en enero",
+      });
+      expect(decision.buenaNoticia.texto).not.toMatch(/\d/);
+    }
+    expect(decisionDeCita({ cita: cita(1), estadoDeCuenta: conMora }).buenaNoticia.regla).toBe("calida");
+  });
+
   test("every pregunta has no digits and ends with an emoji", () => {
     for (const tipo of ["lunes", "jueves", "domingo", "bienvenida", "bienvenida-de-vuelta", "graduada"] as const) {
       const { pregunta } = decisionDeCita({ cita: cita(1, tipo), estadoDeCuenta: estadoOcho });

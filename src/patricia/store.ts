@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import type { Clock } from "../ports";
 import { plataApartada, type PlataApartada } from "../plata/apartado";
+import { comprasEnCuotas, type CompraRegistrada } from "../plata/cuotas";
 import type {
   Cita,
   Decision,
@@ -41,6 +42,8 @@ export type Store = {
   senales(): Senal[];
   /** This week's plata apartada at the clock's current time. */
   plataApartada(): PlataApartada;
+  /** The compras en cuotas that still have cuotas to bill at the clock's current time. */
+  comprasEnCuotas(): CompraRegistrada[];
   /** The señal a mail already became; null if it never was seen. */
   senalForMail(mailId: string): Senal | null;
   addExtraccion(input: Omit<Extraccion, "id" | "extractedAt">): Extraccion;
@@ -429,6 +432,10 @@ export function createStore(db: Database, clock: Clock): Store {
 
     plataApartada() {
       return plataApartada(selectSenales.all().map(toSenal), clock.now());
+    },
+
+    comprasEnCuotas() {
+      return comprasEnCuotas(selectSenales.all().map(toSenal), clock.now());
     },
 
     senalForMail(mailId) {
