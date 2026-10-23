@@ -102,6 +102,9 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
   const inputBefore = enPausa ? null : buildInput(store, intencion);
   const mensaje = store.addMensajeEntrante({ text: input.text, intencion, whatsappId: input.whatsappId });
   const now = mensaje.receivedAt;
+  // A message with a WhatsApp id came through Meta, so the 24 h window is open:
+  // a reply (the crisis text above all) goes out as itself, not as the template.
+  if (input.whatsappId !== null) deps.whatsapp.recordInbound(now);
 
   if (intencion.kind === "crisis") {
     const reason = "congelada: crisis";
