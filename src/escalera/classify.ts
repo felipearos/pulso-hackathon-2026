@@ -10,7 +10,9 @@ export const CRISIS_PHRASES = [
   "matarme",
   "suicid",
   "mejor muerta",
-  "desaparecer",
+  "mejor muerto",
+  "no despertar",
+  "quiero desaparecer",
   "terminar con todo",
   "no vale la pena vivir",
   "para qué seguir",
@@ -44,11 +46,17 @@ function normalize(text: string): string {
     .trim();
 }
 
-const NORMALIZED_CRISIS_PHRASES = CRISIS_PHRASES.map(normalize);
+/**
+ * A phrase followed by "que" or "de" is money talk, not crisis: «no puedo más
+ * que el mínimo», «no doy más de 20 mil».
+ */
+const CRISIS_PATTERNS = CRISIS_PHRASES.map(
+  (phrase) => new RegExp(`${normalize(phrase).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?! (?:que|de)\\b)`),
+);
 
 function hasCrisisPhrase(message: string): boolean {
   const normalized = normalize(message);
-  return NORMALIZED_CRISIS_PHRASES.some((phrase) => normalized.includes(phrase));
+  return CRISIS_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
 function parseIntencion(reply: string): Intencion {

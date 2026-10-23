@@ -22,7 +22,7 @@ describe("classifyIntencion", () => {
     ],
     [
       "crisis",
-      "A veces pienso que sería mejor no despertar",
+      "Siento que todos estarían mejor sin mí",
       '{"intencion":"crisis"}',
       { kind: "crisis" },
     ],
@@ -43,7 +43,14 @@ describe("classifyIntencion", () => {
     expect(await classifyIntencion("ya escuché", llm)).toEqual({ kind: "listened" });
   });
 
-  test.each(["Ya no doy más", "NO QUIERO VIVIR", "No quiero seguir viviendo."]) (
+  test.each([
+    "Ya no doy más",
+    "NO QUIERO VIVIR",
+    "No quiero seguir viviendo.",
+    "No puedo más, de verdad",
+    "A veces quiero desaparecer",
+    "Sería mejor no despertar",
+  ]) (
     "returns crisis for keyword phrase %s without calling the LLM",
     async (message) => {
       const llm = new FakeLlm([]);
@@ -101,5 +108,16 @@ describe("classifyIntencion", () => {
     const llm = new FakeLlm([["mensaje", reply]]);
 
     expect(await classifyIntencion("mensaje", llm)).toEqual({ kind: "other" });
+  });
+
+  test.each([
+    ["Este mes no puedo más que el mínimo", '{"intencion":"minimum"}', { kind: "minimum" }],
+    ["No doy más de 20 mil al mes", '{"intencion":"other"}', { kind: "other" }],
+    ["Ojalá la deuda pudiera desaparecer", '{"intencion":"other"}', { kind: "other" }],
+  ] satisfies Array<[string, string, Intencion]>)("leaves money talk %s to the LLM", async (message, reply, expected) => {
+    const llm = new FakeLlm([[message, reply]]);
+
+    expect(await classifyIntencion(message, llm)).toEqual(expected);
+    expect(llm.calls).toHaveLength(1);
   });
 });

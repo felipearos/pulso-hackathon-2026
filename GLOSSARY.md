@@ -92,7 +92,7 @@ _Avoid:_ "appointment", "session".
 
 What a message from Patricia means, from a closed list (escuchó / 👌,
 acepta / 👍, mínimo, angustia, no quiero ver, pausa, hola, pregunta por
-qué, qué leíste, crisis, otra). The LLM only classifies into it; the code
+qué, qué leíste, compra en cuotas, crisis, otra). The LLM only classifies into it; the code
 policy turns intenciones into etapa moves (ADR 0001).
 _Avoid:_ "intent", "command".
 

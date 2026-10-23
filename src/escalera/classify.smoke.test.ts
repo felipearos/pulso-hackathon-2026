@@ -2,7 +2,8 @@ import { expect, test } from "bun:test";
 import { anthropicLlm } from "../anthropic";
 import { classifyIntencion } from "./classify";
 
-const apiKey = process.env.ANTHROPIC_API_KEY;
+// Calls the real Claude API, so the gate runs it only on request: LLM_SMOKE=1 with a key.
+const apiKey = process.env.LLM_SMOKE === "1" ? process.env.ANTHROPIC_API_KEY : undefined;
 
 test.skipIf(!apiKey)(
   "classifies clear messages with Claude Haiku",
