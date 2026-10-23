@@ -26,6 +26,12 @@ function normalize(text: string): string {
     .trim();
 }
 
+/** «otra voz» asked for, not refused: «no quiero otra voz» keeps the one she has. */
+function pideOtraVoz(text: string): boolean {
+  const normalized = normalize(text);
+  return normalized.includes("otra voz") && !/\b(no|ni|nunca|sin)\b(?: \S+){0,3} otra voz/.test(normalized);
+}
+
 function validNombre(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const nombre = value.trim();
@@ -72,7 +78,7 @@ export async function leerRespuestasBienvenida(
   options?: { timeoutMs?: number },
 ): Promise<RespuestasBienvenida> {
   const respuestas: RespuestasBienvenida = {};
-  if (normalize(text).includes("otra voz")) respuestas.voz = VOZ_OTRA;
+  if (pideOtraVoz(text)) respuestas.voz = VOZ_OTRA;
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {

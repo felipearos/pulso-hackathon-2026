@@ -58,7 +58,7 @@ export function createCitaSender({
   const failureRecorded = new Set<number>();
   const permitirFailureRecorded = new Set<number>();
 
-  // Read from the base, not memory, so a restart between the audio and the link still sends the link that day.
+  // Read from the base, not memory, so a restart between the audio and the link still sends the link.
   const permitirOwed = (cita: Cita): boolean =>
     cita.tipo === "bienvenida" &&
     cita.mensajeSalienteId !== null &&
@@ -98,8 +98,10 @@ export function createCitaSender({
     const now = clock.now();
     const parts = santiagoParts(now);
     if (parts.hour * 60 + parts.minute < MADRUGADA_END) return;
+    // Any bienvenida, not only today's: a link still failing at midnight goes out the next day.
+    const owed = store.citas().find(permitirOwed);
+    if (owed) await sendPermitir(owed);
     const cita = store.citaOn(santiagoDate(now));
-    if (cita && permitirOwed(cita)) return sendPermitir(cita);
     if (!cita || cita.estado !== "programada" || cita.mensajeSalienteId !== null) return;
     // A pausa that began after the cita was programada still silences it.
     if (store.getPatricia().enPausa) return;

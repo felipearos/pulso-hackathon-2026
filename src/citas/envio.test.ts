@@ -256,4 +256,20 @@ describe("bienvenida", () => {
     expect(restarted.whatsapp.outbox.map((m) => m.kind)).toEqual(["text"]);
     expect(restarted.voice.calls).toHaveLength(0);
   });
+
+  test("a link still owed when the day ends goes out the next day, without the audio again", async () => {
+    const t = setupBienvenida();
+    t.whatsapp.failNextTexts = 100;
+    await tickAt(t, "2026-10-19T22:30");
+    await tickAt(t, "2026-10-19T23:59");
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio"]);
+
+    t.whatsapp.failNextTexts = 0;
+    await tickAt(t, "2026-10-20T09:00");
+    expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio", "text"]);
+    expect(t.voice.calls).toHaveLength(1);
+
+    await tickAt(t, "2026-10-20T09:01");
+    expect(t.whatsapp.outbox).toHaveLength(2);
+  });
 });

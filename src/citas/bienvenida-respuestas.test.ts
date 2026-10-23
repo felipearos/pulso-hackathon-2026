@@ -29,6 +29,12 @@ describe("leerRespuestasBienvenida", () => {
     expect(await leerRespuestasBienvenida("Quiero OTRA VOZ, por favor", llm)).toEqual({ voz: "otra" });
   });
 
+  test("refusing «otra voz» keeps the voz she has", async () => {
+    const llm = new FakeLlm([]);
+    expect(await leerRespuestasBienvenida("Me gusta esta, no quiero otra voz", llm)).toEqual({});
+    expect(await leerRespuestasBienvenida("Así está bien, sin otra voz", llm)).toEqual({});
+  });
+
   test("an unreadable reply keeps nothing", async () => {
     const llm = new FakeLlm([[ANSWER, "no sé {nombre: Paty"]]);
     expect(await leerRespuestasBienvenida("Dime Paty", llm)).toEqual({});
