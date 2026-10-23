@@ -135,6 +135,12 @@ export type TipoDecision =
   | "programar-cita"
   /** Patricia chose between the propuesta and the mínimo, and Luna answered. */
   | "respuesta-propuesta"
+  /** Luna asked once whether her bank lets Patricia have a bolsillo. */
+  | "preguntar-bolsillo"
+  /** Patricia answered whether her bank lets her have a bolsillo. */
+  | "respuesta-bolsillo"
+  /** Patricia named her bolsillo, which is how Luna calls the plata apartada. */
+  | "nombrar-bolsillo"
   /** She went into pausa: she asked for it, or 14 days passed without a reply. */
   | "pausa"
   /** She came back from a pausa: the etapa she returns to and why. */
