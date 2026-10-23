@@ -1,4 +1,3 @@
-import type { MensajeSaliente } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { Llm } from "../ports";
 import { classifyIntencion } from "./classify";
@@ -8,35 +7,27 @@ export type RespuestaDeps = { store: Store; llm: Llm };
 
 export type MensajeInput = { text: string; whatsappId: string | null };
 
-function latestSaliente(mensajes: MensajeSaliente[]): MensajeSaliente | null {
-  let latest: MensajeSaliente | null = null;
-  for (const mensaje of mensajes) {
-    if (
-      latest === null ||
-      mensaje.sentAt.getTime() > latest.sentAt.getTime() ||
-      (mensaje.sentAt.getTime() === latest.sentAt.getTime() && mensaje.id > latest.id)
-    ) {
-      latest = mensaje;
-    }
-  }
-  return latest;
+function rank(etapa: Etapa): number {
+  return etapa === "graduada" ? 6 : etapa;
 }
 
 /**
  * The etapa of the cita she is answering: the one in effect when Luna's latest
- * message went out. Once she moves up, an old cita keeps its old etapa, so it
- * never moves her twice.
+ * message went out. Null when there is none, or when that cita already moved
+ * her up once: one cita never moves her up twice, even after she moved down.
  */
 function citaEtapaOf(store: Store): Etapa | null {
-  const cita = latestSaliente(store.mensajesSalientes());
-  if (cita === null) return null;
+  const cita = store.mensajesSalientes().at(-1);
+  if (cita === undefined) return null;
 
   const history = store.etapaHistory();
   const sentAt = cita.sentAt.getTime();
+  const after = history.filter((cambio) => cambio.at.getTime() > sentAt);
+  if (after.some((cambio) => rank(cambio.to) > rank(cambio.from))) return null;
+
   const before = history.filter((cambio) => cambio.at.getTime() <= sentAt).at(-1);
   if (before) return before.to;
-  const after = history.find((cambio) => cambio.at.getTime() > sentAt);
-  if (after) return after.from;
+  if (after[0]) return after[0].from;
   return store.getPatricia().etapa;
 }
 
@@ -75,13 +66,8 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
   store.addMensajeEntrante({ text: input.text, intencion, whatsappId: input.whatsappId });
 
   const move = decideEtapa(etapaInput);
-  const datos = {
-    from: move.from,
-    to: move.to,
-    kind: move.kind,
-    intencion,
-    citaEtapa: etapaInput.senales[0]!.citaEtapa,
-  };
+  // The whole input the política read, so the control room can show why.
+  const datos = { text: input.text, input: etapaInput, move };
   switch (move.kind) {
     case "up":
     case "graduate":

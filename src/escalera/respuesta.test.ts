@@ -28,7 +28,17 @@ describe("receiveMensaje", () => {
     const decision = app.store.decisions().at(-1);
     expect(decision?.tipo).toBe("subir-etapa");
     expect(decision?.motivo).toBe(reason);
-    expect(decision?.datos).toEqual({ from: 1, to: 2, kind: "up", intencion: { kind: "accepted" }, citaEtapa: 1 });
+    expect(decision?.datos).toEqual({
+      text: "👍",
+      input: {
+        etapa: 1,
+        senales: [{ intencion: { kind: "accepted" }, citaEtapa: 1 }],
+        lastAngustia: 2,
+        estadoDeCuentaTienda: false,
+        estadoDeCuentaBancoNuevo: false,
+      },
+      move,
+    });
   });
 
   test("a second 👍 to the same cita does not move her again", async () => {
@@ -44,6 +54,32 @@ describe("receiveMensaje", () => {
     expect(app.store.getPatricia().etapa).toBe(2);
     expect(app.store.etapaHistory()).toHaveLength(1);
     expect(app.store.decisions().at(-1)?.tipo).toBe("quedarse");
+  });
+
+  test("a cita that moved her up does not move her up again after she moved down", async () => {
+    const { app, clock } = createTestApp({
+      llm: [["no quiero ver", '{"intencion":"doesNotWantToSee"}']],
+    });
+    sendCita(app, "¿Me mandas un 👍 si escuchaste?");
+    clock.advance(MINUTE);
+    await app.receiveMensaje({ text: "👍", whatsappId: null });
+    clock.advance(MINUTE);
+    await app.receiveMensaje({ text: "no quiero ver eso", whatsappId: null });
+    clock.advance(MINUTE);
+
+    const move = await app.receiveMensaje({ text: "👍", whatsappId: null });
+
+    expect(app.store.getPatricia().etapa).toBe(1);
+    expect(move).toEqual({ kind: "stay", from: 1, to: 1, reason: "se queda: respondió sin una cita" });
+  });
+
+  test("a 👍 before Luna sent any cita keeps her in her etapa", async () => {
+    const { app } = createTestApp();
+
+    const move = await app.receiveMensaje({ text: "👍", whatsappId: null });
+
+    expect(move).toEqual({ kind: "stay", from: 1, to: 1, reason: "se queda: respondió sin una cita" });
+    expect(app.store.getPatricia().etapa).toBe(1);
   });
 
   test("angustia 5 in etapa 3 moves her down at once", async () => {
