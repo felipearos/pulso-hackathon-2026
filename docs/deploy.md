@@ -16,6 +16,7 @@ programador de noches y responde el webhook de Meta) y el pc lo hace gratis.
 | Código en vivo | `~/pulso-live`, un checkout que sigue a `origin/main` |
 | Estado de Patricia | `~/.local/share/pulso/pulso.db` (SQLite, fuera del checkout) |
 | Secretos | Doppler `pulso-hackathon-2026`, config `prd` |
+| Claude | el CLI `claude` logueado en el pc (`claude -p`), sin API key; si se desloguea, `claude` y `/login` en el pc |
 
 ## Cómo se despliega
 
