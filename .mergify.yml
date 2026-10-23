@@ -22,6 +22,22 @@ queue_rules:
     batch_max_failure_resolution_attempts: 3
     checks_timeout: 60 min
 
+# Mergify only queues by itself through Merge Protections' auto-merge on this
+# repository: the pull_request_rules below never run here (no Summary check,
+# and a ready-to-merge label queued nothing). The conditions are the same
+# policy: a settled PR (no open review thread, thirty minutes for Codex to
+# post) or one labelled ready-to-merge, never one on hold. The queue's own
+# conditions still demand green Buildkite before anything merges.
+merge_protections_settings:
+  auto_merge_conditions:
+    - label != hold
+    - "#changes-requested-reviews-by = 0"
+    - or:
+        - label = ready-to-merge
+        - and:
+            - "#review-threads-unresolved = 0"
+            - created-at < 30 minutes ago
+
 pull_request_rules:
   - name: queue a settled green PR
     conditions:
