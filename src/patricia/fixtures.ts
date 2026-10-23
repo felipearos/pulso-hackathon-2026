@@ -175,7 +175,17 @@ export const RESET_TABLES = [
  * Tables a reset keeps: rewritten in place (`patricia`, `reloj_demo`) or not
  * Patricia's history (`gmail_cuenta`: a reset must not cost her «Permitir»).
  */
-export const KEPT_TABLES = ["patricia", "reloj_demo", "gmail_cuenta", "schema_migrations", "sqlite_sequence"] as const;
+export const KEPT_TABLES = [
+  "patricia",
+  "reloj_demo",
+  "gmail_cuenta",
+  "schema_migrations",
+  "sqlite_sequence",
+  // Which Meta deliveries were already taken in is about Meta, not about
+  // Patricia: a reset that forgot them would let Meta's retry of a message
+  // from before the reset be processed again, into the fresh story.
+  "mensajes_procesados",
+] as const;
 
 
 /**

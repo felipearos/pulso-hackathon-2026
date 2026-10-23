@@ -2,9 +2,13 @@ import { createApp, type App } from "./app";
 import { openDatabase } from "./db";
 import type { Database } from "bun:sqlite";
 import { FakeClock, FakeLlm, FakeMail, FakeVoice, FakeWeb, FakeWhatsApp } from "./fakes";
+import type { WebhookConfig } from "./whatsapp/webhook";
 
 /** Monday 19 October 2026, 09:00 in Santiago: the default start of a test. */
 export const TEST_START = new Date("2026-10-19T09:00:00-03:00");
+
+/** The webhook secrets a test runs with; fictional, like every fixture. */
+export const TEST_WEBHOOK_CONFIG = { appSecret: "secreto-de-prueba", verifyToken: "token-de-prueba" };
 
 export type TestApp = {
   app: App;
@@ -21,7 +25,9 @@ export type TestApp = {
  * The app on an in-memory SQLite base with a fake for every port, in one line:
  * `const { app, clock, mail, whatsapp } = createTestApp();`
  * Pass `db` to build it over an existing base, as a restart would, and
- * `demoOperatorKey` to drive the control room.
+ * `demoOperatorKey` to drive the control room. The webhook runs with
+ * `TEST_WEBHOOK_CONFIG` unless `webhook` says otherwise, so a test can post a
+ * signed delivery without configuring anything.
  */
 export function createTestApp(
   options: {
@@ -31,6 +37,7 @@ export function createTestApp(
     web?: ConstructorParameters<typeof FakeWeb>[0];
     db?: Database;
     demoOperatorKey?: string;
+    webhook?: WebhookConfig;
   } = {},
 ): TestApp {
   const ports = {
@@ -42,5 +49,9 @@ export function createTestApp(
     web: new FakeWeb(options.web ?? {}),
     db: options.db ?? openDatabase(":memory:"),
   };
-  return { app: createApp(ports, { demoOperatorKey: options.demoOperatorKey }), ...ports };
+  const app = createApp(ports, {
+    demoOperatorKey: options.demoOperatorKey,
+    webhook: options.webhook ?? TEST_WEBHOOK_CONFIG,
+  });
+  return { app, ...ports };
 }

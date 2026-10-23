@@ -69,12 +69,14 @@ describe("migrate", () => {
 
   test("the one-señal-per-mail step keeps the first of duplicates a v1 base already holds", () => {
     const db = openDatabase(":memory:");
-    migrate(db, migrations.filter((m) => m.version < 3));
+    // Only up to the step under test: a later step is another ticket's business.
+    const upToSenales = migrations.filter((m) => m.version <= 3);
+    migrate(db, upToSenales.filter((m) => m.version < 3));
     const insert = "INSERT INTO senales (tipo, mail_id, mail_from, subject, received_at) VALUES (?, ?, 'a@b.example', 's', 't')";
     db.run(insert, ["S1", "dup"]);
     db.run(insert, ["S5", "dup"]);
     db.run(insert, ["S2", "solo"]);
-    expect(migrate(db, migrations.filter((m) => m.version <= 3))).toEqual([3]);
+    expect(migrate(db, upToSenales)).toEqual([3]);
     expect(db.query<{ tipo: string; mail_id: string }, []>("SELECT tipo, mail_id FROM senales ORDER BY id").all()).toEqual([
       { tipo: "S1", mail_id: "dup" },
       { tipo: "S2", mail_id: "solo" },
@@ -84,9 +86,11 @@ describe("migrate", () => {
 
   test("the monto step keeps the señales a v4 base already holds, with no monto", () => {
     const db = openDatabase(":memory:");
-    migrate(db, migrations.filter((m) => m.version < 5));
+    // Only up to the step under test: a later step is another ticket's business.
+    const upToMonto = migrations.filter((m) => m.version <= 5);
+    migrate(db, upToMonto.filter((m) => m.version < 5));
     db.run("INSERT INTO senales (tipo, mail_id, mail_from, subject, received_at) VALUES ('S3', 'm', 'a@b.example', 's', 't')");
-    expect(migrate(db, migrations.filter((m) => m.version <= 5))).toEqual([5]);
+    expect(migrate(db, upToMonto)).toEqual([5]);
     expect(db.query<{ tipo: string; monto: number | null }, []>("SELECT tipo, monto FROM senales").all()).toEqual([
       { tipo: "S3", monto: null },
     ]);

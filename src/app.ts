@@ -16,6 +16,8 @@ import { resetPatricia } from "./patricia/fixtures";
 import { createStore, type Store } from "./patricia/store";
 import type { IncomingMail, Ports, Web } from "./ports";
 import { createHandler } from "./server";
+import { receiveInbound } from "./whatsapp/inbound";
+import { createWebhook, type WebhookConfig } from "./whatsapp/webhook";
 
 export type App = {
   /** Answers one HTTP request; `Bun.serve` in `main` and tests call it alike. */
@@ -30,6 +32,11 @@ export type App = {
   receiveMail(mail: IncomingMail): Promise<Senal | null>;
   /** Reads an S1 or S2 mail's estado de cuenta after `receiveMail`; `tick` calls it for every new S1 or S2. */
   extractEstadoDeCuenta(mail: IncomingMail): Promise<Extraccion | null>;
+  /**
+   * Resolves once every message the webhook took in has been processed; tests
+   * await it, and SIGTERM does too.
+   */
+  drain(): Promise<void>;
   /** Patricia's persisted state and the decision log. */
   store: Store;
   /** The demo clock: every domain time read goes through it (ADR 0002). */
@@ -52,9 +59,15 @@ const noWeb: Web = {
   fetchDocument: (url) => Promise.reject(new Error(`web: no web port; refused ${url}`)),
 };
 
+/**
+ * What the app is configured with beside its ports. A secret is not something
+ * the app talks to, so it does not belong on `Ports`.
+ */
 export type AppOptions = {
   /** The control room's operator key (`DEMO_OPERATOR_KEY`); unset leaves `/demo` view-only. */
   demoOperatorKey?: string;
+  /** The webhook's Meta secrets; unset leaves every delivery refused. */
+  webhook?: WebhookConfig;
 };
 
 /**
@@ -96,6 +109,17 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   // the first failure of a run is logged and recorded, so a Gmail outage left
   // alone all night writes two lines, not one per minute.
   let failedPolls = 0;
+  // The entrante and its line in the registro land together too.
+  const inTransaction = <T,>(write: () => T): T => ports.db.transaction(write)();
+  const mensaje = async (input: MensajeInput) => {
+    try {
+      await recibirRespuestaBienvenida({ store, llm: ports.llm }, input.text);
+    } catch (error) {
+      // A failed bienvenida answer must not cost the escalera its step.
+      console.error(`bienvenida: answer failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp, db: ports.db }, input);
+  };
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.
     if (!store.getPatricia().gmailPermitido) return;
@@ -146,11 +170,20 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     whatsapp: ports.whatsapp,
   });
   const permitir = createPermitir({ mail: ports.mail, store, clock: ports.clock });
+  const webhook = createWebhook({
+    config: options.webhook ?? {},
+    claim: (whatsappId) => store.claimWhatsappId(whatsappId),
+    release: (whatsappId) => store.releaseWhatsappId(whatsappId),
+    onMensaje: (inbound) => receiveInbound({ store, mensaje, inTransaction }, inbound),
+    recordInbound: (at) => ports.whatsapp.recordInbound(at),
+    now: () => clock.now(),
+  });
   const routes = createHandler({
     demoPage,
     nightAudio,
     sendNightAudio: nightAudioSender(ports.whatsapp, nightAudio),
     operatorKey: options.demoOperatorKey,
+    webhook,
   });
   return {
     handle: (request) => permitir.handle(request) ?? routes(request),
@@ -164,17 +197,10 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     },
     receiveMail: receive,
     extractEstadoDeCuenta: extract,
+    drain: () => webhook.drain(),
     store,
     clock,
-    receiveMensaje: async (input) => {
-      try {
-        await recibirRespuestaBienvenida({ store, llm: ports.llm }, input.text);
-      } catch (error) {
-        // A failed bienvenida answer must not cost the escalera its step.
-        console.error(`bienvenida: answer failed: ${error instanceof Error ? error.message : String(error)}`);
-      }
-      return receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp, db: ports.db }, input);
-    },
+    receiveMensaje: mensaje,
     reset: () => resetPatricia(ports.db, clock),
   };
 }

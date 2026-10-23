@@ -149,6 +149,16 @@ vencimiento, S7 correo sospechoso, or «ignorado». In `src/escalera/policy.ts`
 the type `Senal` is a different thing: an intención answering a cita.
 _Avoid:_ "event", "notification".
 
+## Mensaje entrante
+
+Anything Patricia sends Luna over WhatsApp: a text, an emoji she types, an
+emoji she reacts to Luna's audio with, a nota de voz or a foto. Every one is
+kept (`mensajes_entrantes`), with its intención once Luna can read it — a nota
+de voz and a foto are kept unread until that lands. Reacting with an emoji
+counts the same as typing it. Meta may deliver one twice, so each is taken in
+once, by its own id.
+_Avoid:_ "inbound message", "reply".
+
 ## Remitente permitido
 
 One of the few senders Luna may read: her bank, her store and her catálogo,

@@ -168,7 +168,20 @@ export const migrations: Migration[] = [
     `,
   },
   {
+    // Meta retries a webhook delivery it believes failed, so the id of every
+    // message already taken in is kept: claiming it is what makes processing
+    // happen once, and it has to survive a restart to still mean that.
     version: 9,
+    name: "mensajes_procesados",
+    sql: `
+      CREATE TABLE mensajes_procesados (
+        whatsapp_id TEXT PRIMARY KEY,
+        claimed_at TEXT NOT NULL
+      );
+    `,
+  },
+  {
+    version: 10,
     name: "hora-de-la-cita",
     // The hora she answered in the bienvenida, `HH:MM`; null until she answers.
     sql: "ALTER TABLE patricia ADD COLUMN hora_cita TEXT;",
