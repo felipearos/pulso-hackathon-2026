@@ -158,6 +158,70 @@ describe("store", () => {
     expect(app.store.decisions()).toEqual(before);
   });
 
+  test("pendientes wait until a cita takes them", () => {
+    const { app, clock } = createTestApp();
+    clock.set(NIGHT);
+    const pendiente = app.store.addPendiente({
+      tipo: "preocupacion",
+      motivo: "le preocupa la cuota de la tienda",
+      datos: { texto: "la cuota de la tienda" },
+    });
+    expect(pendiente).toEqual({
+      id: pendiente.id,
+      tipo: "preocupacion",
+      motivo: "le preocupa la cuota de la tienda",
+      datos: { texto: "la cuota de la tienda" },
+      createdAt: NIGHT,
+      diferidoAt: null,
+      citaId: null,
+    });
+
+    const cita = app.store.addCita({
+      fecha: "2026-10-20",
+      tipo: "lunes",
+      estado: "programada",
+      etapa: 1,
+      motivo: "cita del lunes",
+      pendienteIds: [pendiente.id],
+    });
+    expect(cita).toEqual({
+      id: cita!.id,
+      fecha: "2026-10-20",
+      tipo: "lunes",
+      estado: "programada",
+      etapa: 1,
+      motivo: "cita del lunes",
+      pendientes: [{ ...pendiente, citaId: cita!.id }],
+      programadaAt: NIGHT,
+    });
+    expect(app.store.pendientes()).toEqual([]);
+    expect(app.store.citaDelDia("2026-10-20")).toEqual(cita);
+    expect(app.store.citaDelDia("2026-10-21")).toBeNull();
+  });
+
+  test("a day holds one cita: a second one is refused and takes no pendientes", () => {
+    const { app } = createTestApp();
+    const base = { fecha: "2026-10-20", estado: "programada" as const, etapa: 1 as const, motivo: "cita" };
+    expect(app.store.addCita({ ...base, tipo: "lunes", pendienteIds: [] })).not.toBeNull();
+    const pendiente = app.store.addPendiente({ tipo: "bienvenida", motivo: "su primera cita", datos: null });
+
+    expect(app.store.addCita({ ...base, tipo: "bienvenida", pendienteIds: [pendiente.id] })).toBeNull();
+    expect(app.store.citas()).toHaveLength(1);
+    expect(app.store.pendientes()).toEqual([pendiente]);
+  });
+
+  test("deferPendientes keeps the first madrugada time", () => {
+    const { app, clock } = createTestApp();
+    const pendiente = app.store.addPendiente({ tipo: "senal", motivo: "llegó el estado de cuenta", datos: null });
+    const first = new Date("2026-10-21T01:00:00-03:00");
+    clock.set(first);
+    app.store.deferPendientes([pendiente.id]);
+    clock.set(new Date("2026-10-21T02:00:00-03:00"));
+    app.store.deferPendientes([pendiente.id]);
+
+    expect(app.store.pendientes()[0]!.diferidoAt).toEqual(first);
+  });
+
   test("migrating the app's database again applies nothing", () => {
     const { db } = createTestApp();
     expect(migrate(db)).toEqual([]);

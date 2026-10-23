@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import type { Clock } from "../ports";
 import type {
+  Cita,
   Decision,
   EstadoDeCuenta,
   Etapa,
@@ -8,6 +9,7 @@ import type {
   MensajeEntrante,
   MensajeSaliente,
   Patricia,
+  Pendiente,
   Senal,
   TipoDecision,
 } from "./entities";
@@ -38,6 +40,23 @@ export type Store = {
   recordDecision(input: { tipo: TipoDecision; motivo: string; datos: unknown }): Decision;
   /** Oldest first. */
   decisions(): Decision[];
+  /** Queues something for the next cita. */
+  addPendiente(input: { tipo: Pendiente["tipo"]; motivo: string; datos: unknown }): Pendiente;
+  /** What still waits for a cita, oldest first. */
+  pendientes(): Pendiente[];
+  /** Stamps the madrugada on the given pendientes; ones already deferred keep their first time. */
+  deferPendientes(ids: readonly number[]): void;
+  /**
+   * Sets the cita of `fecha` and hands it the given pendientes, atomically.
+   * Returns null, and changes nothing, when that day already has a cita.
+   */
+  addCita(
+    input: Omit<Cita, "id" | "pendientes" | "programadaAt"> & { pendienteIds: readonly number[] },
+  ): Cita | null;
+  /** The cita of a Santiago day, or null. */
+  citaDelDia(fecha: string): Cita | null;
+  /** Oldest first. */
+  citas(): Cita[];
 };
 
 type PatriciaRow = {
@@ -86,6 +105,26 @@ type MensajeEntranteRow = {
   intencion: string | null;
   whatsapp_id: string | null;
   received_at: string;
+};
+
+type PendienteRow = {
+  id: number;
+  tipo: Pendiente["tipo"];
+  motivo: string;
+  datos: string;
+  created_at: string;
+  diferido_at: string | null;
+  cita_id: number | null;
+};
+
+type CitaRow = {
+  id: number;
+  fecha: string;
+  tipo: Cita["tipo"];
+  estado: Cita["estado"];
+  etapa: string;
+  motivo: string;
+  programada_at: string;
 };
 
 type DecisionRow = { id: number; at: string; tipo: TipoDecision; motivo: string; datos: string };
@@ -163,6 +202,18 @@ function toDecision(row: DecisionRow): Decision {
   };
 }
 
+function toPendiente(row: PendienteRow): Pendiente {
+  return {
+    id: row.id,
+    tipo: row.tipo,
+    motivo: row.motivo,
+    datos: JSON.parse(row.datos),
+    createdAt: new Date(row.created_at),
+    diferidoAt: row.diferido_at === null ? null : new Date(row.diferido_at),
+    citaId: row.cita_id,
+  };
+}
+
 /** Builds the store over a migrated database. */
 export function createStore(db: Database, clock: Clock): Store {
   const now = () => clock.now().toISOString();
@@ -208,6 +259,37 @@ export function createStore(db: Database, clock: Clock): Store {
     "INSERT INTO decisions (at, tipo, motivo, datos) VALUES ($at, $tipo, $motivo, $datos) RETURNING *",
   );
   const selectDecisions = db.query<DecisionRow, []>("SELECT * FROM decisions ORDER BY id");
+  const insertPendiente = db.query<PendienteRow, Record<string, string>>(
+    "INSERT INTO pendientes (tipo, motivo, datos, created_at) VALUES ($tipo, $motivo, $datos, $createdAt) RETURNING *",
+  );
+  const selectPendientesEnEspera = db.query<PendienteRow, []>(
+    "SELECT * FROM pendientes WHERE cita_id IS NULL ORDER BY id",
+  );
+  const selectPendientesDeCita = db.query<PendienteRow, Record<string, number>>(
+    "SELECT * FROM pendientes WHERE cita_id = $citaId ORDER BY id",
+  );
+  const deferPendiente = db.query(
+    "UPDATE pendientes SET diferido_at = $at WHERE id = $id AND diferido_at IS NULL AND cita_id IS NULL",
+  );
+  const assignPendiente = db.query("UPDATE pendientes SET cita_id = $citaId WHERE id = $id AND cita_id IS NULL");
+  const insertCita = db.query<CitaRow, Record<string, string>>(
+    `INSERT INTO citas (fecha, tipo, estado, etapa, motivo, programada_at)
+     VALUES ($fecha, $tipo, $estado, $etapa, $motivo, $programadaAt)
+     ON CONFLICT (fecha) DO NOTHING RETURNING *`,
+  );
+  const selectCitaDelDia = db.query<CitaRow, Record<string, string>>("SELECT * FROM citas WHERE fecha = $fecha");
+  const selectCitas = db.query<CitaRow, []>("SELECT * FROM citas ORDER BY id");
+
+  const toCita = (row: CitaRow): Cita => ({
+    id: row.id,
+    fecha: row.fecha,
+    tipo: row.tipo,
+    estado: row.estado,
+    etapa: etapaFromText(row.etapa),
+    motivo: row.motivo,
+    pendientes: selectPendientesDeCita.all({ citaId: row.id }).map(toPendiente),
+    programadaAt: new Date(row.programada_at),
+  });
 
   const getPatricia = (): Patricia => {
     const row = selectPatricia.get();
@@ -320,6 +402,47 @@ export function createStore(db: Database, clock: Clock): Store {
 
     decisions() {
       return selectDecisions.all().map(toDecision);
+    },
+
+    addPendiente({ tipo, motivo, datos }) {
+      const row = insertPendiente.get({ tipo, motivo, datos: JSON.stringify(datos ?? null), createdAt: now() });
+      return toPendiente(row!);
+    },
+
+    pendientes() {
+      return selectPendientesEnEspera.all().map(toPendiente);
+    },
+
+    deferPendientes(ids) {
+      const at = now();
+      db.transaction(() => {
+        for (const id of ids) deferPendiente.run({ at, id });
+      })();
+    },
+
+    addCita({ pendienteIds, ...input }) {
+      return db.transaction(() => {
+        const row = insertCita.get({
+          fecha: input.fecha,
+          tipo: input.tipo,
+          estado: input.estado,
+          etapa: etapaToText(input.etapa),
+          motivo: input.motivo,
+          programadaAt: now(),
+        });
+        if (!row) return null;
+        for (const id of pendienteIds) assignPendiente.run({ citaId: row.id, id });
+        return toCita(row);
+      })();
+    },
+
+    citaDelDia(fecha) {
+      const row = selectCitaDelDia.get({ fecha });
+      return row ? toCita(row) : null;
+    },
+
+    citas() {
+      return selectCitas.all().map(toCita);
     },
   };
 }
