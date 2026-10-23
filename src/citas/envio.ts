@@ -77,6 +77,15 @@ export function createCitaSender({
     return decisionDeCita({ cita, estadoDeCuenta, pagoRecibido, comprasEnCuotas });
   };
 
+  // The cifra Patricia heard, from the audio's decision: a newer estado de cuenta must not change the image.
+  const cifraDelAudio = (cita: Cita): CifraPermitida | null => {
+    for (const { datos } of store.decisions().toReversed()) {
+      const sent = datos as { citaId?: number; decision?: DecisionDeCita } | null;
+      if (sent?.citaId === cita.id && sent.decision) return sent.decision.cifra;
+    }
+    return null;
+  };
+
   // Read from the base, not memory, so a restart between the audio and the image still sends the image.
   const imagenOwed = (cita: Cita): boolean =>
     cita.etapa === 3 &&
@@ -174,7 +183,7 @@ export function createCitaSender({
     const cita = store.citaOn(santiagoDate(now));
     // Only today's: an image still failing at midnight is not caught up.
     if (cita && imagenOwed(cita) && !store.getPatricia().enPausa) {
-      await sendImagen(cita, decisionFor(cita, now).cifra);
+      await sendImagen(cita, cifraDelAudio(cita));
       return;
     }
     if (!cita || cita.estado !== "programada" || cita.mensajeSalienteId !== null) return;

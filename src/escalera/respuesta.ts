@@ -61,7 +61,9 @@ function answersDomingo(store: Store): boolean {
   if (mensaje === undefined) return false;
   const answeredAt = lastAnswerAt(store);
   if (answeredAt !== null && answeredAt.getTime() >= mensaje.sentAt.getTime()) return false;
-  return store.citas().find((cita) => cita.mensajeSalienteId === mensaje.id)?.tipo === "domingo";
+  // The estado de cuenta image follows its cita's audio: the pregunta is still the audio's.
+  const audio = store.mensajesSalientes().findLast((m) => m.kind !== "image");
+  return store.citas().find((cita) => cita.mensajeSalienteId === audio?.id)?.tipo === "domingo";
 }
 
 function buildInput(store: Store, intencion: Intencion): EtapaInput {

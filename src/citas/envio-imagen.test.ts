@@ -101,6 +101,32 @@ describe("imagen difuminada of the etapa 3 cita", () => {
     expect(t.whatsapp.outbox).toHaveLength(2);
   });
 
+  test("a retried image keeps the cifra of the audio she heard, not a newer estado de cuenta's", async () => {
+    const t = setup();
+    t.whatsapp.failNextImages = 1;
+    await tickAt(t, "2026-10-19T22:30");
+    t.app.store.addEstadoDeCuenta({
+      origen: "banco",
+      ciclo: 9,
+      fechaCierre: "2026-11-15",
+      fechaVencimiento: "2026-12-05",
+      cifras: {
+        totalBilled: 700_000,
+        monthlyRate: 0.031,
+        minimumRule: { percent: 0.0645, floor: 10_500, roundTo: 100 },
+        overdue: 0,
+      },
+      pagoMinimo: 45_200,
+    });
+    await tickAt(t, "2026-10-19T22:31");
+
+    expect(kinds(t)).toEqual(["audio", "image"]);
+    expect(decisionsStarting(t, "callo la imagen")).toHaveLength(0);
+    expect(decisionsStarting(t, "salió la imagen")[0]?.datos).toMatchObject({
+      cifra: { kind: "pago-minimo", monto: 41_900 },
+    });
+  });
+
   test("a restart still sends the image owed that night", async () => {
     const t = setup();
     t.whatsapp.failNextImages = 1;
