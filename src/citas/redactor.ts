@@ -187,7 +187,7 @@ function cifraInstruccion(cifra: CifraPermitida | null): string {
 }
 
 /** La fecha en que queda libre: said warmly, as what paying like this week gives her. */
-function fechaLibreInstruccion(cifra: CifraPermitida): string {
+function fechaLibreInstruccion(cifra: Extract<CifraPermitida, { kind: "fecha-libre" }>): string {
   const escrita = cifraEscrita(cifra);
   return `cuéntale con calma que, pagando como pagó esta semana, queda libre de la tarjeta ${escrita} que pagando solo el mínimo. Escribe la fecha exactamente así: «${escrita}». No escribas ningún otro número con dígitos.`;
 }
