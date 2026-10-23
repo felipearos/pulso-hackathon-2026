@@ -353,11 +353,14 @@ describe("/sala reset while a tick is running", () => {
       momentoRequest,
     ]);
     expect(reset.status).toBe(200);
-    expect(tickResponse.status).not.toBe(500);
-    expect(momentoResponse.status).not.toBe(500);
-    // The held bienvenida went out before the reset answered; whatever followed is the new story's.
+    expect(tickResponse.status).toBe(200);
+    expect(momentoResponse.status).toBe(200);
+    // The held bienvenida went out before the reset answered. The momento's
+    // jump ran after the reset, so what followed is the new story's own bienvenida.
     const after = t.whatsapp.outbox.slice(outboxAtReset);
+    expect(after.map((m) => m.kind)).toContain("audio");
     expect(after.map((m) => m.kind)).toEqual(t.app.store.mensajesSalientes().map((m) => m.kind));
+    expect(t.app.store.citaOn("2026-10-19")).toMatchObject({ mensajeSalienteId: expect.any(Number) });
   });
 
   test("after a reset that waited on a tick the app still sends its citas", async () => {
@@ -368,6 +371,17 @@ describe("/sala reset while a tick is running", () => {
     expect((await post(t.app, LUN)).status).toBe(200);
     expect(t.whatsapp.outbox.slice(sentBefore).map((m) => m.kind)).toContain("audio");
     expect(t.app.store.citaOn("2026-10-19")).toMatchObject({ mensajeSalienteId: expect.any(Number) });
+  });
+
+  test("two resets in a row with no tick running are each done before they return", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    await post(app, LUN);
+    const fresh = await freshSnapshot();
+    void app.reset();
+    app.clock.set(new Date("2026-10-23T01:30:00Z"));
+    void app.reset();
+    expect(snapshot(app)).toEqual(fresh);
+    expect(app.clock.now()).toEqual(PATRICIA_START);
   });
 
   test("a reset with no tick running is done before it returns", async () => {

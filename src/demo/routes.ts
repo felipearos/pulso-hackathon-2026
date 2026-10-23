@@ -15,6 +15,8 @@ export type DemoDeps = {
   clock: DemoClock;
   store: Store;
   tick(): Promise<void>;
+  /** Moves the clock to `at` and ticks there, in the same turn as the tick, so a reset cannot land between the two. */
+  tickAt(at: Date): Promise<void>;
   reset(): Promise<void>;
   guion: readonly MomentoDelGuion[];
   /** The control room page, served as is. */
@@ -264,10 +266,7 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
       const momento = findMomento(deps.guion, id);
       if (!momento) return Response.json({ error: `no momento ${id}` }, { status: 400 });
       // Jump, then tick at once, so the button shows what that moment brings.
-      return run(async () => {
-        deps.clock.set(momento.at);
-        await deps.tick();
-      });
+      return run(() => deps.tickAt(momento.at));
     }
     return NOT_FOUND();
   };
