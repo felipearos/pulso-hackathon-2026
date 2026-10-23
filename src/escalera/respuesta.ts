@@ -1,9 +1,10 @@
 import type { Store } from "../patricia/store";
-import type { Llm } from "../ports";
+import type { Llm, WhatsApp } from "../ports";
 import { classifyIntencion } from "./classify";
+import { answerPregunta } from "./preguntas";
 import { decideEtapa, type Angustia, type Etapa, type EtapaInput, type EtapaMove, type Intencion } from "./policy";
 
-export type RespuestaDeps = { store: Store; llm: Llm };
+export type RespuestaDeps = { store: Store; llm: Llm; whatsapp: WhatsApp };
 
 export type MensajeInput = { text: string; whatsappId: string | null };
 
@@ -56,7 +57,7 @@ function buildInput(store: Store, intencion: Intencion): EtapaInput {
 /**
  * Takes one message from Patricia (text or voice-note transcript), classifies
  * it, lets the política de etapa decide and stores the move with its decision.
- * Luna sends no reply here.
+ * Luna replies only to «¿por qué?» and «¿qué leíste?», after the move is stored.
  */
 export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): Promise<EtapaMove> {
   const { store, llm } = deps;
@@ -82,6 +83,9 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
     case "freeze":
       store.recordDecision({ tipo: "quedarse", motivo: move.reason, datos });
       break;
+  }
+  if (intencion.kind === "askWhy" || intencion.kind === "askWhatRead") {
+    await answerPregunta(deps, intencion.kind);
   }
   return move;
 }
