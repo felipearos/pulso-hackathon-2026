@@ -53,7 +53,7 @@ describe("realPorts", () => {
       );
     });
 
-    if (port === "voice") continue;
+    if (port === "voice" || port === "llm") continue;
 
     test(`${port} with every variable set rejects as not wired yet`, async () => {
       const env = { ...memory, ...Object.fromEntries(names.map((name) => [name, "set"])) };
