@@ -86,10 +86,16 @@ export class FakeWhatsApp implements WhatsApp {
   /** By media id; a test fills it with what Patricia sent. */
   readonly media = new Map<string, IncomingMedia>();
   readonly downloads: string[] = [];
+  /** The next this-many image sends throw instead of reaching the outbox. */
+  failNextImages = 0;
 
   async send(message: OutgoingWhatsApp): Promise<{ id: string }> {
     if (message.kind === "text" && this.failNextTexts > 0) {
       this.failNextTexts--;
+      throw new Error("FakeWhatsApp failed on purpose");
+    }
+    if (message.kind === "image" && this.failNextImages > 0) {
+      this.failNextImages--;
       throw new Error("FakeWhatsApp failed on purpose");
     }
     this.outbox.push(message);
