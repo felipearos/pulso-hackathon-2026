@@ -18,8 +18,9 @@ vocabulary in `GLOSSARY.md`.
   `feat: el audio de la noche parte con una buena noticia`. The body says why.
   The PR title becomes the squash subject and follows the same rule.
 
-`.ralph/HACKATHON_LOCK` keeps the Ralph supervisor from starting until the
-operator removes it in a reviewed commit.
+`.ralph/HACKATHON_LOCK` is listed in `refuseFiles`: while it exists the Ralph
+supervisor refuses to start. It was removed when the factory was activated;
+the operator restores it in a reviewed commit to stop every start again.
 
 ## Workflow
 

@@ -29,7 +29,10 @@ numbers, emails, bank data or names.
 ## Stack and commands
 
 Bun 1.4 + TypeScript (strict, ESM), no web framework: `Bun.serve` serves
-HTTP. Tests sit next to the code as `*.test.ts` (`bun:test`).
+HTTP. Tests sit next to the code as `*.test.ts` (`bun:test`). A
+`*.smoke.test.ts` calls the real service and runs only with its key and
+`<SERVICE>_SMOKE=1` set, e.g.
+`ELEVENLABS_SMOKE=1 doppler run -- bun test src/voice/elevenlabs.smoke.test.ts`.
 
 ```bash
 bun install
@@ -137,6 +140,24 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | --- | --- | --- |
 | `DATABASE_PATH` | none (unit) | SQLite file; defaults to `data/pulso.db` locally |
 | `HOST` | none (unit) | listen address; unset means all interfaces |
-| `WHATSAPP_TOKEN` | `dev`, `prd` | Meta system-user token for the WhatsApp Cloud API |
-| `WHATSAPP_PHONE_NUMBER_ID` | `dev`, `prd` | the test number's phone number id (not the number itself) |
-| `DEMO_PATRICIA_PHONE` | `dev`, `prd` | the verified phone that plays Patricia, digits only (`569…`); never in a fixture |
+| `GMAIL_CLIENT_ID` | dev, prd | mail port: Gmail OAuth client |
+| `GMAIL_CLIENT_SECRET` | dev, prd | mail port: Gmail OAuth client |
+| `WHATSAPP_ACCESS_TOKEN` | dev, prd | whatsapp port: Meta WhatsApp Cloud token |
+| `WHATSAPP_PHONE_NUMBER_ID` | dev, prd | whatsapp port: sending number in Meta |
+| `ANTHROPIC_API_KEY` | dev, prd | llm port: Claude API |
+| `ELEVENLABS_API_KEY` | dev, prd | voice port: ElevenLabs API |
+| `ELEVENLABS_VOICE_ID` | dev, prd | voice port: the voice Patricia hears |
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `felipearos/pulso-hackathon-2026`, through `gh`, written in Spanish. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The default five: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` is the glossary (in place of `CONTEXT.md`), decisions in `docs/adr/`. See `docs/agents/domain.md`.

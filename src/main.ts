@@ -1,15 +1,9 @@
-import { nightAudioSender } from "./demo/night-audio";
-import { createHandler } from "./server";
+import { createApp } from "./app";
+import { realPorts } from "./real-ports";
 
-const nightAudio = Bun.file(new URL("../assets/night-audio-test.ogg", import.meta.url));
-const handle = createHandler({
-  demoPage: Bun.file(new URL("./demo/page.html", import.meta.url)),
-  nightAudio,
-  sendNightAudio: nightAudioSender(process.env, nightAudio),
-});
-
+const app = createApp(realPorts());
 const port = Number(process.env.PORT ?? 3000);
-const server = Bun.serve({ hostname: process.env.HOST, port, fetch: handle });
+const server = Bun.serve({ hostname: process.env.HOST, port, fetch: app.handle });
 console.log(`listening on ${server.url}`);
 
 // systemd stops the app with SIGTERM on every deploy. Finishing in-flight

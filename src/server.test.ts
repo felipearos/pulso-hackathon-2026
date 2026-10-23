@@ -58,13 +58,13 @@ describe("handle", () => {
   });
 
   test("sends the voice note only on Monday night and reports the outcome", async () => {
-    const { post, sends } = app({ sent: false, reason: "falta WHATSAPP_TOKEN en Doppler" });
+    const { post, sends } = app({ sent: false, reason: "whatsapp port needs WHATSAPP_ACCESS_TOKEN" });
     await post("/demo/moments/monday-email");
     expect(sends).toHaveLength(0);
 
     const body = await json<Moved>(post("/demo/moments/monday-night"));
     expect(sends).toHaveLength(1);
-    expect(body.whatsapp).toEqual({ sent: false, reason: "falta WHATSAPP_TOKEN en Doppler" });
+    expect(body.whatsapp).toEqual({ sent: false, reason: "whatsapp port needs WHATSAPP_ACCESS_TOKEN" });
   });
 
   test("resets to the start", async () => {

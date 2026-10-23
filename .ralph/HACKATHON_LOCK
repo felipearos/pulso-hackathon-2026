@@ -1,8 +1,0 @@
-FACTORY NOT ACTIVATED — DO NOT START
-
-This tracked file is listed in config.json's refuseFiles. Ralph refuses to
-start while it exists.
-
-Remove it in a reviewed configuration commit once CI, the merge queue, the
-Doppler project and every agent checkout are verified. Removing it does not
-start an agent.
