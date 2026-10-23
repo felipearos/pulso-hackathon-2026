@@ -8,16 +8,26 @@ const IMAGE = new Uint8Array([4, 5, 6]);
 const NOTA = new Uint8Array([7, 8, 9]);
 
 describe("simulador", () => {
-  test("keeps every message in order with counting ids", async () => {
+  test("keeps every message in order, each with a fresh id", async () => {
     const simulador = createSimulador();
-    expect(await simulador.send({ kind: "text", text: "Hola, Patricia" })).toEqual({ id: "sim-out-1" });
-    expect(await simulador.send({ kind: "audio", audio: AUDIO, mimeType: "audio/mpeg", durationSeconds: 42 })).toEqual({ id: "sim-out-2" });
-    expect(await simulador.send({ kind: "image", image: IMAGE, mimeType: "image/png", caption: "Tu semana" })).toEqual({ id: "sim-out-3" });
+    const text = await simulador.send({ kind: "text", text: "Hola, Patricia" });
+    const audio = await simulador.send({ kind: "audio", audio: AUDIO, mimeType: "audio/mpeg", durationSeconds: 42 });
+    const image = await simulador.send({ kind: "image", image: IMAGE, mimeType: "image/png", caption: "Tu semana" });
+    for (const { id } of [text, audio, image]) expect(id).toStartWith("sim-out-");
+    expect(new Set([text.id, audio.id, image.id]).size).toBe(3);
     expect(simulador.sent()).toEqual([
-      { id: "sim-out-1", message: { kind: "text", text: "Hola, Patricia" } },
-      { id: "sim-out-2", message: { kind: "audio", audio: AUDIO, mimeType: "audio/mpeg", durationSeconds: 42 } },
-      { id: "sim-out-3", message: { kind: "image", image: IMAGE, mimeType: "image/png", caption: "Tu semana" } },
+      { id: text.id, message: { kind: "text", text: "Hola, Patricia" } },
+      { id: audio.id, message: { kind: "audio", audio: AUDIO, mimeType: "audio/mpeg", durationSeconds: 42 } },
+      { id: image.id, message: { kind: "image", image: IMAGE, mimeType: "image/png", caption: "Tu semana" } },
     ]);
+  });
+
+  test("a new simulador, as after a restart, never reuses an id", async () => {
+    const before = await createSimulador().send({ kind: "audio", audio: AUDIO, mimeType: "audio/mpeg", durationSeconds: 1 });
+    const after = createSimulador();
+    const next = await after.send({ kind: "text", text: "Hola, Patricia" });
+    expect(next.id).not.toBe(before.id);
+    expect(after.media(before.id)).toBeNull();
   });
 
   test("a caller cannot rewrite the conversation through sent()", async () => {
@@ -30,12 +40,12 @@ describe("simulador", () => {
 
   test("serves the bytes of sent audio and image, not text", async () => {
     const simulador = createSimulador();
-    await simulador.send({ kind: "text", text: "Hola, Patricia" });
-    await simulador.send({ kind: "audio", audio: AUDIO, mimeType: "audio/mpeg", durationSeconds: 42 });
-    await simulador.send({ kind: "image", image: IMAGE, mimeType: "image/png" });
-    expect(simulador.media("sim-out-1")).toBeNull();
-    expect(simulador.media("sim-out-2")).toEqual({ bytes: AUDIO, mimeType: "audio/mpeg" });
-    expect(simulador.media("sim-out-3")).toEqual({ bytes: IMAGE, mimeType: "image/png" });
+    const text = await simulador.send({ kind: "text", text: "Hola, Patricia" });
+    const audio = await simulador.send({ kind: "audio", audio: AUDIO, mimeType: "audio/mpeg", durationSeconds: 42 });
+    const image = await simulador.send({ kind: "image", image: IMAGE, mimeType: "image/png" });
+    expect(simulador.media(text.id)).toBeNull();
+    expect(simulador.media(audio.id)).toEqual({ bytes: AUDIO, mimeType: "audio/mpeg" });
+    expect(simulador.media(image.id)).toEqual({ bytes: IMAGE, mimeType: "image/png" });
     expect(simulador.media("sim-out-9")).toBeNull();
   });
 
@@ -43,8 +53,9 @@ describe("simulador", () => {
     const simulador = createSimulador();
     const first = simulador.addMedia({ bytes: NOTA, mimeType: "audio/webm" });
     const second = simulador.addMedia({ bytes: IMAGE, mimeType: "image/jpeg" });
-    expect(first).toBe("sim-media-1");
-    expect(second).toBe("sim-media-2");
+    expect(first).toStartWith("sim-media-");
+    expect(second).toStartWith("sim-media-");
+    expect(second).not.toBe(first);
     expect(await simulador.downloadMedia(first)).toEqual({ bytes: NOTA, mimeType: "audio/webm" });
     expect(simulador.media(second)).toEqual({ bytes: IMAGE, mimeType: "image/jpeg" });
     await expect(simulador.downloadMedia("sim-media-9")).rejects.toThrow();
@@ -63,7 +74,7 @@ describe("canal", () => {
     const simulador = createSimulador();
     const canal = createCanal(real, simulador, true);
     expect(canal.isSimulador()).toBe(true);
-    expect(await canal.send({ kind: "text", text: "uno" })).toEqual({ id: "sim-out-1" });
+    expect((await canal.send({ kind: "text", text: "uno" })).id).toStartWith("sim-out-");
 
     canal.setSimulador(false);
     expect(canal.isSimulador()).toBe(false);

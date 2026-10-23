@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { IncomingMedia, OutgoingWhatsApp, WhatsApp } from "../ports";
 
 /**
@@ -31,10 +32,11 @@ const SIMULADOR_ID_PREFIX = "sim-";
 export function createSimulador(): Simulador {
   const outgoing: SimuladorSent[] = [];
   const incoming = new Map<string, IncomingMedia>();
-  let mediaCount = 0;
 
   async function send(message: OutgoingWhatsApp): Promise<{ id: string }> {
-    const id = `sim-out-${outgoing.length + 1}`;
+    // A uuid, not a count: the store keeps old ids across a restart, and a reused
+    // one would make an old audio on the page play a new message's bytes.
+    const id = `sim-out-${randomUUID()}`;
     // Frozen so a caller holding `sent()` cannot rewrite the conversation the page shows.
     outgoing.push(Object.freeze({ id, message: Object.freeze({ ...message }) }));
     return { id };
@@ -51,8 +53,7 @@ export function createSimulador(): Simulador {
   }
 
   function addMedia(media: IncomingMedia): string {
-    mediaCount += 1;
-    const id = `sim-media-${mediaCount}`;
+    const id = `sim-media-${randomUUID()}`;
     incoming.set(id, { bytes: media.bytes, mimeType: media.mimeType });
     return id;
   }

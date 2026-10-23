@@ -315,11 +315,30 @@ _Avoid:_ "fallback", "default message".
 /sala: the team's screen for the pitch, served by the same app and opened
 only with the operator token (`DEMO_TOKEN`; without it /sala answers 404).
 It moves the demo clock to the momentos del guion, runs a tick and resets
-Patricia to the starting point. It has no logic of its own: every button
+Patricia to the starting point. It also shows the conversation with
+Patricia (audios, texts, fotos and her answers) and switches the canal to the
+simulador. It has no logic of its own: every button
 calls the same flows Patricia's night runs on. The scripted week at /demo
 is a separate screen. Written "the control room"
 in English prose.
 _Avoid:_ "dashboard", "admin panel".
+
+## Canal
+
+The WhatsApp port the app actually sends through: Meta's number, or the
+simulador when it is active. Every flow writes to the canal, never to one of
+the two directly, so switching it from /sala moves the whole conversation.
+_Avoid:_ "transport", "provider".
+
+## Simulador
+
+The stand-in for Meta's WhatsApp that /sala offers when the real number
+fails: what Luna sends stays on the page, and the operator answers as
+Patricia from there (text, 👍, 👌 or a foto). Her answer enters through the
+webhook's own path, so it takes the same flow as one Meta delivered, without
+opening Meta's 24 h window. Chosen with `WHATSAPP_SIMULADOR=1` at boot or
+switched from /sala.
+_Avoid:_ "mock", "fake channel".
 
 ## Momento del guion
 

@@ -293,7 +293,7 @@
     call("POST", "/sala/simulador", simuladorActivo ? "Apagando el simulador" : "Activando el simulador",
       { activo: !simuladorActivo }));
 
-  async function reply(label, payload) {
+  async function sendMensaje(label, payload) {
     const sent = await call("POST", "/sala/simulador/mensaje", label, payload);
     if (sent) request("GET", "/sala/conversacion").then(renderChat, () => {});
     return sent;
@@ -303,17 +303,17 @@
     event.preventDefault();
     const text = $("respuesta").value.trim();
     if (!text) return;
-    if (await reply("Enviando", { text })) $("respuesta").value = "";
+    if (await sendMensaje("Enviando", { text })) $("respuesta").value = "";
   });
   for (const button of document.querySelectorAll("[data-emoji]")) {
-    button.addEventListener("click", () => reply("Enviando", { emoji: button.dataset.emoji }));
+    button.addEventListener("click", () => sendMensaje("Enviando", { emoji: button.dataset.emoji }));
   }
   $("foto").addEventListener("change", async () => {
     const file = $("foto").files[0];
     if (!file) return;
     const form = new FormData();
     form.append("foto", file);
-    await reply("Enviando la foto", form);
+    await sendMensaje("Enviando la foto", form);
     $("foto").value = "";
   });
 
