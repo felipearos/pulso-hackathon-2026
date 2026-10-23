@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { NIGHT_AUDIO_URL, type Snapshot } from "./demo/moments";
 import type { NightAudioResult } from "./demo/night-audio";
 import { OPERATOR_KEY_HEADER, createHandler } from "./server";
+import type { Webhook } from "./whatsapp/webhook";
 
 type Moved = { snapshot: Snapshot; whatsapp?: NightAudioResult };
 
@@ -11,9 +12,26 @@ async function json<T>(response: Promise<Response>): Promise<T> {
   return (await (await response).json()) as T;
 }
 
+function stubWebhook(): { webhook: Webhook; calls: string[] } {
+  const calls: string[] = [];
+  const webhook: Webhook = {
+    verify(url) {
+      calls.push(`verify ${url.pathname}`);
+      return new Response("challenge", { status: 200 });
+    },
+    async receive(request) {
+      calls.push(`receive ${request.method}`);
+      return new Response("ok", { status: 200 });
+    },
+    async drain() {},
+  };
+  return { webhook, calls };
+}
+
 function app(
   result: NightAudioResult = { sent: true, messageId: "wamid.test" },
   operatorKey: string | null = KEY,
+  webhook: Webhook = stubWebhook().webhook,
 ) {
   let sends = 0;
   const handle = createHandler({
@@ -24,6 +42,7 @@ function app(
       return result;
     },
     operatorKey: operatorKey ?? undefined,
+    webhook,
   });
   const get = (path: string) => handle(new Request(`http://localhost${path}`));
   const post = (path: string, key: string | null = KEY) =>
@@ -117,5 +136,21 @@ describe("operator key", () => {
     expect(sends()).toBe(0);
     expect((await get("/demo")).status).toBe(200);
     expect((await get("/demo/state")).status).toBe(200);
+  });
+});
+
+describe("Meta's webhook", () => {
+  test("routes GET /webhook/whatsapp to the webhook's verify", async () => {
+    const { webhook, calls } = stubWebhook();
+    const response = await app(undefined, KEY, webhook).get("/webhook/whatsapp?hub.mode=subscribe");
+    expect(await response.text()).toBe("challenge");
+    expect(calls).toEqual(["verify /webhook/whatsapp"]);
+  });
+
+  test("routes POST /webhook/whatsapp to the webhook's receive, with no operator key", async () => {
+    const { webhook, calls } = stubWebhook();
+    const response = await app(undefined, KEY, webhook).post("/webhook/whatsapp", null);
+    expect(response.status).toBe(200);
+    expect(calls).toEqual(["receive POST"]);
   });
 });

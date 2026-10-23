@@ -1,7 +1,11 @@
 import { createApp } from "./app";
+import { webhookConfig } from "./config";
 import { realPorts } from "./real-ports";
 
-const app = createApp(realPorts(), { demoOperatorKey: process.env.DEMO_OPERATOR_KEY });
+const app = createApp(realPorts(), {
+  demoOperatorKey: process.env.DEMO_OPERATOR_KEY,
+  webhook: webhookConfig(),
+});
 const port = Number(process.env.PORT ?? 3000);
 const server = Bun.serve({ hostname: process.env.HOST, port, fetch: app.handle });
 console.log(`listening on ${server.url}`);
@@ -24,9 +28,12 @@ const ticker = setInterval(async () => {
 }, TICK_MS);
 
 // systemd stops the app with SIGTERM on every deploy. Finishing in-flight
-// requests first keeps a WhatsApp webhook from being cut mid-answer.
+// requests first keeps a WhatsApp webhook from being cut mid-answer, and
+// `drain` then finishes every message Meta already delivered before the
+// process goes.
 process.on("SIGTERM", async () => {
   clearInterval(ticker);
   await server.stop();
+  await app.drain();
   process.exit(0);
 });

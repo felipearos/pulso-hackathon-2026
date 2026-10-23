@@ -151,6 +151,8 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `WHATSAPP_TEMPLATE_NAME` | dev, prd | whatsapp port: approved template outside the 24 h window; defaults to `audio_noche` |
 | `WHATSAPP_TEMPLATE_LANGUAGE` | dev, prd | whatsapp port: template language code; defaults to `es` |
 | `WHATSAPP_API_VERSION` | dev, prd | whatsapp port: Graph API version; defaults to `v21.0` |
+| `WHATSAPP_APP_SECRET` | dev, prd | whatsapp webhook: Meta app secret, the key the `X-Hub-Signature-256` HMAC is checked with; unset means every delivery is refused with 401 |
+| `WHATSAPP_VERIFY_TOKEN` | dev, prd | whatsapp webhook: the token echoed back in Meta's GET subscription challenge; unset means the challenge is refused with 403 |
 | `WHATSAPP_SMOKE_TO` | dev | whatsapp port: Meta test number the smoke test writes to |
 | `WHATSAPP_SMOKE` | none (command line) | set it for one run to let the smoke test send a real message; unset everywhere else, so `bun run test` never does |
 | `DEMO_OPERATOR_KEY` | dev, prd | control room: the key that lets `/demo` move the clock and send the test audio; the operator opens `/demo?clave=<key>` once. Unset, `/demo` is view-only |
