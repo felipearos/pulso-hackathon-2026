@@ -1,5 +1,5 @@
 import type { Llm } from "../ports";
-import { ANGUSTIA_EMOJIS, type Angustia, type Intencion } from "./policy";
+import { ANGUSTIA_EMOJIS, SUENO_EMOJIS, type Angustia, type Intencion } from "./policy";
 
 export const CRISIS_PHRASES = [
   "no quiero vivir",
@@ -104,17 +104,23 @@ export function isOnlyEmoji(message: string, emoji: "👍" | "👌"): boolean {
   return pattern.test(message.trim());
 }
 
-// A bare digit 1..5 or its keycap (digit, optional U+FE0F, U+20E3), or one scale emoji with an optional U+FE0F.
-const ANGUSTIA_RESPUESTA = new RegExp(`^(?:([1-5])(?:\uFE0F?\u20E3)?|(${ANGUSTIA_EMOJIS.join("|")})\uFE0F?)$`, "u");
+// A bare digit 1..5 or its keycap (digit, optional U+FE0F, U+20E3), or one scale emoji with an optional U+FE0F,
+// with at most one sleep emoji (optional U+FE0F) before or after it.
+const ANGUSTIA = `(?:([1-5])(?:\uFE0F?\u20E3)?|(${ANGUSTIA_EMOJIS.join("|")})\uFE0F?)`;
+const SUENO = `(?:${SUENO_EMOJIS.join("|")})\uFE0F?`;
+const ANGUSTIA_RESPUESTA = new RegExp(`^(?:${SUENO}\\s*)?${ANGUSTIA}$|^${ANGUSTIA}\\s*${SUENO}$`, "u");
 
 /**
  * The angustia in a message that is only one answer on the scale: a scale
- * emoji, a keycap 1️⃣–5️⃣ or a bare 1–5. Null for anything else.
+ * emoji, a keycap 1️⃣–5️⃣ or a bare 1–5, optionally with one sleep emoji
+ * before or after it. Null for anything else.
  */
 export function angustiaDeRespuesta(message: string): Angustia | null {
   const match = ANGUSTIA_RESPUESTA.exec(message.trim());
   if (!match) return null;
-  const value = match[1] !== undefined ? Number(match[1]) : (ANGUSTIA_EMOJIS as readonly string[]).indexOf(match[2]!) + 1;
+  const digit = match[1] ?? match[3];
+  const emoji = match[2] ?? match[4];
+  const value = digit !== undefined ? Number(digit) : (ANGUSTIA_EMOJIS as readonly string[]).indexOf(emoji!) + 1;
   return value as Angustia;
 }
 

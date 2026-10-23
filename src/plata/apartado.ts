@@ -82,3 +82,32 @@ export function pagoRecibidoEstaSemana(
   const hasta = now.getTime();
   return senales.some((s) => s.tipo === "S5" && s.receivedAt.getTime() >= desde && s.receivedAt.getTime() <= hasta);
 }
+
+/**
+ * The monto of the week's latest «Recibimos tu pago» (S5) when it is above
+ * `pagoMinimo`: what she paid sobre el mínimo, between Monday 00:00 of this
+ * week and `now`. Null when the pago mínimo is unknown or no such S5 arrived.
+ */
+export function pagoSobreElMinimoEstaSemana(
+  senales: readonly SenalApartable[],
+  pagoMinimo: number | null,
+  now: Date,
+): number | null {
+  if (pagoMinimo === null) return null;
+  const desde = inicioDeSemana(now).getTime();
+  const hasta = now.getTime();
+  // Clock order, id breaking ties, as in plataApartada.
+  const despues = (a: SenalApartable, b: SenalApartable) =>
+    a.receivedAt.getTime() > b.receivedAt.getTime() || (a.receivedAt.getTime() === b.receivedAt.getTime() && a.id > b.id);
+  const ultimo = senales
+    .filter(
+      (s) =>
+        s.tipo === "S5" &&
+        s.monto !== null &&
+        s.monto > pagoMinimo &&
+        s.receivedAt.getTime() >= desde &&
+        s.receivedAt.getTime() <= hasta,
+    )
+    .reduce<SenalApartable | null>((last, s) => (last === null || despues(s, last) ? s : last), null);
+  return ultimo?.monto ?? null;
+}

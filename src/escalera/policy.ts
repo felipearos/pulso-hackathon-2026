@@ -12,6 +12,9 @@ export type Angustia = 1 | 2 | 3 | 4 | 5;
 /** The emoji scale the domingo cita asks the angustia with, calm to very anxious: index + 1 is the Angustia. */
 export const ANGUSTIA_EMOJIS = ["😌", "🙂", "😐", "😟", "😰"] as const;
 
+/** The emojis the domingo cita asks how she slept this week with: slept well, so-so, badly. */
+export const SUENO_EMOJIS = ["😴", "🥱", "😣"] as const;
+
 /** The closed list of intenciones the LLM may classify a message into. */
 export type Intencion =
   /** 👌 or she only listened: she stays, never a reason to move up. */
