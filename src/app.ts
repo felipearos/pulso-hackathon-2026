@@ -3,6 +3,7 @@ import { createScheduler } from "./citas/scheduler";
 import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
 import { nightAudioSender } from "./demo/night-audio";
+import { pauseIfSilent } from "./escalera/pausa";
 import type { EtapaMove } from "./escalera/policy";
 import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
 import { extractEstadoDeCuenta } from "./mail/estado-de-cuenta";
@@ -111,6 +112,8 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     tick: async () => {
       // Mail first, so tonight's cita is decided with every señal already in.
       await pollMail();
+      // Fourteen days without a reply silence Luna before tonight's slot is decided.
+      pauseIfSilent(ports.db, store, clock.now());
       scheduler.tick();
       await sender.tick();
     },
@@ -118,7 +121,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     extractEstadoDeCuenta: extract,
     store,
     clock,
-    receiveMensaje: (input) => receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp }, input),
+    receiveMensaje: (input) => receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp, db: ports.db }, input),
     reset: () => resetPatricia(ports.db, clock),
   };
 }
