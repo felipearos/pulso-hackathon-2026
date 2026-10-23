@@ -1,3 +1,5 @@
+import type { Database } from "bun:sqlite";
+
 /** The demo clock: the only source of domain time (ADR 0002). */
 export type Clock = {
   now(): Date;
@@ -46,4 +48,14 @@ export type SpokenAudio = {
 /** ElevenLabs: turns text into spoken audio. */
 export type Voice = {
   synthesize(text: string): Promise<SpokenAudio>;
+};
+
+/** Everything the app talks to. `main` passes the real ones, tests the fakes. */
+export type Ports = {
+  clock: Clock;
+  mail: Mail;
+  whatsapp: WhatsApp;
+  llm: Llm;
+  voice: Voice;
+  db: Database;
 };
