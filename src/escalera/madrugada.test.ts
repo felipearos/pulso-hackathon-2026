@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { checkText } from "../validator/validator";
-import { MADRUGADA_TEXT, MADRUGADA_TEXT_OTRA_VEZ } from "./madrugada";
+import { madrugadaText, madrugadaTextOtraVez } from "./madrugada";
 
 /**
  * A calm Spanish voice says about two and a half words a second; at two, with
@@ -14,7 +14,7 @@ const MONEY = ["peso", "mil", "pag", "mínimo", "propon", "apart", "tarjeta"];
 /** Stems of a day or an hour: the next cita may be tomorrow or in three days. */
 const WHEN = ["mañana", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo", "hora", "media"];
 
-const TEXTS = { MADRUGADA_TEXT, MADRUGADA_TEXT_OTRA_VEZ };
+const TEXTS = { madrugadaText: madrugadaText("Patricia"), madrugadaTextOtraVez: madrugadaTextOtraVez("Patricia") };
 
 describe("madrugada texts", () => {
   for (const [name, text] of Object.entries(TEXTS)) {
@@ -34,4 +34,11 @@ describe("madrugada texts", () => {
       expect(text).not.toMatch(/[$?]/);
     });
   }
+
+  test("both call her by her nombre, never a nickname", () => {
+    for (const make of [madrugadaText, madrugadaTextOtraVez]) {
+      expect(make("Patricia")).toContain("Patricia");
+      expect(make("Paty")).toContain("Paty");
+    }
+  });
 });

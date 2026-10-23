@@ -6,11 +6,13 @@
  * It names no day or hour, since the next cita may be tomorrow or in three days.
  */
 
-// Wording pending clinical review by Cristian, issue #69.
+// Wording pending clinical review by Cristian, issue #69. Both call her by her `nombre`.
 /** The first answer of the night. */
-export const MADRUGADA_TEXT =
-  "Aquí estoy, Patty. De noche todo se ve más grande. Ya anoté lo que te preocupa, y lo vemos juntas en nuestra próxima cita. Ahora no tienes que resolver nada. Intenta descansar.";
+export function madrugadaText(nombre: string): string {
+  return `Aquí estoy, ${nombre}. De noche todo se ve más grande. Ya anoté lo que te preocupa, y lo vemos juntas en nuestra próxima cita. Ahora no tienes que resolver nada. Intenta descansar.`;
+}
 
 /** Every later answer the same night: shorter, so three notes do not repeat the same words. */
-export const MADRUGADA_TEXT_OTRA_VEZ =
-  "Te escucho, Patty. Lo anoté también, no se pierde nada. Con la luz del día todo pesa menos. Intenta descansar.";
+export function madrugadaTextOtraVez(nombre: string): string {
+  return `Te escucho, ${nombre}. Lo anoté también, no se pierde nada. Con la luz del día todo pesa menos. Intenta descansar.`;
+}

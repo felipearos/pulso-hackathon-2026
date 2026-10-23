@@ -7,9 +7,10 @@
 import type { Store } from "../patricia/store";
 import type { WhatsApp } from "../ports";
 
-// Wording pending clinical review by Cristian, issue #69.
-export const CRISIS_TEXT =
-  "Patricia, te leo y me importa cómo estás. No tienes que pasar esto sola. Puedes llamar ahora a Salud Responde, 600 360 7777, atienden a toda hora. Si sientes que estás en peligro, marca *4141, la línea de prevención del suicidio, gratis desde tu celular. Aquí voy a estar cuando quieras volver a escribirme.";
+/** The crisis text, calling her by her `nombre`. Wording pending clinical review by Cristian, issue #69. */
+export function crisisText(nombre: string): string {
+  return `${nombre}, te leo y me importa cómo estás. No tienes que pasar esto sola. Puedes llamar ahora a Salud Responde, 600 360 7777, atienden a toda hora. Si sientes que estás en peligro, marca *4141, la línea de prevención del suicidio, gratis desde tu celular. Aquí voy a estar cuando quieras volver a escribirme.`;
+}
 
 /**
  * Each attempt is one send: the WhatsApp adapter does not retry in the
@@ -23,14 +24,15 @@ const CRISIS_ATTEMPTS = 3;
  */
 export async function sendCrisisText(deps: { store: Store; whatsapp: WhatsApp }): Promise<void> {
   const { store, whatsapp } = deps;
+  const text = crisisText(store.getPatricia().nombre);
   let lastError: unknown;
   for (let attempt = 1; attempt <= CRISIS_ATTEMPTS; attempt++) {
     try {
-      const { id: whatsappId } = await whatsapp.send({ kind: "text", text: CRISIS_TEXT });
+      const { id: whatsappId } = await whatsapp.send({ kind: "text", text });
       store.recordDecision({
         tipo: "mensaje",
         motivo: "envió el texto del protocolo de crisis",
-        datos: { crisis: true, text: CRISIS_TEXT, whatsappId },
+        datos: { crisis: true, text, whatsappId },
       });
       return;
     } catch (cause) {
@@ -42,6 +44,6 @@ export async function sendCrisisText(deps: { store: Store; whatsapp: WhatsApp })
   store.recordDecision({
     tipo: "mensaje",
     motivo: "no se pudo enviar el texto del protocolo de crisis",
-    datos: { crisis: true, text: CRISIS_TEXT, whatsappId: null, attempts: CRISIS_ATTEMPTS },
+    datos: { crisis: true, text, whatsappId: null, attempts: CRISIS_ATTEMPTS },
   });
 }

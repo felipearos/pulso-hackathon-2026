@@ -5,7 +5,7 @@
  * what the previous ones left on screen.
  */
 
-import { MADRUGADA_TEXT } from "../escalera/madrugada";
+import { madrugadaText } from "../escalera/madrugada";
 
 export const MOMENT_IDS = [
   "monday-email",
@@ -125,7 +125,7 @@ const MOMENTS: Moment[] = [
         kind: "voice",
         duration: "0:24",
         audioUrl: NIGHT_AUDIO_URL,
-        text: "Hola, Patty. Soy Luna. Abrí tu estado de cuenta, y tengo una buena noticia: llevas siete meses pagando siempre a tiempo. No estás en DICOM. Una sola cifra para esta semana: el viernes vence tu pago, y el mínimo es cuarenta y un mil novecientos. El jueves en la noche lo vemos juntas, sin apuro. ¿Me mandas un pulgar si lo escuchaste? Que descanses.",
+        text: "Hola, Patricia. Soy Luna. Abrí tu estado de cuenta, y tengo una buena noticia: llevas siete meses pagando siempre a tiempo. No estás en DICOM. Una sola cifra para esta semana: el viernes vence tu pago, y el mínimo es cuarenta y un mil novecientos. El jueves en la noche lo vemos juntas, sin apuro. ¿Me mandas un pulgar si lo escuchaste? Que descanses.",
       },
       { from: "luna", at: "22:30", kind: "text", text: "Estás al día ✅ · Mínimo de este viernes: $41.900" },
       { from: "patricia", at: "22:33", kind: "text", text: "👍" },
@@ -152,7 +152,7 @@ const MOMENTS: Moment[] = [
         at: "Jue 19-nov · 22:30",
         kind: "voice",
         duration: "0:32",
-        text: "Hola, Patty. Esta semana te pagaron tres pedidos, ¡qué buena semana! Apartando un poquito de cada uno, llevas ocho mil cien para bajar tu tarjeta: tu puerta abierta por si tu mamá te necesita. Si los sumas al mínimo, mañana pagas cincuenta mil. Pagando cincuenta mil al mes, en diecisiete meses no le debes nada a la tarjeta. ¿Pagamos cincuenta mil, con un pulgar, o el mínimo, con un ok? Las dos están bien.",
+        text: "Hola, Patricia. Esta semana te pagaron tres pedidos, ¡qué buena semana! Apartando un poquito de cada uno, llevas ocho mil cien para bajar tu tarjeta: tu puerta abierta por si tu mamá te necesita. Si los sumas al mínimo, mañana pagas cincuenta mil. Pagando cincuenta mil al mes, en diecisiete meses no le debes nada a la tarjeta. ¿Pagamos cincuenta mil, con un pulgar, o el mínimo, con un ok? Las dos están bien.",
       },
       { from: "luna", at: "22:30", kind: "text", text: "👍 pagar $50.000 · 👌 pagar el mínimo ($41.900)" },
       { from: "patricia", at: "22:34", kind: "text", text: "👍" },
@@ -160,7 +160,7 @@ const MOMENTS: Moment[] = [
         from: "luna",
         at: "22:34",
         kind: "text",
-        text: "Anotado, Patty. Mañana pagas $50.000. Recuerda: yo nunca pago por ti ni te pido transferencias; lo pagas tú, como siempre.",
+        text: "Anotado, Patricia. Mañana pagas $50.000. Recuerda: yo nunca pago por ti ni te pido transferencias; lo pagas tú, como siempre.",
       },
     ],
     decisions: [
@@ -186,7 +186,7 @@ const MOMENTS: Moment[] = [
         at: "02:30",
         kind: "voice",
         duration: "0:15",
-        text: MADRUGADA_TEXT,
+        text: madrugadaText("Patricia"),
       },
     ],
     decisions: [
@@ -213,7 +213,7 @@ const MOMENTS: Moment[] = [
         at: "Lun 7-dic · 22:30",
         kind: "voice",
         duration: "0:20",
-        text: "Hola, Patty. Llegó el estado de cuenta de La Estrella, la tarjeta que cortaste. Ese no lo puedo abrir yo, porque viene con un link. ¿Lo abrimos juntas? Ábrelo, y mira solo la esquina donde dice pago mínimo. Nada más. Sácale una foto y me la mandas. Yo estoy aquí.",
+        text: "Hola, Patricia. Llegó el estado de cuenta de La Estrella, la tarjeta que cortaste. Ese no lo puedo abrir yo, porque viene con un link. ¿Lo abrimos juntas? Ábrelo, y mira solo la esquina donde dice pago mínimo. Nada más. Sácale una foto y me la mandas. Yo estoy aquí.",
       },
       { from: "luna", at: "22:30", kind: "text", text: "Ábrelo tú y mira solo el pago mínimo" },
       { from: "patricia", at: "22:40", kind: "image", text: "Pantallazo del portal de La Estrella" },
@@ -221,7 +221,7 @@ const MOMENTS: Moment[] = [
         from: "luna",
         at: "22:40",
         kind: "text",
-        text: "¡Lo abriste tú, Patty! El mínimo de La Estrella es $18.500, y ya te quedan solo $185.000. Como la cortaste, no crece más: va de bajada.",
+        text: "¡Lo abriste tú, Patricia! El mínimo de La Estrella es $18.500, y ya te quedan solo $185.000. Como la cortaste, no crece más: va de bajada.",
       },
     ],
     decisions: [
@@ -247,7 +247,7 @@ const MOMENTS: Moment[] = [
         at: "Lun 14-dic · 22:30",
         kind: "voice",
         duration: "0:10",
-        text: "Hola, Patty. Llegó tu estado de cuenta de diciembre. Esta vez, ¿lo abres tú? Yo estoy aquí al lado. Dime solo una cosa: el pago mínimo.",
+        text: "Hola, Patricia. Llegó tu estado de cuenta de diciembre. Esta vez, ¿lo abres tú? Yo estoy aquí al lado. Dime solo una cosa: el pago mínimo.",
       },
       { from: "patricia", at: "22:38", kind: "text", text: "el mínimo es 40.100" },
       {
