@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createApp } from "./app";
 import type { Ports } from "./ports";
 import { MissingEnvError, realPorts, systemClock } from "./real-ports";
+import { VoiceError } from "./voice/elevenlabs";
 
 const memory = { DATABASE_PATH: ":memory:" };
 
@@ -52,6 +53,8 @@ describe("realPorts", () => {
       );
     });
 
+    if (port === "voice") continue;
+
     test(`${port} with every variable set rejects as not wired yet`, async () => {
       const env = { ...memory, ...Object.fromEntries(names.map((name) => [name, "set"])) };
       const error = await rejection(call(realPorts(env)));
@@ -59,6 +62,21 @@ describe("realPorts", () => {
       expect((error as Error).message).toContain("not wired yet");
     });
   }
+
+  test("voice with every variable set calls ElevenLabs with them", async () => {
+    const urls: string[] = [];
+    const headers: unknown[] = [];
+    const fetch = async (url: string, init: RequestInit) => {
+      urls.push(url);
+      headers.push(init.headers);
+      return new Response("not audio", { status: 401 });
+    };
+    const env = { ...memory, ELEVENLABS_API_KEY: "key", ELEVENLABS_VOICE_ID: "voice-id" };
+    const error = await rejection(realPorts(env, { fetch }).voice.synthesize("Hola"));
+    expect(error).toBeInstanceOf(VoiceError);
+    expect(urls).toEqual(["https://api.elevenlabs.io/v1/text-to-speech/voice-id?output_format=opus_48000_64"]);
+    expect(headers[0]).toMatchObject({ "xi-api-key": "key" });
+  });
 
   test("a partially set env names only the missing variable", async () => {
     const ports = realPorts({ ...memory, WHATSAPP_ACCESS_TOKEN: "set", ELEVENLABS_VOICE_ID: "" });
