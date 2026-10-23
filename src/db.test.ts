@@ -64,7 +64,7 @@ describe("migrate", () => {
     const db = openDatabase(":memory:");
     migrate(db, migrations.filter((m) => m.version < 5));
     db.run("INSERT INTO senales (tipo, mail_id, mail_from, subject, received_at) VALUES ('S3', 'm', 'a@b.example', 's', 't')");
-    expect(migrate(db)).toEqual([5]);
+    expect(migrate(db, migrations.filter((m) => m.version <= 5))).toEqual([5]);
     expect(db.query<{ tipo: string; monto: number | null }, []>("SELECT tipo, monto FROM senales").all()).toEqual([
       { tipo: "S3", monto: null },
     ]);

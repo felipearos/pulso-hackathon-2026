@@ -174,4 +174,6 @@ export type Cita = {
   /** What it carries, oldest first. */
   pendientes: Pendiente[];
   programadaAt: Date;
+  /** The mensaje saliente it went out as; null while it has not been sent. */
+  mensajeSalienteId: number | null;
 };

@@ -63,6 +63,11 @@ export type ValidateInput = {
    * them: pesos as integers, a rate in percent (3.1, not 0.031), a year as 2027.
    */
   allowedFigures: readonly number[];
+  /**
+   * How many distinct figures the text may carry; 1 unless the decision's one
+   * figure is a pair from a single motor result («17 meses pagando 50.000»).
+   */
+  maxFigures?: number;
   llm: Llm;
   redraft: (rejections: Rejection[]) => Promise<string>;
   safeTemplate: string;
@@ -90,13 +95,13 @@ const FORBIDDEN_PATTERNS = FORBIDDEN_WORDS.map((word) => ({
 }));
 
 /** The deterministic checks; every reason, empty when the text passes. */
-export function checkText(text: string, allowedFigures: readonly number[]): Rejection[] {
+export function checkText(text: string, allowedFigures: readonly number[], maxFigures = 1): Rejection[] {
   const rejections: Rejection[] = [];
   const figures = [...new Set(findFigures(text))];
   for (const figure of figures) {
     if (!allowedFigures.includes(figure)) rejections.push({ kind: "figure-not-allowed", figure });
   }
-  if (figures.length > 1) rejections.push({ kind: "too-many-figures", figures });
+  if (figures.length > maxFigures) rejections.push({ kind: "too-many-figures", figures });
   const normalized = SAFE_NEGATIONS.reduce((rest, phrase) => rest.replaceAll(phrase, " "), normalize(text));
   for (const { word, pattern } of FORBIDDEN_PATTERNS) {
     if (pattern.test(normalized)) rejections.push({ kind: "forbidden-word", word });
@@ -116,8 +121,8 @@ async function reviewTone(llm: Llm, text: string): Promise<Rejection[]> {
 }
 
 /** Code checks first; the LLM is only asked when they pass. */
-async function check(llm: Llm, text: string, allowedFigures: readonly number[]): Promise<Rejection[]> {
-  const rejections = checkText(text, allowedFigures);
+async function check(llm: Llm, text: string, allowedFigures: readonly number[], maxFigures = 1): Promise<Rejection[]> {
+  const rejections = checkText(text, allowedFigures, maxFigures);
   return rejections.length > 0 ? rejections : reviewTone(llm, text);
 }
 
@@ -126,7 +131,7 @@ function describeRejection(rejection: Rejection): string {
     case "figure-not-allowed":
       return `cifra ${rejection.figure} no calculada`;
     case "too-many-figures":
-      return `más de una cifra (${rejection.figures.join(", ")})`;
+      return `demasiadas cifras (${rejection.figures.join(", ")})`;
     case "forbidden-word":
       return `palabra prohibida «${rejection.word}»`;
     case "tone":
@@ -144,11 +149,11 @@ export async function validateText(input: ValidateInput): Promise<ValidatedText>
   let draftRejections: Rejection[] = [];
   let redraft: string | null = null;
   try {
-    draftRejections = await check(input.llm, input.draft, input.allowedFigures);
+    draftRejections = await check(input.llm, input.draft, input.allowedFigures, input.maxFigures);
     if (draftRejections.length === 0) return { text: input.draft, source: "draft" };
 
     redraft = await input.redraft(draftRejections);
-    const redraftRejections = await check(input.llm, redraft, input.allowedFigures);
+    const redraftRejections = await check(input.llm, redraft, input.allowedFigures, input.maxFigures);
     if (redraftRejections.length === 0) return { text: redraft, source: "redraft" };
 
     const rejections = [...draftRejections, ...redraftRejections];

@@ -32,7 +32,8 @@ describe("cita scheduler", () => {
       { fecha: "2026-10-22", tipo: "jueves", estado: "programada" },
       { fecha: "2026-10-25", tipo: "domingo", estado: "programada" },
     ]);
-    const decisions = t.app.store.decisions();
+    // The sender logs a "mensaje" decision for each cita it sends; only the scheduler's count here.
+    const decisions = t.app.store.decisions().filter((d) => d.tipo !== "mensaje");
     expect(decisions.map((d) => d.tipo)).toEqual(["programar-cita", "programar-cita", "programar-cita"]);
     expect(decisions[0]!.motivo).toBe("cita del lunes, etapa 1");
   });
@@ -117,7 +118,7 @@ describe("cita scheduler", () => {
     const cita = t.app.store.citaOn("2026-10-19");
     expect(cita).toMatchObject({ tipo: "bienvenida", estado: "programada", motivo: "bienvenida" });
     expect(cita!.pendientes.map((p) => p.id)).toEqual([pendiente.id]);
-    expect(t.app.store.decisions().at(-1)!.datos).toEqual({
+    expect(t.app.store.decisions().findLast((d) => d.tipo === "programar-cita")!.datos).toEqual({
       citaId: cita!.id,
       tipo: "bienvenida",
       fecha: "2026-10-19",
@@ -139,7 +140,12 @@ describe("cita scheduler", () => {
     t.app.store.setEtapa("graduada", "terminó la escalera");
     await tickUntil(t, "2026-11-30T23:45");
     expect(summary(t)).toEqual([{ fecha: "2026-11-02", tipo: "graduada", estado: "programada" }]);
-    expect(t.app.store.decisions().map((d) => d.tipo)).toEqual(["programar-cita"]);
+    expect(
+      t.app.store
+        .decisions()
+        .filter((d) => d.tipo !== "mensaje")
+        .map((d) => d.tipo),
+    ).toEqual(["programar-cita"]);
   });
 
   test("graduada, a first lunes missed in pausa is not made up later in the month", async () => {
