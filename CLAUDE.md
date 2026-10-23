@@ -137,6 +137,13 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | --- | --- | --- |
 | `DATABASE_PATH` | none (unit) | SQLite file; defaults to `data/pulso.db` locally |
 | `HOST` | none (unit) | listen address; unset means all interfaces |
+| `GMAIL_CLIENT_ID` | dev, prd | mail port: Gmail OAuth client |
+| `GMAIL_CLIENT_SECRET` | dev, prd | mail port: Gmail OAuth client |
+| `WHATSAPP_ACCESS_TOKEN` | dev, prd | whatsapp port: Meta WhatsApp Cloud token |
+| `WHATSAPP_PHONE_NUMBER_ID` | dev, prd | whatsapp port: sending number in Meta |
+| `ANTHROPIC_API_KEY` | dev, prd | llm port: Claude API |
+| `ELEVENLABS_API_KEY` | dev, prd | voice port: ElevenLabs API |
+| `ELEVENLABS_VOICE_ID` | dev, prd | voice port: the voice Patricia hears |
 
 ## Agent skills
 

@@ -1,0 +1,23 @@
+import { migrate } from "./db";
+import type { Ports } from "./ports";
+import { handle } from "./server";
+
+export type App = {
+  /** Answers one HTTP request; `Bun.serve` in `main` and tests call it alike. */
+  handle(request: Request): Response | Promise<Response>;
+  /** Runs one pass of the scheduler at the clock's current time. */
+  tick(): Promise<void>;
+};
+
+/**
+ * Builds the app from its ports. The schema is brought up to date first, so a
+ * deploy against the live file keeps every night Patricia already heard.
+ */
+export function createApp(ports: Ports): App {
+  migrate(ports.db);
+  return {
+    handle,
+    // The scheduler tickets fill this pass; until then a tick has nothing to do.
+    tick: async () => {},
+  };
+}
