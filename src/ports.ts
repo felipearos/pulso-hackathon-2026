@@ -1,6 +1,9 @@
 import type { Database } from "bun:sqlite";
 
-/** The demo clock: the only source of domain time (ADR 0002). */
+/**
+ * Something that tells the time. The app's `ports.clock` is only the raw time
+ * source the demo clock runs on; domain code reads `App.clock` (ADR 0002).
+ */
 export type Clock = {
   now(): Date;
 };
@@ -24,9 +27,14 @@ export type OutgoingWhatsApp =
   | { kind: "audio"; audio: Uint8Array; mimeType: string; durationSeconds: number }
   | { kind: "image"; image: Uint8Array; mimeType: string; caption?: string };
 
-/** Meta WhatsApp Cloud: how messages reach Patricia. */
+/**
+ * Meta WhatsApp Cloud: how messages reach Patricia. `recordInbound` is how the
+ * webhook tells the port that she wrote, which opens Meta's 24 h window; outside
+ * it only the approved template goes out.
+ */
 export type WhatsApp = {
   send(message: OutgoingWhatsApp): Promise<{ id: string }>;
+  recordInbound(at: Date): void;
 };
 
 export type LlmRequest = {
@@ -54,6 +62,7 @@ export type Voice = {
 
 /** Everything the app talks to. `main` passes the real ones, tests the fakes. */
 export type Ports = {
+  /** The raw time source the demo clock runs on; never read by domain code. */
   clock: Clock;
   mail: Mail;
   whatsapp: WhatsApp;

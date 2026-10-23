@@ -6,14 +6,19 @@ import { VoiceError } from "./voice/elevenlabs";
 
 const memory = { DATABASE_PATH: ":memory:" };
 
-const calls: Array<[port: string, call: (ports: Ports) => Promise<unknown>, names: string[]]> = [
+type Call = [port: string, call: (ports: Ports) => Promise<unknown>, names: string[]];
+
+const stubs: Call[] = [
   ["mail", (ports) => ports.mail.fetchNew(), ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET"]],
+];
+
+const wired: Call[] = [
+  ["llm", (ports) => ports.llm.complete({ prompt: "Hola" }), ["ANTHROPIC_API_KEY"]],
   [
     "whatsapp",
     (ports) => ports.whatsapp.send({ kind: "text", text: "Hola" }),
-    ["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID"],
+    ["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_RECIPIENT_PHONE"],
   ],
-  ["llm", (ports) => ports.llm.complete({ prompt: "Hola" }), ["ANTHROPIC_API_KEY"]],
   ["voice", (ports) => ports.voice.synthesize("Hola"), ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"]],
 ];
 
@@ -43,7 +48,7 @@ describe("realPorts", () => {
     expect(systemClock.now()).toBeInstanceOf(Date);
   });
 
-  for (const [port, call, names] of calls) {
+  for (const [port, call, names] of [...stubs, ...wired]) {
     test(`${port} rejects naming every missing variable`, async () => {
       const error = await rejection(call(realPorts(memory)));
       expect(error).toBeInstanceOf(MissingEnvError);
@@ -52,9 +57,9 @@ describe("realPorts", () => {
         `${port} port needs ${names.join(", ")}; add them to Doppler pulso-hackathon-2026`,
       );
     });
+  }
 
-    if (port === "voice") continue;
-
+  for (const [port, call, names] of stubs) {
     test(`${port} with every variable set rejects as not wired yet`, async () => {
       const env = { ...memory, ...Object.fromEntries(names.map((name) => [name, "set"])) };
       const error = await rejection(call(realPorts(env)));
@@ -78,10 +83,26 @@ describe("realPorts", () => {
     expect(headers[0]).toMatchObject({ "xi-api-key": "key" });
   });
 
+  test("whatsapp with every variable set is the real client", async () => {
+    const env = {
+      ...memory,
+      WHATSAPP_ACCESS_TOKEN: "set",
+      WHATSAPP_PHONE_NUMBER_ID: "set",
+      WHATSAPP_RECIPIENT_PHONE: "set",
+    };
+    // A non-OGG audio is refused by the real client before any request is made.
+    const error = await rejection(
+      realPorts(env).whatsapp.send({ kind: "audio", audio: new Uint8Array(), mimeType: "audio/mpeg", durationSeconds: 1 }),
+    );
+    expect(error).not.toBeInstanceOf(MissingEnvError);
+    expect((error as Error).message).not.toContain("not wired yet");
+    expect((error as Error).message).toContain("OGG/Opus");
+  });
+
   test("a partially set env names only the missing variable", async () => {
     const ports = realPorts({ ...memory, WHATSAPP_ACCESS_TOKEN: "set", ELEVENLABS_VOICE_ID: "" });
     const whatsapp = await rejection(ports.whatsapp.send({ kind: "text", text: "Hola" }));
-    expect((whatsapp as MissingEnvError).missing).toEqual(["WHATSAPP_PHONE_NUMBER_ID"]);
+    expect((whatsapp as MissingEnvError).missing).toEqual(["WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_RECIPIENT_PHONE"]);
     const voice = await rejection(ports.voice.synthesize("Hola"));
     expect((voice as MissingEnvError).missing).toEqual(["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"]);
   });

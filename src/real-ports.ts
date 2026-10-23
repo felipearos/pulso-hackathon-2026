@@ -1,24 +1,18 @@
 import { databasePath } from "./config";
 import { openDatabase } from "./db";
+import { MissingEnvError } from "./missing-env";
 import type { Clock, Ports } from "./ports";
+import { anthropicLlm } from "./anthropic";
 import { createElevenLabsVoice, type Fetch } from "./voice/elevenlabs";
+import { createWhatsAppCloud } from "./whatsapp-cloud";
 
 type Env = Record<string, string | undefined>;
 
-/** A real port was called without the variables it needs. */
-export class MissingEnvError extends Error {
-  constructor(
-    readonly port: string,
-    readonly missing: string[],
-  ) {
-    super(`${port} port needs ${missing.join(", ")}; add them to Doppler pulso-hackathon-2026`);
-    this.name = "MissingEnvError";
-  }
-}
+export { MissingEnvError };
 
 /**
- * The system clock. This adapter is the one place allowed to read system time
- * (ADR 0002); ticket #22 replaces it with the SQLite demo clock.
+ * The system clock: the time source the demo clock runs on, and the one
+ * place allowed to read system time (ADR 0002).
  */
 export const systemClock: Clock = {
   now: () => new Date(),
@@ -48,8 +42,15 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
   return {
     clock: systemClock,
     mail: { fetchNew: () => notWiredYet(env, "mail", ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET"]) },
-    whatsapp: { send: () => notWiredYet(env, "whatsapp", ["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_PHONE_NUMBER_ID"]) },
-    llm: { complete: () => notWiredYet(env, "llm", ["ANTHROPIC_API_KEY"]) },
+    // The whatsapp, llm and voice ports are the real clients wired so far.
+    whatsapp: createWhatsAppCloud({ env, clock: systemClock }),
+    llm: {
+      complete: (request) => {
+        const apiKey = env.ANTHROPIC_API_KEY;
+        if (!apiKey) return Promise.reject(new MissingEnvError("llm", ["ANTHROPIC_API_KEY"]));
+        return anthropicLlm({ apiKey }).complete(request);
+      },
+    },
     voice: {
       synthesize: async (text) => {
         const [apiKey, voiceId] = requireEnv(env, "voice", ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"]);

@@ -1,3 +1,4 @@
+import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
 import { nightAudioSender } from "./demo/night-audio";
 import { createStore, type Store } from "./patricia/store";
@@ -11,6 +12,8 @@ export type App = {
   tick(): Promise<void>;
   /** Patricia's persisted state and the decision log. */
   store: Store;
+  /** The demo clock: every domain time read goes through it (ADR 0002). */
+  clock: DemoClock;
 };
 
 // The control room's page and test audio ship with the repo; Bun reads them on request.
@@ -23,10 +26,12 @@ const nightAudio = Bun.file(new URL("../assets/night-audio-test.ogg", import.met
  */
 export function createApp(ports: Ports): App {
   migrate(ports.db);
+  const clock = createDemoClock(ports.db, ports.clock);
   return {
     handle: createHandler({ demoPage, nightAudio, sendNightAudio: nightAudioSender(ports.whatsapp, nightAudio) }),
     // The scheduler tickets fill this pass; until then a tick has nothing to do.
     tick: async () => {},
-    store: createStore(ports.db, ports.clock),
+    store: createStore(ports.db, clock),
+    clock,
   };
 }

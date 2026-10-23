@@ -1,0 +1,126 @@
+import { describe, expect, test } from "bun:test";
+import { FakeLlm } from "../fakes";
+import { classifyIntencion } from "./classify";
+import type { Intencion } from "./policy";
+
+describe("classifyIntencion", () => {
+  const rows: Array<[string, string, string, Intencion]> = [
+    ["listened", "Ya escuché el audio, gracias", '{"intencion":"listened"}', { kind: "listened" }],
+    ["accepted", "Sí, lo voy a intentar mañana", '{"intencion":"accepted"}', { kind: "accepted" }],
+    ["minimum", "Este mes pago el mínimo no más", '{"intencion":"minimum"}', { kind: "minimum" }],
+    ["angustia", "Me siento muy angustiada con esto", '{"intencion":"angustia","valor":4}', { kind: "angustia", value: 4 }],
+    ["doesNotWantToSee", "No quiero mirar la cuenta todavía", '{"intencion":"doesNotWantToSee"}', { kind: "doesNotWantToSee" }],
+    ["pause", "Luna, por favor hagamos una pausa", '{"intencion":"pause"}', { kind: "pause" }],
+    ["hello", "Hola Luna, ¿cómo estás?", '{"intencion":"hello"}', { kind: "hello" }],
+    ["askWhy", "¿Por qué me dices esto?", '{"intencion":"askWhy"}', { kind: "askWhy" }],
+    ["askWhatRead", "¿Qué leíste de mi estado de cuenta?", '{"intencion":"askWhatRead"}', { kind: "askWhatRead" }],
+    [
+      "installmentPurchase",
+      "Me compré unas zapatillas en 6 cuotas",
+      '{"intencion":"installmentPurchase"}',
+      { kind: "installmentPurchase" },
+    ],
+    [
+      "crisis",
+      "Siento que todos estarían mejor sin mí",
+      '{"intencion":"crisis"}',
+      { kind: "crisis" },
+    ],
+    ["other", "Hoy fui a dejar unos remedios", '{"intencion":"other"}', { kind: "other" }],
+  ];
+
+  test.each(rows)("classifies %s", async (_name, message, reply, expected) => {
+    const llm = new FakeLlm([[message, reply]]);
+
+    expect(await classifyIntencion(message, llm)).toEqual(expected);
+    expect(llm.calls).toHaveLength(1);
+    expect(llm.calls[0]?.prompt).toContain(message);
+  });
+
+  test("extracts the first JSON object from a longer reply", async () => {
+    const llm = new FakeLlm([["ya escuché", 'Respuesta: ```json\n{"intencion":"listened"}\n``` listo']]);
+
+    expect(await classifyIntencion("ya escuché", llm)).toEqual({ kind: "listened" });
+  });
+
+  test.each([
+    "Ya no doy más",
+    "NO QUIERO VIVIR",
+    "No quiero seguir viviendo.",
+    "No puedo más, de verdad",
+    "A veces quiero desaparecer",
+    "Sería mejor no despertar",
+    "Quiero desaparecer de este mundo",
+    "Pienso en quitarme la vida de una vez",
+    "Quiero terminar con todo de una vez",
+  ]) (
+    "returns crisis for keyword phrase %s without calling the LLM",
+    async (message) => {
+      const llm = new FakeLlm([]);
+
+      expect(await classifyIntencion(message, llm)).toEqual({ kind: "crisis" });
+      expect(llm.calls).toHaveLength(0);
+    },
+  );
+
+  test("returns crisis before an LLM that throws or never resolves", async () => {
+    const throwingLlm = new FakeLlm([]);
+    const neverResolvingLlm = { complete: () => new Promise<string>(() => {}) };
+
+    expect(await classifyIntencion("Ya no doy más", throwingLlm)).toEqual({ kind: "crisis" });
+    expect(throwingLlm.calls).toHaveLength(0);
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const result = await Promise.race([
+      classifyIntencion("NO QUIERO VIVIR", neverResolvingLlm),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), 100);
+      }),
+    ]);
+    if (timer !== undefined) clearTimeout(timer);
+    expect(result).toEqual({ kind: "crisis" });
+  });
+
+  test.each([
+    ["👍", { kind: "accepted" }],
+    ["👍🏽", { kind: "accepted" }],
+    ["👌", { kind: "listened" }],
+    ["👌👌", { kind: "listened" }],
+  ] as Array<[string, Intencion]>) ("classifies emoji %s without calling the LLM", async (message, expected) => {
+    const llm = new FakeLlm([]);
+
+    expect(await classifyIntencion(` ${message} `, llm)).toEqual(expected);
+    expect(llm.calls).toHaveLength(0);
+  });
+
+  test("returns other when the LLM throws or times out", async () => {
+    const throwingLlm = new FakeLlm([]);
+    const neverResolvingLlm = { complete: () => new Promise<string>(() => {}) };
+
+    expect(await classifyIntencion("No sé qué decir", throwingLlm)).toEqual({ kind: "other" });
+    expect(throwingLlm.calls).toHaveLength(1);
+    expect(await classifyIntencion("No sé qué decir", neverResolvingLlm, { timeoutMs: 5 })).toEqual({ kind: "other" });
+  });
+
+  test.each([
+    ["garbage", "esto no es JSON"],
+    ["unknown kind", '{"intencion":"compró"}'],
+    ["angustia above range", '{"intencion":"angustia","valor":9}'],
+    ["angustia without integer", '{"intencion":"angustia","valor":2.5}'],
+  ])("returns other for %s", async (_name, reply) => {
+    const llm = new FakeLlm([["mensaje", reply]]);
+
+    expect(await classifyIntencion("mensaje", llm)).toEqual({ kind: "other" });
+  });
+
+  test.each([
+    ["Este mes no puedo más que el mínimo", '{"intencion":"minimum"}', { kind: "minimum" }],
+    ["No doy más de 20 mil al mes", '{"intencion":"other"}', { kind: "other" }],
+    ["Ojalá la deuda pudiera desaparecer", '{"intencion":"other"}', { kind: "other" }],
+  ] satisfies Array<[string, string, Intencion]>)("leaves money talk %s to the LLM", async (message, reply, expected) => {
+    const llm = new FakeLlm([[message, reply]]);
+
+    expect(await classifyIntencion(message, llm)).toEqual(expected);
+    expect(llm.calls).toHaveLength(1);
+  });
+});

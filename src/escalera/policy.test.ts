@@ -88,6 +88,11 @@ describe("decideEtapa", () => {
       "bajó: dijo que no quiere ver eso",
     ],
     [
+      "installmentPurchase",
+      { etapa: 2, senales: [senal({ kind: "installmentPurchase" })] },
+      "se queda: contó una compra en cuotas",
+    ],
+    [
       "up with angustia",
       { etapa: 2, senales: [accepted(2), angustia(2)] },
       "subió: respondió la cita de la etapa 2, angustia 2",
