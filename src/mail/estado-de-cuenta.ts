@@ -3,13 +3,22 @@ import { extractCifras, type CifrasExtraidas } from "../figures/extractor";
 import type { MinimumRule, Statement } from "../figures/payoff";
 import type { Extraccion } from "../patricia/entities";
 import type { Store } from "../patricia/store";
-import type { IncomingMail, Llm } from "../ports";
+import type { IncomingMail, Llm, Web } from "../ports";
+import { documentText } from "../web/documento";
+import { allowedLink } from "../web/link";
+import { allowedSender } from "./senders";
 
 /**
  * How Banco Andino computes the pago mínimo. The rule is not printed on the
  * estado de cuenta, so it is configured per issuer instead of extracted.
  */
 export const BANCO_ANDINO_MINIMUM_RULE: MinimumRule = { percent: 0.0645, floor: 10_500, roundTo: 100 };
+
+/**
+ * How Tienda Plaza computes the pago mínimo. The rule is not printed on the
+ * estado de cuenta, so it is configured per issuer instead of extracted.
+ */
+export const TIENDA_PLAZA_MINIMUM_RULE: MinimumRule = { percent: 0.05, floor: 5_000, roundTo: 100 };
 
 /** How Luna names each figure when she tells why she keeps it to herself. */
 const CAMPO_LABEL: Record<keyof CifrasExtraidas, string> = {
@@ -24,34 +33,73 @@ const CAMPO_LABEL: Record<keyof CifrasExtraidas, string> = {
   comprasEnCuotas: "las compras en cuotas",
 };
 
-function statementFrom(cifras: CifrasExtraidas): Statement | null {
+function statementFrom(cifras: CifrasExtraidas, minimumRule: MinimumRule): Statement | null {
   if (cifras.totalFacturado === null || cifras.tasaMensual === null) return null;
   return {
     totalBilled: cifras.totalFacturado,
     monthlyRate: cifras.tasaMensual,
-    minimumRule: BANCO_ANDINO_MINIMUM_RULE,
+    minimumRule,
     // A mora not found stays unknown; it is never written as 0.
     ...(cifras.mora === null ? {} : { overdue: cifras.mora }),
   };
 }
 
 /**
- * Reads the estado de cuenta of an S1 mail and stores it with its extraction.
+ * The link an S2 mail's estado de cuenta is read from: the first of its links
+ * on the domain of its remitente permitido or a subdomain of it. Null when
+ * the mail has none, so a link to anyone else is never followed.
+ */
+export function linkDelEstadoDeCuenta(mail: IncomingMail): URL | null {
+  const domain = allowedSender(mail.from)?.domain;
+  if (domain === undefined) return null;
+  for (const link of mail.links) {
+    const url = allowedLink(link, [domain]);
+    if (url !== null) return url;
+  }
+  return null;
+}
+
+/** The text of an S2 mail's estado de cuenta, downloaded from its link; null when it could not be read. */
+async function textoDeLaTienda(web: Web, mail: IncomingMail): Promise<string | null> {
+  const link = linkDelEstadoDeCuenta(mail);
+  const domain = allowedSender(mail.from)?.domain;
+  if (link === null || domain === undefined) {
+    console.error(`estado de cuenta: ${mail.id} has no link on its sender's domain; nothing fetched`);
+    return null;
+  }
+  try {
+    const text = await documentText(await web.fetchDocument(link.href, [domain]));
+    if (text === null) console.error(`estado de cuenta: ${mail.id} links to a document with no text; nothing stored`);
+    return text;
+  } catch (error) {
+    console.error(`estado de cuenta: ${mail.id} link could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+}
+
+/**
+ * Reads the estado de cuenta of an S1 mail (the bank's, in its text) or an S2
+ * mail (the tienda's, behind its link) and stores it with its extraction.
  * Every figure not found gets a `callar-cifra` decision, so Luna never invents
- * it. Null for any other mail, and when Claude failed twice: then nothing is
- * stored, so the mail can be read again. The stored extraction when it was read.
+ * it. Null for any other mail, for an S2 with no allowed link, and when the
+ * link could not be read or Claude failed twice: then nothing is stored, so
+ * the mail can be read again. The stored extraction when it was read.
  */
 export async function extractEstadoDeCuenta(
-  deps: { store: Store; llm: Llm; db: Database },
+  deps: { store: Store; llm: Llm; db: Database; web: Web },
   mail: IncomingMail,
 ): Promise<Extraccion | null> {
-  const { store, llm, db } = deps;
-  if (store.senalForMail(mail.id)?.tipo !== "S1") return null;
+  const { store, llm, db, web } = deps;
+  const tipo = store.senalForMail(mail.id)?.tipo;
+  if (tipo !== "S1" && tipo !== "S2") return null;
   const existing = store.extraccionForMail(mail.id);
   if (existing !== null) return existing;
 
+  const origen = tipo === "S1" ? "banco" : "tienda";
+  const text = origen === "banco" ? mail.text : await textoDeLaTienda(web, mail);
+  if (text === null) return null;
   // One retry: a failed call is not an estado de cuenta without figures.
-  const cifras = (await extractCifras(mail.text, llm)) ?? (await extractCifras(mail.text, llm));
+  const cifras = (await extractCifras(text, llm)) ?? (await extractCifras(text, llm));
   if (cifras === null) {
     console.error(`estado de cuenta: ${mail.id} could not be read; nothing stored`);
     return null;
@@ -62,21 +110,23 @@ export async function extractEstadoDeCuenta(
     const won = store.extraccionForMail(mail.id);
     if (won !== null) return won;
 
-    const ciclo = Math.max(0, ...store.estadosDeCuenta().filter((e) => e.origen === "banco").map((e) => e.ciclo)) + 1;
+    // The bank and the tienda each count their own ciclos.
+    const ciclo = Math.max(0, ...store.estadosDeCuenta().filter((e) => e.origen === origen).map((e) => e.ciclo)) + 1;
     const estado = store.addEstadoDeCuenta({
-      origen: "banco",
+      origen,
       ciclo,
       fechaCierre: cifras.fechaCierre,
       fechaVencimiento: cifras.fechaVencimiento,
-      cifras: statementFrom(cifras),
+      cifras: statementFrom(cifras, origen === "banco" ? BANCO_ANDINO_MINIMUM_RULE : TIENDA_PLAZA_MINIMUM_RULE),
       pagoMinimo: cifras.pagoMinimo,
     });
     const extraccion = store.addExtraccion({ estadoDeCuentaId: estado.id, mailId: mail.id, cifras });
+    const estadoLabel = origen === "banco" ? "el estado de cuenta" : "el estado de cuenta de la tienda";
     for (const campo of Object.keys(CAMPO_LABEL) as Array<keyof CifrasExtraidas>) {
       if (cifras[campo] !== null) continue;
       store.recordDecision({
         tipo: "callar-cifra",
-        motivo: `Callo esta cifra: no encontré ${CAMPO_LABEL[campo]} en el estado de cuenta del ciclo ${ciclo}.`,
+        motivo: `Callo esta cifra: no encontré ${CAMPO_LABEL[campo]} en ${estadoLabel} del ciclo ${ciclo}.`,
         datos: { campo, mailId: mail.id, estadoDeCuentaId: estado.id },
       });
     }
