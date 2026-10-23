@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createApp } from "./app";
+import { migrate } from "./db";
 import type { Ports } from "./ports";
 import { MissingEnvError, realPorts, systemClock } from "./real-ports";
 import { VoiceError } from "./voice/elevenlabs";
@@ -7,10 +8,6 @@ import { VoiceError } from "./voice/elevenlabs";
 const memory = { DATABASE_PATH: ":memory:" };
 
 type Call = [port: string, call: (ports: Ports) => Promise<unknown>, names: string[]];
-
-const stubs: Call[] = [
-  ["mail", (ports) => ports.mail.fetchNew([]), ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET"]],
-];
 
 const wired: Call[] = [
   ["llm", (ports) => ports.llm.complete({ prompt: "Hola" }), ["ANTHROPIC_API_KEY"]],
@@ -48,7 +45,7 @@ describe("realPorts", () => {
     expect(systemClock.now()).toBeInstanceOf(Date);
   });
 
-  for (const [port, call, names] of [...stubs, ...wired]) {
+  for (const [port, call, names] of wired) {
     test(`${port} rejects naming every missing variable`, async () => {
       const error = await rejection(call(realPorts(memory)));
       expect(error).toBeInstanceOf(MissingEnvError);
@@ -59,14 +56,13 @@ describe("realPorts", () => {
     });
   }
 
-  for (const [port, call, names] of stubs) {
-    test(`${port} with every variable set rejects as not wired yet`, async () => {
-      const env = { ...memory, ...Object.fromEntries(names.map((name) => [name, "set"])) };
-      const error = await rejection(call(realPorts(env)));
-      expect(error).not.toBeInstanceOf(MissingEnvError);
-      expect((error as Error).message).toContain("not wired yet");
-    });
-  }
+  test("mail finds nothing new until Patricia connects a Gmail account", async () => {
+    const urls: string[] = [];
+    const ports = realPorts(memory, { fetch: async (input) => (urls.push(String(input)), new Response("{}")) });
+    migrate(ports.db);
+    expect(await ports.mail.fetchNew(["bancoandino.example"])).toEqual([]);
+    expect(urls).toEqual([]);
+  });
 
   test("voice with every variable set calls ElevenLabs with them", async () => {
     const urls: string[] = [];

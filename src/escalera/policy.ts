@@ -9,6 +9,9 @@ export type Etapa = 1 | 2 | 3 | 4 | 5 | "graduada";
 
 export type Angustia = 1 | 2 | 3 | 4 | 5;
 
+/** The emoji scale the domingo cita asks the angustia with, calm to very anxious: index + 1 is the Angustia. */
+export const ANGUSTIA_EMOJIS = ["😌", "🙂", "😐", "😟", "😰"] as const;
+
 /** The closed list of intenciones the LLM may classify a message into. */
 export type Intencion =
   /** 👌 or she only listened: she stays, never a reason to move up. */

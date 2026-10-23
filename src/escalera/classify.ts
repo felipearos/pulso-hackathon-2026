@@ -1,5 +1,5 @@
 import type { Llm } from "../ports";
-import type { Angustia, Intencion } from "./policy";
+import { ANGUSTIA_EMOJIS, type Angustia, type Intencion } from "./policy";
 
 export const CRISIS_PHRASES = [
   "no quiero vivir",
@@ -104,15 +104,37 @@ export function isOnlyEmoji(message: string, emoji: "👍" | "👌"): boolean {
   return pattern.test(message.trim());
 }
 
-/** Classifies one text message or voice-note transcript from Patricia. */
+// A bare digit 1..5 or its keycap (digit, optional U+FE0F, U+20E3), or one scale emoji with an optional U+FE0F.
+const ANGUSTIA_RESPUESTA = new RegExp(`^(?:([1-5])(?:\uFE0F?\u20E3)?|(${ANGUSTIA_EMOJIS.join("|")})\uFE0F?)$`, "u");
+
+/**
+ * The angustia in a message that is only one answer on the scale: a scale
+ * emoji, a keycap 1️⃣–5️⃣ or a bare 1–5. Null for anything else.
+ */
+export function angustiaDeRespuesta(message: string): Angustia | null {
+  const match = ANGUSTIA_RESPUESTA.exec(message.trim());
+  if (!match) return null;
+  const value = match[1] !== undefined ? Number(match[1]) : (ANGUSTIA_EMOJIS as readonly string[]).indexOf(match[2]!) + 1;
+  return value as Angustia;
+}
+
+/**
+ * Classifies one text message or voice-note transcript from Patricia. With
+ * `angustiaEsperada` (she is answering the domingo pregunta) a bare answer on
+ * the angustia scale is read without the LLM.
+ */
 export async function classifyIntencion(
   message: string,
   llm: Llm,
-  options?: { timeoutMs?: number },
+  options?: { timeoutMs?: number; angustiaEsperada?: boolean },
 ): Promise<Intencion> {
   if (hasCrisisPhrase(message)) return { kind: "crisis" };
   if (isOnlyEmoji(message, "👍")) return { kind: "accepted" };
   if (isOnlyEmoji(message, "👌")) return { kind: "listened" };
+  if (options?.angustiaEsperada) {
+    const angustia = angustiaDeRespuesta(message);
+    if (angustia !== null) return { kind: "angustia", value: angustia };
+  }
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {

@@ -21,10 +21,15 @@ export type IncomingMail = {
 /**
  * Gmail: the inbox the bank's mails arrive in. `fetchNew` returns only mails
  * not returned before, and only from `senders` (allowed sender domains): the
- * rest are never downloaded.
+ * rest are never downloaded. `consentUrl` and `connect` are Patricia's one
+ * «Permitir»: the Google page she is sent to, and the code it hands back.
  */
 export type Mail = {
   fetchNew(senders: readonly string[]): Promise<IncomingMail[]>;
+  /** Google's read-only consent page; `state` comes back on the callback untouched. */
+  consentUrl(state: string): string;
+  /** Trades the callback's code for a token kept in the base, outside the repo. */
+  connect(code: string): Promise<void>;
 };
 
 export type OutgoingWhatsApp =

@@ -152,6 +152,23 @@ export const migrations: Migration[] = [
   },
   {
     version: 8,
+    name: "gmail-cuenta",
+    // Patricia's one Gmail connection: the token Google gave on her «Permitir»
+    // and the poll's cursor. Times are Gmail's real epoch ms, not the demo clock.
+    sql: `
+      CREATE TABLE gmail_cuenta (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        refresh_token TEXT NOT NULL,
+        access_token TEXT,
+        access_expires_at INTEGER,
+        cursor_ms INTEGER NOT NULL,
+        cursor_ids TEXT NOT NULL DEFAULT '[]',
+        conectada_at TEXT NOT NULL
+      );
+    `,
+  },
+  {
+    version: 9,
     name: "hora-de-la-cita",
     // The hora she answered in the bienvenida, `HH:MM`; null until she answers.
     sql: "ALTER TABLE patricia ADD COLUMN hora_cita TEXT;",

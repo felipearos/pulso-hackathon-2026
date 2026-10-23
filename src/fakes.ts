@@ -41,6 +41,16 @@ export type InjectedMail = Pick<IncomingMail, "from" | "subject" | "receivedAt">
 export class FakeMail implements Mail {
   private pending: IncomingMail[] = [];
   private nextId = 1;
+  /** Codes `connect` was given, oldest first. */
+  readonly connected: string[] = [];
+
+  consentUrl(state: string): string {
+    return `https://accounts.example.test/consent?state=${encodeURIComponent(state)}`;
+  }
+
+  async connect(code: string): Promise<void> {
+    this.connected.push(code);
+  }
 
   inject(mail: InjectedMail): IncomingMail {
     const full: IncomingMail = {

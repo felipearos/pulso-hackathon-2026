@@ -7,6 +7,8 @@ import { createElevenLabsVoice, type Fetch } from "./voice/elevenlabs";
 import { voiceIdFor, VOZ_PRINCIPAL } from "./voice/voces";
 import { createHttpWeb } from "./web/http";
 import { createWhatsAppCloud } from "./whatsapp-cloud";
+import { createGmailAccount } from "./mail/gmail-oauth";
+import { createGmailMail } from "./mail/gmail";
 
 type Env = Record<string, string | undefined>;
 
@@ -30,21 +32,18 @@ function requireEnv(env: Env, port: string, names: string[]): string[] {
   return names.map((name) => env[name]!);
 }
 
-/** Stands in for a client a later ticket wires. */
-async function notWiredYet(env: Env, port: string, names: string[]): Promise<never> {
-  requireEnv(env, port, names);
-  throw new Error(`${port} port: the real client is not wired yet`);
-}
-
 /**
  * The ports `main` runs with: the system clock, the SQLite file and the outside
  * services. `fetch` and `log` let tests keep the HTTP clients off the network and the console.
  */
 export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?: (line: string) => void } = {}): Ports {
+  const db = openDatabase(databasePath(env));
+  const account = createGmailAccount({ db, env, clock: systemClock, fetch: options.fetch as typeof fetch | undefined });
+  const mail = createGmailMail({ account, fetch: options.fetch as typeof fetch | undefined });
   return {
     clock: systemClock,
-    mail: { fetchNew: () => notWiredYet(env, "mail", ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET"]) },
-    // The whatsapp, llm and voice ports are the real clients wired so far.
+    mail,
+    // The whatsapp, llm and voice ports are also real clients.
     whatsapp: createWhatsAppCloud({ env, clock: systemClock }),
     llm: {
       complete: (request) => {
@@ -62,6 +61,6 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
       },
     },
     web: createHttpWeb({ fetch: options.fetch }),
-    db: openDatabase(databasePath(env)),
+    db,
   };
 }
