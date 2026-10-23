@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { parseSantiago } from "../clock/santiago";
-import { payoff } from "../figures/payoff";
 import type { OutgoingWhatsApp } from "../ports";
 import { createTestApp, type TestApp } from "../testing";
 import { findFigures } from "../validator/validator";
@@ -57,7 +56,7 @@ describe("the graduada cita reply through the app", () => {
     ]);
   });
 
-  test("👌 gets the computed pago mínimo by text and keeps her graduada", async () => {
+  test("👌 gets the pago mínimo read from the estado de cuenta by text and keeps her graduada", async () => {
     const t = setup();
     t.app.store.updatePatricia({ nombre: "Rosa" });
     const citaId = await graduadaCita(t);
@@ -66,10 +65,10 @@ describe("the graduada cita reply through the app", () => {
       ciclo: 8,
       fechaCierre: "2026-10-15",
       fechaVencimiento: "2026-11-05",
-      cifras: CIFRAS,
-      pagoMinimo: 41_900,
+      cifras: null,
+      pagoMinimo: 18_500,
     });
-    const monto = payoff(CIFRAS, 0, "2026-11-02").firstMinimum;
+    const monto = 18_500;
 
     t.clock.set(parseSantiago("2026-11-02T22:40"));
     await t.app.receiveMensaje({ text: "👌", whatsappId: "in-1" });
@@ -138,7 +137,27 @@ describe("the graduada cita reply through the app", () => {
     expect(t.app.store.getPatricia().etapa).toBe("graduada");
   });
 
-  test("without a bank estado de cuenta with figures, Luna waits gently", async () => {
+  test("a computed minimum never stands in for a pago mínimo the mail did not say", async () => {
+    const t = setup();
+    await graduadaCita(t);
+    t.app.store.addEstadoDeCuenta({
+      origen: "banco",
+      ciclo: 8,
+      fechaCierre: "2026-10-15",
+      fechaVencimiento: "2026-11-05",
+      cifras: CIFRAS,
+      pagoMinimo: null,
+    });
+
+    t.clock.set(parseSantiago("2026-11-02T22:40"));
+    await t.app.receiveMensaje({ text: "👌", whatsappId: "in-1" });
+
+    expect(texts(t)[0]?.text).toBe(
+      "Te lo cuento, Patricia: todavía no me llega tu estado de cuenta. Cuando llegue, te lo cuento.",
+    );
+  });
+
+  test("without a bank estado de cuenta with a pago mínimo, Luna waits gently", async () => {
     const t = setup();
     const citaId = await graduadaCita(t);
 

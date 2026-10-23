@@ -1,6 +1,5 @@
 /** Tells Patricia the pago mínimo when she asks Luna to read the estado de cuenta. */
 
-import { payoff } from "../figures/payoff";
 import type { Cita, Decision, MensajeEntrante } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { Intencion } from "../escalera/policy";
@@ -46,7 +45,7 @@ export function textoPagoMinimo(nombre: string, monto: number): string {
   return `Te lo cuento, ${nombre}: en tu último estado de cuenta, el pago mínimo es ${montoEnPantalla(monto)}. Lo que pongas sobre el mínimo lo decides tú, con calma.`;
 }
 
-/** Fixed message for when no bank estado de cuenta with figures has arrived yet. */
+/** Fixed message for when no bank estado de cuenta with a pago mínimo has arrived yet. */
 export function textoSinEstadoDeCuenta(nombre: string): string {
   return `Te lo cuento, ${nombre}: todavía no me llega tu estado de cuenta. Cuando llegue, te lo cuento.`;
 }
@@ -81,8 +80,8 @@ export async function answerTeLoCuento(
 async function tell(deps: TeLoCuentoDeps, mensaje: MensajeEntrante, cita: Cita): Promise<void> {
   const { store, llm, whatsapp } = deps;
 
-  const estado = store.estadosDeCuenta().findLast((candidate) => candidate.origen === "banco" && candidate.cifras !== null);
-  const monto = estado?.cifras ? payoff(estado.cifras, 0, cita.fecha).firstMinimum : null;
+  const estado = store.estadosDeCuenta().findLast((candidate) => candidate.origen === "banco" && candidate.pagoMinimo !== null);
+  const monto = estado?.pagoMinimo ?? null;
   const draft = monto === null ? textoSinEstadoDeCuenta(store.getPatricia().nombre) : textoPagoMinimo(store.getPatricia().nombre, monto);
   const validated = await validateText({
     draft,
