@@ -1,5 +1,7 @@
 import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
+import type { EtapaMove } from "./escalera/policy";
+import { receiveMensaje } from "./escalera/respuesta";
 import { receiveMail } from "./mail/ingest";
 import { allowedSenderDomains } from "./mail/senders";
 import type { Senal } from "./patricia/entities";
@@ -18,6 +20,8 @@ export type App = {
   store: Store;
   /** The demo clock: every domain time read goes through it (ADR 0002). */
   clock: DemoClock;
+  /** Takes a message from Patricia, moves her etapa if the política says so and logs the decision. */
+  receiveMensaje(input: { text: string; whatsappId: string | null }): Promise<EtapaMove>;
 };
 
 /**
@@ -55,5 +59,6 @@ export function createApp(ports: Ports): App {
     receiveMail: receive,
     store,
     clock,
+    receiveMensaje: (input) => receiveMensaje({ store, llm: ports.llm }, input),
   };
 }
