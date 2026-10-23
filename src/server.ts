@@ -1,12 +1,71 @@
-/**
- * The HTTP entry point. The host checks `/health` to know the process is up,
- * which matters because nobody may touch the deployment after the 13:00
- * delivery.
- */
-export function handle(request: Request): Response {
-  const { pathname } = new URL(request.url);
-  if (request.method === "GET" && pathname === "/health") {
-    return Response.json({ status: "ok" });
-  }
-  return new Response("Not found", { status: 404 });
+import { timingSafeEqual } from "node:crypto";
+import { NIGHT_AUDIO_URL, isMomentId, snapshotAt, type MomentId } from "./demo/moments";
+import type { NightAudioResult } from "./demo/night-audio";
+
+export interface Deps {
+  demoPage: Blob;
+  nightAudio: Blob;
+  sendNightAudio: () => Promise<NightAudioResult>;
+  /** The operator's key for the routes that move the clock; unset leaves the room view-only. */
+  operatorKey: string | undefined;
+}
+
+/** The header the control room sends its operator key in. */
+export const OPERATOR_KEY_HEADER = "x-demo-key";
+
+const MOMENT_ROUTE = /^\/demo\/moments\/([a-z0-9-]+)$/;
+
+function sameKey(given: string | null, expected: string): boolean {
+  if (given === null) return false;
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export function createHandler(deps: Deps): (request: Request) => Promise<Response> {
+  // The demo clock lives in memory until the real clock lands in SQLite, so a
+  // restart (every deploy) sends the control room back to Monday 09:00.
+  let moment: MomentId | "start" = "start";
+
+  return async (request) => {
+    const { pathname } = new URL(request.url);
+
+    if (request.method === "GET") {
+      if (pathname === "/health") return Response.json({ status: "ok" });
+      if (pathname === "/demo") {
+        return new Response(deps.demoPage, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+      }
+      if (pathname === "/demo/state") return Response.json(snapshotAt(moment));
+      if (pathname === NIGHT_AUDIO_URL) {
+        return new Response(deps.nightAudio, { headers: { "Content-Type": "audio/ogg" } });
+      }
+    }
+
+    if (request.method === "POST" && pathname.startsWith("/demo/")) {
+      // The public URL reaches these routes, so moving the clock, and with it
+      // sending audio to Patricia's phone, takes the operator's key.
+      if (!deps.operatorKey) {
+        return Response.json({ error: "falta DEMO_OPERATOR_KEY en Doppler: la sala solo se mira" }, { status: 503 });
+      }
+      if (!sameKey(request.headers.get(OPERATOR_KEY_HEADER), deps.operatorKey)) {
+        return Response.json({ error: "falta la clave de operador: abre /demo?clave=…" }, { status: 401 });
+      }
+
+      if (pathname === "/demo/reset") {
+        moment = "start";
+        return Response.json({ snapshot: snapshotAt(moment) });
+      }
+      const id = MOMENT_ROUTE.exec(pathname)?.[1];
+      if (id && isMomentId(id)) {
+        // Only arriving at Monday night sends the audio: pressing it again
+        // while there does not send a second one.
+        const arriving = id === "monday-night" && moment !== "monday-night";
+        moment = id;
+        const whatsapp = arriving ? await deps.sendNightAudio() : undefined;
+        return Response.json({ snapshot: snapshotAt(moment), whatsapp });
+      }
+    }
+
+    return new Response("Not found", { status: 404 });
+  };
 }

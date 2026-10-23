@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luna · sala de control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FAFAF7;
+  --card: #FFFFFF;
+  --surface: #F0EFE9;
+  --line: #DAD8D0;
+  --ink: #16171B;
+  --ink-2: #3A3C44;
+  --muted: #6B6D75;
+  --accent: #283A8E;
+  --accent-soft: #E6E9F6;
+  --glow: #E8A623;
+  --glow-soft: #FBEFD2;
+  --chat: #EFEAE2;
+  --mine: #D9FDD3;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+/* Sized for the projector: 20 px body at 1920 px wide, never under 16 px. */
+html { font-size: max(16px, 1.04vw); }
+body {
+  margin: 0; height: 100vh; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); line-height: 1.4;
+}
+h1, h2, h3 { font-family: var(--f-display); margin: 0; letter-spacing: -0.01em; }
+header { display: flex; align-items: baseline; gap: 1.2rem; padding: .7rem 1.4rem .5rem; }
+header h1 { font-size: 1.4rem; font-weight: 800; }
+header .clock { font-family: var(--f-display); font-weight: 700; font-size: 1.4rem; color: var(--accent); margin-left: auto; }
+main { display: grid; grid-template-columns: 30fr 35fr 35fr; gap: 1rem; padding: 0 1.4rem; min-height: 0; }
+.col { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: .9rem; padding-bottom: .6rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: .9rem 1rem; }
+.card h2 { font-size: 1.15rem; margin-bottom: .55rem; }
+.label { font-size: .8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+
+/* Patricia's phone: the mirror of her WhatsApp, and the simulator if WhatsApp fails. */
+.phone { flex: 1; min-height: 0; display: flex; flex-direction: column; border-radius: 22px; overflow: hidden; border: 1px solid var(--line); background: var(--chat); }
+.phone .bar { display: flex; align-items: center; gap: .6rem; padding: .6rem .9rem; background: #F7F5F1; border-bottom: 1px solid var(--line); }
+.avatar { width: 2.1rem; height: 2.1rem; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-family: var(--f-display); font-weight: 800; }
+.phone .bar b { font-size: 1.05rem; }
+.phone .bar small { display: block; color: var(--muted); font-size: .78rem; }
+.chat { flex: 1; overflow: auto; padding: .8rem; display: flex; flex-direction: column; gap: .45rem; }
+.empty { margin: auto; text-align: center; color: var(--muted); font-size: .95rem; max-width: 18rem; }
+.day { align-self: center; background: #fff; color: var(--ink-2); font-size: .75rem; font-weight: 600; border-radius: 8px; padding: .15rem .6rem; margin: .3rem 0; }
+.msg { max-width: 88%; border-radius: 12px; padding: .5rem .7rem .35rem; font-size: .95rem; background: #fff; align-self: flex-start; box-shadow: 0 1px 0 rgba(0,0,0,.06); }
+.msg.patricia { background: var(--mine); align-self: flex-end; }
+.msg .time { display: block; text-align: right; font-size: .7rem; color: var(--muted); margin-top: .1rem; }
+.msg.emoji { font-size: 2rem; line-height: 1.1; background: transparent; box-shadow: none; padding: 0; }
+.voice { display: flex; align-items: center; gap: .55rem; min-width: 14rem; }
+.play { width: 2.3rem; height: 2.3rem; border-radius: 50%; border: 0; background: var(--accent); color: #fff; font-size: .9rem; cursor: pointer; flex: none; }
+.play:disabled { background: #A9AFC9; cursor: default; }
+.wave { flex: 1; display: flex; align-items: center; gap: 2px; height: 1.6rem; }
+.wave i { flex: 1; background: #9AA3C7; border-radius: 2px; }
+.voice .dur { font-size: .8rem; color: var(--muted); }
+.transcript { margin: .35rem 0 0; font-size: .8rem; color: var(--ink-2); line-height: 1.35; }
+.shot { width: 13rem; border-radius: 8px; border: 1px solid var(--line); background: #fff; overflow: hidden; font-size: .75rem; }
+.shot .top { background: #C2185B; color: #fff; font-weight: 700; padding: .3rem .5rem; }
+.shot .body { padding: .4rem .5rem; display: grid; gap: .15rem; }
+.shot .min { font-family: var(--f-display); font-size: 1.2rem; font-weight: 800; justify-self: end; outline: 3px solid var(--glow); border-radius: 4px; padding: 0 .3rem; }
+
+/* Her week, before and now. */
+.week { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+.week ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.week li { border-radius: 10px; padding: .45rem .6rem; font-size: .95rem; line-height: 1.3; }
+.week .d { display: block; font-size: .75rem; font-weight: 700; color: var(--muted); }
+.before li { background: var(--surface); color: var(--ink-2); }
+.before li.crossed span:last-child { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--muted); }
+.now li { border: 1px dashed var(--line); color: #A3A5AC; }
+.now li.lit { border: 1px solid var(--glow); background: var(--glow-soft); color: var(--ink); }
+.now li.lit .d { color: #8A5A00; }
+.log { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.log li { font-size: .92rem; line-height: 1.35; border-left: 3px solid var(--accent); padding-left: .6rem; }
+.log b { color: var(--accent); }
+
+/* The panel. */
+.ladder { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: .35rem; align-items: end; }
+.ladder li { border: 1px solid var(--line); border-radius: 10px; padding: .45rem .4rem; font-size: .78rem; line-height: 1.2; background: var(--surface); color: var(--ink-2); }
+.ladder li:nth-child(1) { min-height: 4.2rem; } .ladder li:nth-child(2) { min-height: 4.9rem; }
+.ladder li:nth-child(3) { min-height: 5.6rem; } .ladder li:nth-child(4) { min-height: 6.3rem; }
+.ladder li:nth-child(5) { min-height: 7rem; }
+.ladder .n { display: block; font-family: var(--f-display); font-weight: 800; font-size: 1.3rem; color: var(--muted); }
+.ladder li.done { background: var(--glow-soft); border-color: var(--glow); color: var(--ink); }
+.ladder li.done .n { color: #8A5A00; }
+.ladder li.current { border: 2px solid var(--accent); background: var(--accent-soft); color: var(--ink); }
+.ladder li.current .n { color: var(--accent); }
+.nights { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+.nights div, .metrics div { background: var(--surface); border-radius: 10px; padding: .5rem .6rem; }
+.nights b, .metrics b { display: block; font-family: var(--f-display); font-weight: 800; font-size: 1.9rem; line-height: 1.05; }
+.nights span, .metrics span { font-size: .8rem; color: var(--ink-2); line-height: 1.25; display: block; }
+.nights .np b { color: #8A5A00; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+.metrics b { font-size: 1.45rem; }
+.figures { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+.figures li { display: grid; grid-template-columns: 1fr auto; gap: .1rem .8rem; border-bottom: 1px solid var(--line); padding-bottom: .4rem; }
+.figures .v { font-family: var(--f-display); font-weight: 700; text-align: right; font-size: 1.05rem; }
+.figures .s { grid-column: 1 / -1; font-size: .75rem; color: var(--muted); }
+.wait { color: var(--muted); font-size: .95rem; margin: 0; }
+
+/* The demo clock: small on purpose, so the jury sees time is being moved. */
+footer { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; padding: .6rem 1.4rem .8rem; border-top: 1px solid var(--line); background: #fff; }
+footer button { font: 600 .85rem var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: .4rem .85rem; cursor: pointer; }
+footer button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+footer button:disabled { opacity: .55; cursor: progress; }
+footer .reset { margin-left: .4rem; background: #fff; }
+.wa { margin-left: auto; font-size: .82rem; color: var(--ink-2); max-width: 34rem; }
+.wa.ok { color: #1F6F3A; font-weight: 600; }
+.wa.err { color: #9B2C2C; font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Luna · sala de control</h1>
+  <span class="label">Patricia · Talca · 58 años</span>
+  <span class="clock" id="clock"></span>
+</header>
+
+<main>
+  <section class="col" aria-label="El celular de Patricia">
+    <div class="phone">
+      <div class="bar"><div class="avatar">L</div><div><b>Luna</b><small>WhatsApp de Patricia</small></div></div>
+      <div class="chat" id="chat"></div>
+    </div>
+  </section>
+
+  <section class="col" aria-label="Su semana">
+    <div class="card">
+      <h2>Su semana</h2>
+      <div class="week">
+        <div><p class="label">Antes</p><ol class="before" id="before"></ol></div>
+        <div><p class="label">Ahora</p><ol class="now" id="now"></ol></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Registro de decisiones</h2>
+      <ol class="log" id="log"></ol>
+    </div>
+  </section>
+
+  <section class="col" aria-label="Panel">
+    <div class="card">
+      <h2>La escalera</h2>
+      <ol class="ladder" id="ladder"></ol>
+    </div>
+    <div class="card">
+      <h2>Noches</h2>
+      <div class="nights" id="nights"></div>
+    </div>
+    <div class="card">
+      <h2>Lo que cambió</h2>
+      <div class="metrics" id="metrics"></div>
+    </div>
+    <div class="card">
+      <h2>Lo que Luna sabe</h2>
+      <ul class="figures" id="figures"></ul>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span class="label">Reloj de demo</span>
+  <button data-moment="monday-email">Lun 09:10 · llega el correo</button>
+  <button data-moment="monday-night">Lun 22:30</button>
+  <button data-moment="thursday-night">Jue 22:30</button>
+  <button data-moment="sunday-early">Dom 02:30</button>
+  <button data-moment="week-4">Semana 4</button>
+  <button data-moment="week-5">Semana 5</button>
+  <button class="reset" data-reset>Reiniciar</button>
+  <span class="wa" id="wa">«Lun 22:30» manda la nota de voz al celular de Patricia.</span>
+</footer>
+
+<script>
+const STEPS = ["Mira Luna", "El total con salida", "Ver con sus ojos", "Abrirlo juntas", "Lo abre ella"];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const player = new Audio();
+let shown = "";
+
+function wave(seed) {
+  let bars = "";
+  for (let i = 0; i < 28; i++) bars += `<i style="height:${30 + ((i * 37 + seed * 11) % 70)}%"></i>`;
+  return `<div class="wave">${bars}</div>`;
+}
+
+function message(m, i) {
+  const time = m.at.includes(" · ") ? m.at.split(" · ")[1] : m.at;
+  const who = m.from === "patricia" ? "patricia" : "luna";
+  if (m.kind === "voice") {
+    const play = m.audioUrl
+      ? `<button class="play" data-src="${esc(m.audioUrl)}" aria-label="Escuchar">▶</button>`
+      : `<button class="play" disabled aria-label="Audio pendiente">▶</button>`;
+    return `<div class="msg ${who}"><div class="voice">${play}${wave(i)}<span class="dur">${esc(m.duration ?? "")}</span></div>` +
+      `<p class="transcript">${esc(m.text)}</p><span class="time">${esc(time)}</span></div>`;
+  }
+  if (m.kind === "image") {
+    return `<div class="msg ${who}"><div class="shot"><div class="top">Tienda La Estrella</div><div class="body">` +
+      `<span>Saldo total $185.000</span><span>Pago mínimo</span><span class="min">$18.500</span></div></div>` +
+      `<span class="time">${esc(m.text)} · ${esc(time)}</span></div>`;
+  }
+  const emoji = /^\p{Extended_Pictographic}+$/u.test(m.text) ? " emoji" : "";
+  return `<div class="msg ${who}${emoji}">${esc(m.text)}<span class="time">${esc(time)}</span></div>`;
+}
+
+function render(s) {
+  const key = JSON.stringify(s);
+  if (key === shown) return;
+  shown = key;
+
+  $("clock").textContent = s.clock;
+  document.querySelectorAll("[data-moment]").forEach((b) => b.classList.toggle("on", b.dataset.moment === s.moment));
+
+  const chat = $("chat");
+  let html = "";
+  s.messages.forEach((m, i) => {
+    if (m.at.includes(" · ")) html += `<div class="day">${esc(m.at.split(" · ")[0])}</div>`;
+    html += message(m, i);
+  });
+  chat.innerHTML = html || `<p class="empty">Todavía no llega nada. Luna no le escribe hasta que hay algo bueno que contar, a su hora.</p>`;
+  chat.scrollTop = chat.scrollHeight;
+
+  $("before").innerHTML = s.before.map((r) =>
+    `<li class="${r.crossed ? "crossed" : ""}"><span class="d">${esc(r.day)}</span><span>${esc(r.text)}</span></li>`).join("");
+  $("now").innerHTML = s.now.map((r) =>
+    `<li class="${r.lit ? "lit" : ""}"><span class="d">${esc(r.at)}</span><span>${esc(r.text)}</span></li>`).join("");
+
+  $("log").innerHTML = s.decisions.length
+    ? s.decisions.slice(-5).reverse().map((d) => `<li><b>${esc(d.at)}</b> · ${esc(d.text)}</li>`).join("")
+    : `<li>Esperando la primera señal: el correo del banco.</li>`;
+
+  $("ladder").innerHTML = STEPS.map((name, i) => {
+    const state = i < s.stepsDone ? "done" : i === s.stepsDone ? "current" : "";
+    return `<li class="${state}"><span class="n">${i + 1}</span>${esc(name)}</li>`;
+  }).join("");
+
+  const n = s.nights;
+  $("nights").innerHTML =
+    `<div><b>${n.invited}</b><span>noches con invitación</span></div>` +
+    `<div><b>${n.listened}</b><span>escuchadas</span></div>` +
+    `<div class="np"><b>${n.noPressure}</b><span>sin presión cuando no escuchó</span></div>`;
+
+  const k = s.metrics;
+  $("metrics").innerHTML =
+    `<div><b>${esc(k.lookedByHer)}</b><span>estados de cuenta abiertos por ella</span></div>` +
+    `<div><b>${esc(k.aboveMinimum)}</b><span>pagos sobre el mínimo</span></div>` +
+    `<div><b>${esc(k.anxiety)}</b><span>angustia (1 a 5)</span></div>`;
+
+  $("figures").innerHTML = s.figures.length
+    ? s.figures.map((f) => `<li><span>${esc(f.label)}</span><span class="v">${esc(f.value)}</span><span class="s">${esc(f.source)}</span></li>`).join("")
+    : `<p class="wait">Todavía no llega el estado de cuenta.</p>`;
+}
+
+function whatsapp(result) {
+  const wa = $("wa");
+  if (!result) return;
+  wa.className = "wa " + (result.sent ? "ok" : "err");
+  wa.textContent = result.sent ? "✓ Nota de voz enviada al celular de Patricia" : "WhatsApp no salió: " + result.reason;
+}
+
+// The operator opens /demo?clave=… once; the key stays in this browser and
+// leaves the address bar, so the projector never shows it.
+const KEY_STORE = "luna-demo-key";
+let operatorKey = "";
+try { operatorKey = localStorage.getItem(KEY_STORE) || ""; } catch { /* private window: memory only */ }
+const keyFromUrl = new URLSearchParams(location.search).get("clave");
+if (keyFromUrl) {
+  operatorKey = keyFromUrl;
+  try { localStorage.setItem(KEY_STORE, keyFromUrl); } catch { /* memory only */ }
+  history.replaceState(null, "", location.pathname);
+}
+
+async function post(path, button) {
+  document.querySelectorAll("footer button").forEach((b) => (b.disabled = true));
+  if (path.endsWith("monday-night")) { $("wa").className = "wa"; $("wa").textContent = "Mandando la nota de voz…"; }
+  try {
+    const response = await fetch(path, { method: "POST", headers: operatorKey ? { "x-demo-key": operatorKey } : {} });
+    const body = await response.json();
+    if (!response.ok) { $("wa").className = "wa err"; $("wa").textContent = body.error; return; }
+    render(body.snapshot);
+    whatsapp(body.whatsapp);
+    if (path.endsWith("monday-night") && !body.whatsapp) {
+      $("wa").className = "wa";
+      $("wa").textContent = "Ya estaba en Lun 22:30: para mandar otra nota de voz, aprieta Reiniciar.";
+    }
+  } catch (error) {
+    $("wa").className = "wa err";
+    $("wa").textContent = "No respondió el servidor: " + error.message;
+  } finally {
+    document.querySelectorAll("footer button").forEach((b) => (b.disabled = false));
+    button.blur();
+  }
+}
+
+document.querySelectorAll("[data-moment]").forEach((b) => b.addEventListener("click", () => post("/demo/moments/" + b.dataset.moment, b)));
+document.querySelector("[data-reset]").addEventListener("click", (e) => post("/demo/reset", e.currentTarget));
+$("chat").addEventListener("click", (e) => {
+  const button = e.target.closest(".play[data-src]");
+  if (!button) return;
+  if (!player.paused && player.dataset.src === button.dataset.src) { player.pause(); button.textContent = "▶"; return; }
+  player.src = button.dataset.src; player.dataset.src = button.dataset.src;
+  player.play(); button.textContent = "❚❚";
+  player.onended = () => (button.textContent = "▶");
+});
+
+// Two people can drive the room (Felipe at the keyboard, Pablo on the phone):
+// polling keeps every open screen on the same moment.
+async function refresh() {
+  try { render(await (await fetch("/demo/state")).json()); } catch { /* the next tick retries */ }
+}
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

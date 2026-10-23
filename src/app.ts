@@ -2,6 +2,7 @@ import { createCitaSender } from "./citas/envio";
 import { createScheduler } from "./citas/scheduler";
 import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
+import { nightAudioSender } from "./demo/night-audio";
 import type { EtapaMove } from "./escalera/policy";
 import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
 import { receiveMail } from "./mail/ingest";
@@ -10,7 +11,7 @@ import type { Senal } from "./patricia/entities";
 import { resetPatricia } from "./patricia/fixtures";
 import { createStore, type Store } from "./patricia/store";
 import type { IncomingMail, Ports } from "./ports";
-import { handle } from "./server";
+import { createHandler } from "./server";
 
 export type App = {
   /** Answers one HTTP request; `Bun.serve` in `main` and tests call it alike. */
@@ -33,11 +34,20 @@ export type App = {
   reset(): void;
 };
 
+// The control room's page and test audio ship with the repo; Bun reads them on request.
+const demoPage = Bun.file(new URL("./demo/page.html", import.meta.url));
+const nightAudio = Bun.file(new URL("../assets/night-audio-test.ogg", import.meta.url));
+
+export type AppOptions = {
+  /** The control room's operator key (`DEMO_OPERATOR_KEY`); unset leaves `/demo` view-only. */
+  demoOperatorKey?: string;
+};
+
 /**
  * Builds the app from its ports. The schema is brought up to date first, so a
  * deploy against the live file keeps every night Patricia already heard.
  */
-export function createApp(ports: Ports): App {
+export function createApp(ports: Ports, options: AppOptions = {}): App {
   migrate(ports.db);
   const clock = createDemoClock(ports.db, ports.clock);
   const store = createStore(ports.db, clock);
@@ -74,7 +84,12 @@ export function createApp(ports: Ports): App {
     whatsapp: ports.whatsapp,
   });
   return {
-    handle,
+    handle: createHandler({
+      demoPage,
+      nightAudio,
+      sendNightAudio: nightAudioSender(ports.whatsapp, nightAudio),
+      operatorKey: options.demoOperatorKey,
+    }),
     tick: async () => {
       // Mail first, so tonight's cita is decided with every señal already in.
       await pollMail();
