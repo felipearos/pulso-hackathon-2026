@@ -49,6 +49,19 @@
   #momentos { display: contents; }
   .columnas { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
   @media (max-width: 1100px) { .columnas { grid-template-columns: 1fr; } }
+  #simulador.activo { background: #a6e3a1; border-color: #a6e3a1; }
+  #simulador.apagado { background: #0b0b0d; color: #f5f5f5; }
+  #chat { display: flex; flex-direction: column; gap: 16px; margin: 16px 0; }
+  .burbuja { max-width: 70%; padding: 16px 20px; border-radius: 16px; border: 2px solid #3a3a40; }
+  .burbuja.luna { align-self: flex-start; background: #1d2a3a; border-color: #8fd3ff; }
+  .burbuja.patricia { align-self: flex-end; background: #2a2a1d; border-color: #ffd866; }
+  .burbuja .meta { display: block; font-size: 22px; color: #e0e0e0; }
+  .burbuja audio { width: 100%; margin: 8px 0; }
+  .burbuja img { max-width: 100%; max-height: 360px; border-radius: 8px; margin: 8px 0; display: block; }
+  #responder[hidden] { display: none; }
+  #responder .fila { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; margin: 16px 0; }
+  #responder input { font: inherit; font-size: 28px; }
+  #respuesta { flex: 1; min-width: 320px; padding: 16px; border-radius: 12px; border: 3px solid #ffffff; background: #0b0b0d; color: #f5f5f5; }
 </style>
 </head>
 <body>
@@ -75,6 +88,26 @@
   </section>
 </div>
 
+<section>
+  <h2>Conversación con Patricia</h2>
+  <div class="botones">
+    <button id="simulador" type="button">Simulador: —</button>
+  </div>
+  <div id="chat"></div>
+  <div id="responder" hidden>
+    <h2>Responder como Patricia</h2>
+    <form id="responder-texto" class="fila">
+      <input id="respuesta" type="text" autocomplete="off" placeholder="Escribe como Patricia" aria-label="Respuesta de Patricia">
+      <button type="submit">Enviar</button>
+    </form>
+    <div class="fila">
+      <button type="button" data-emoji="👍">👍</button>
+      <button type="button" data-emoji="👌">👌</button>
+      <label>Foto: <input id="foto" type="file" accept="image/*"></label>
+    </div>
+  </div>
+</section>
+
 <script>
   const token = new URLSearchParams(location.search).get("token") ?? "";
   const $ = (id) => document.getElementById(id);
@@ -87,6 +120,8 @@
   });
   let busy = false;
   let renderedGuion = "";
+  let renderedChat = "";
+  let simuladorActivo = false;
 
   function setStatus(text, isError) {
     $("estado").textContent = text;
@@ -145,26 +180,92 @@
     fillList($("decisiones"), [...state.decisiones].reverse().map((decision) =>
       item(`${shortTime.format(new Date(decision.at))} · ${decision.tipo}`, decision.motivo ?? "")),
       "Sin decisiones");
+    renderSimulador(state.simulador);
   }
 
-  async function request(method, path) {
-    const response = await fetch(path, { method, headers: { "x-demo-token": token } });
-    let body = null;
-    try { body = await response.json(); } catch { body = null; }
-    if (body && body.now) render(body);
-    if (!response.ok) throw new Error((body && body.error) || `Error ${response.status}`);
-    return body;
+  function renderSimulador(activo) {
+    simuladorActivo = Boolean(activo);
+    $("simulador").textContent = simuladorActivo ? "Simulador: activo" : "Simulador: apagado";
+    $("simulador").className = simuladorActivo ? "activo" : "apagado";
+    $("responder").hidden = !simuladorActivo;
   }
 
-  async function call(method, path, label) {
-    if (busy) return;
+  function withToken(url) {
+    return `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+  }
+
+  function bubble(mensaje) {
+    const div = document.createElement("div");
+    div.className = `burbuja ${mensaje.de}`;
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    meta.textContent = `${mensaje.de === "luna" ? "Luna" : "Patricia"} · ${shortTime.format(new Date(mensaje.at))}`;
+    div.append(meta);
+    if (mensaje.mediaUrl && mensaje.kind === "audio") {
+      const audio = document.createElement("audio");
+      audio.controls = true;
+      audio.preload = "none";
+      audio.src = withToken(mensaje.mediaUrl);
+      div.append(audio);
+    } else if (mensaje.mediaUrl && mensaje.kind === "image") {
+      const img = document.createElement("img");
+      img.alt = mensaje.text ?? "Foto";
+      img.src = withToken(mensaje.mediaUrl);
+      div.append(img);
+    }
+    if (mensaje.text) {
+      const text = document.createElement("div");
+      text.textContent = mensaje.text;
+      div.append(text);
+    }
+    return div;
+  }
+
+  function renderChat(conversacion) {
+    renderSimulador(conversacion.simulador);
+    const mensajes = conversacion.mensajes ?? [];
+    // Rebuild only when the list moved, so a playing audio is not restarted.
+    const chatKey = `${mensajes.length}|${mensajes.at(-1)?.at ?? ""}`;
+    if (chatKey === renderedChat) return;
+    renderedChat = chatKey;
+    if (mensajes.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "vacio";
+      empty.textContent = "Sin mensajes todavía";
+      $("chat").replaceChildren(empty);
+      return;
+    }
+    $("chat").replaceChildren(...mensajes.map(bubble));
+  }
+
+  async function request(method, path, payload) {
+    const headers = { "x-demo-token": token };
+    let body;
+    if (payload instanceof FormData) {
+      body = payload;
+    } else if (payload !== undefined) {
+      headers["content-type"] = "application/json";
+      body = JSON.stringify(payload);
+    }
+    const response = await fetch(path, { method, headers, body });
+    let answer = null;
+    try { answer = await response.json(); } catch { answer = null; }
+    if (answer && answer.now) render(answer);
+    if (!response.ok) throw new Error((answer && answer.error) || `Error ${response.status}`);
+    return answer;
+  }
+
+  async function call(method, path, label, payload) {
+    if (busy) return false;
     setBusy(true);
     setStatus(`${label}…`, false);
     try {
-      await request(method, path);
+      await request(method, path, payload);
       setStatus("", false);
+      return true;
     } catch (error) {
       setStatus(error.message, true);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -174,6 +275,7 @@
     if (busy) return;
     try {
       await request("GET", "/sala/state");
+      renderChat(await request("GET", "/sala/conversacion"));
       if ($("estado").className === "error" && $("estado").textContent.startsWith("Sin conexión")) {
         setStatus("", false);
       }
@@ -185,6 +287,34 @@
   $("tick").addEventListener("click", () => call("POST", "/sala/tick", "Tick"));
   $("reiniciar").addEventListener("click", () => {
     if (confirm("¿Reiniciar todo al punto de partida?")) call("POST", "/sala/reset", "Reiniciando");
+  });
+
+  $("simulador").addEventListener("click", () =>
+    call("POST", "/sala/simulador", simuladorActivo ? "Apagando el simulador" : "Activando el simulador",
+      { activo: !simuladorActivo }));
+
+  async function reply(label, payload) {
+    const sent = await call("POST", "/sala/simulador/mensaje", label, payload);
+    if (sent) request("GET", "/sala/conversacion").then(renderChat, () => {});
+    return sent;
+  }
+
+  $("responder-texto").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const text = $("respuesta").value.trim();
+    if (!text) return;
+    if (await reply("Enviando", { text })) $("respuesta").value = "";
+  });
+  for (const button of document.querySelectorAll("[data-emoji]")) {
+    button.addEventListener("click", () => reply("Enviando", { emoji: button.dataset.emoji }));
+  }
+  $("foto").addEventListener("change", async () => {
+    const file = $("foto").files[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append("foto", file);
+    await reply("Enviando la foto", form);
+    $("foto").value = "";
   });
 
   poll();

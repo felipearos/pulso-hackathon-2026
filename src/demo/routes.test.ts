@@ -84,7 +84,16 @@ describe("/sala with the operator token", () => {
   test("the control room page calls every /sala endpoint with the token header", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
     const page = await (await get(app, `/sala?token=${TOKEN}`)).text();
-    for (const reference of ["/sala/state", "/sala/momentos/", "/sala/reset", "/sala/tick", "x-demo-token"]) {
+    for (const reference of [
+      "/sala/state",
+      "/sala/momentos/",
+      "/sala/reset",
+      "/sala/tick",
+      "/sala/conversacion",
+      "/sala/simulador",
+      "/sala/simulador/mensaje",
+      "x-demo-token",
+    ]) {
       expect(page).toContain(reference);
     }
   });
