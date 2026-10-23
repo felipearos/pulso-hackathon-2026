@@ -85,14 +85,36 @@ describe("the whatsapp webhook through the app factory", () => {
     expect(entrantes[0]?.whatsappId).toBe("wamid.TEST1");
 
     // The flujo normal left the política's own decisión: she had no cita to
-    // answer, so it is «quedarse», and the 👍 it read is in it.
+    // answer, so it is «quedarse», and the 👍 it read is in it, with the number
+    // it came from.
     const decisions = app.store.decisions();
     expect(decisions).toHaveLength(1);
     expect(decisions[0]?.tipo).toBe("quedarse");
-    expect(decisions[0]?.datos).toMatchObject({ text: "👍" });
+    expect(decisions[0]?.datos).toMatchObject({
+      text: "👍",
+      whatsappId: "wamid.TEST1",
+      arrival: { from: FROM, kind: "text" },
+    });
 
     // She wrote, so Meta's 24 h window is open and the cita can go out free-form.
     expect(whatsapp.inbound).toHaveLength(1);
+  });
+
+  test("a 👍 answering the cita moves Patricia up the escalera", async () => {
+    const { app } = createTestApp();
+    app.store.addMensajeSaliente({
+      kind: "audio",
+      text: "la cita de la noche",
+      durationSeconds: 40,
+      whatsappId: "wamid.LUNA1",
+    });
+
+    const response = await app.handle(signedPost(delivery(textMessage("wamid.TEST1", "👍"))));
+    expect(response.status).toBe(200);
+    await app.drain();
+
+    expect(app.store.getPatricia().etapa).toBe(2);
+    expect(app.store.decisions().map((decision) => decision.tipo)).toEqual(["subir-etapa"]);
   });
 
   test("the same message id twice is processed once, even after a restart", async () => {

@@ -10,7 +10,16 @@ import { decideEtapa, type Angustia, type Etapa, type EtapaInput, type EtapaMove
 /** `db` lets a pausa or a return land with its decision in one transaction. */
 export type RespuestaDeps = { store: Store; llm: Llm; whatsapp: WhatsApp; db: Database };
 
-export type MensajeInput = { text: string; whatsappId: string | null };
+export type MensajeInput = {
+  text: string;
+  whatsappId: string | null;
+  /**
+   * How it reached Luna, when it came in over WhatsApp. The registro de
+   * decisiones keeps it, so the control room can tell a message Patricia typed
+   * from an emoji she reacted with, and from whose number either arrived.
+   */
+  arrival?: { from: string; kind: "text" | "reaction"; toWhatsappId?: string | null };
+};
 
 function rank(etapa: Etapa): number {
   return etapa === "graduada" ? 6 : etapa;
@@ -142,7 +151,13 @@ export async function receiveMensaje(deps: RespuestaDeps, input: MensajeInput): 
   const etapaInput = inputBefore ?? buildInput(store, intencion);
   const move = decideEtapa(etapaInput);
   // The whole input the política read, so the control room can show why.
-  const datos = { text: input.text, input: etapaInput, move };
+  const datos = {
+    text: input.text,
+    whatsappId: input.whatsappId,
+    ...(input.arrival ? { arrival: input.arrival } : {}),
+    input: etapaInput,
+    move,
+  };
 
   // Everything the move writes, as one unit. Classifying it is a network call,
   // so it stays outside.

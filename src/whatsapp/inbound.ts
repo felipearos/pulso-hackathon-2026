@@ -57,7 +57,11 @@ export async function receiveInbound(deps: InboundDeps, mensaje: InboundMensaje)
     case "text":
     case "reaction": {
       const text = body.kind === "text" ? body.text : body.emoji;
-      await deps.mensaje({ text, whatsappId });
+      const arrival =
+        body.kind === "text"
+          ? { from, kind: body.kind }
+          : { from, kind: body.kind, toWhatsappId: body.toWhatsappId };
+      await deps.mensaje({ text, whatsappId, arrival });
       return;
     }
     case "audio":

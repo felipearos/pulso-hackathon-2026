@@ -54,33 +54,56 @@ describe("receiveInbound", () => {
     expect(app.store.decisions()).toHaveLength(1);
   });
 
-  test("a 👍 reaction to Luna's audio counts as acceptance, like typing it", async () => {
-    const { app: typed, db: typedDb } = createTestApp();
-    await receiveInbound(deps(typed, typedDb), mensaje({ kind: "text", text: "👍" }));
+  test("a 👍 reaction to Luna's audio moves her up, exactly as typing it does", async () => {
+    /** Answers the cita Luna already sent, which is what the política reads. */
+    const answering = async (body: InboundMensaje["body"]) => {
+      const { app, llm, db } = createTestApp();
+      app.store.addMensajeSaliente({
+        kind: "audio",
+        text: "la cita de la noche",
+        durationSeconds: 40,
+        whatsappId: "wamid.LUNA1",
+      });
+      await receiveInbound(deps(app, db), mensaje(body));
+      return { app, llm };
+    };
 
-    const { app, llm, db } = createTestApp();
-    await receiveInbound(deps(app, db), mensaje({ kind: "reaction", emoji: "👍", toWhatsappId: "wamid.LUNA1" }));
+    const typed = await answering({ kind: "text", text: "👍" });
+    const reacted = await answering({ kind: "reaction", emoji: "👍", toWhatsappId: "wamid.LUNA1" });
 
-    const entrantes = app.store.mensajesEntrantes();
+    const entrantes = reacted.app.store.mensajesEntrantes();
     expect(entrantes).toHaveLength(1);
     expect(entrantes[0]?.text).toBe("👍");
     expect(entrantes[0]?.intencion).toEqual({ kind: "accepted" });
-    expect(llm.calls).toHaveLength(0);
+    expect(reacted.llm.calls).toHaveLength(0);
 
-    // Reacting with it and typing it leave the same decision behind.
-    expect(app.store.decisions().map((decision) => decision.tipo)).toEqual(
-      typed.store.decisions().map((decision) => decision.tipo),
-    );
-    expect(app.store.getPatricia().etapa).toBe(typed.store.getPatricia().etapa);
+    // The 👍 answered the cita, so she moved up — and it reads the same either way.
+    expect(reacted.app.store.decisions().map((decision) => decision.tipo)).toEqual(["subir-etapa"]);
+    expect(reacted.app.store.getPatricia().etapa).toBe(2);
+    expect(reacted.app.store.getPatricia().etapa).toBe(typed.app.store.getPatricia().etapa);
+
+    // What the registro keeps apart is how it arrived, and which audio it answered.
+    expect(reacted.app.store.decisions()[0]?.datos).toMatchObject({
+      whatsappId: "wamid.TEST1",
+      arrival: { from: FROM, kind: "reaction", toWhatsappId: "wamid.LUNA1" },
+    });
+    expect(typed.app.store.decisions()[0]?.datos).toMatchObject({
+      arrival: { from: FROM, kind: "text" },
+    });
   });
 
-  test("a removed reaction says nothing", async () => {
+  test("an entrante whose decisión fails leaves nothing behind", async () => {
     const { app, db } = createTestApp();
+    const d = deps(app, db);
+    // The registro de decisiones refuses a write; the entrante must go with it.
+    const broken = { ...d, store: { ...app.store, recordDecision: () => { throw new Error("registro caído"); } } };
 
-    await receiveInbound(deps(app, db), mensaje({ kind: "other", type: "reaction-removed" }));
+    await expect(receiveInbound(broken, mensaje({ kind: "audio", mediaId: "media-1", mimeType: null }))).rejects.toThrow(
+      "registro caído",
+    );
 
-    expect(app.store.mensajesEntrantes()[0]?.intencion).toBeNull();
-    expect(app.store.decisions().map((decision) => decision.tipo)).toEqual(["mensaje"]);
+    expect(app.store.mensajesEntrantes()).toEqual([]);
+    expect(app.store.decisions()).toEqual([]);
   });
 
   test("a nota de voz is kept unread with its media id", async () => {
