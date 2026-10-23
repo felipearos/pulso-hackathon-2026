@@ -4,7 +4,7 @@ import { parseSantiago } from "../clock/santiago";
 import { addMonths, minimumPayment, type MinimumRule, type Statement } from "../figures/payoff";
 import { montoEnPantalla } from "../voz/montos";
 import type { EstadoDeCuenta, Patricia, Senal } from "./entities";
-import type { Store } from "./store";
+import { createStore } from "./store";
 
 /**
  * Patricia's fictional history: seven estados de cuenta del banco she never
@@ -123,7 +123,10 @@ const S3: StoryEvent<SenalInput>[] = [
   },
 }));
 
-/** S4: the two compras en cuotas of the case's week, at night, as she buys them. */
+/**
+ * S4: the two compras en cuotas of the case's week (Wednesday and Saturday), at
+ * night. Placed in the week before the start, since the story holds nothing after it.
+ */
 const S4: StoryEvent<SenalInput>[] = [
   {
     at: parseSantiago("2026-10-14T23:10"),
@@ -167,23 +170,22 @@ export const RESET_TABLES = [
 /** Tables a reset keeps: rewritten in place (`patricia`, `reloj_demo`) or not Patricia's history. */
 export const KEPT_TABLES = ["patricia", "reloj_demo", "schema_migrations", "sqlite_sequence"] as const;
 
-// The same SQL as migration 1 in src/db.ts; the reset is the one place allowed to lift it.
-const DECISIONS_NO_DELETE = `CREATE TRIGGER decisions_no_delete BEFORE DELETE ON decisions
-        BEGIN SELECT RAISE(ABORT, 'the decision log is append-only'); END;`;
 
 /**
- * Loads the story through the store, moving the demo clock to each event so it
- * is stamped with the time it arrived, and leaves the clock at the start.
- * Assumes an empty history.
+ * Loads the story into an empty history. Each row is written through a store
+ * whose clock stands still at the event's time, so the stamps are exact on
+ * any clock source, and the demo clock is left at the start.
  */
-export function loadPatriciaStory(store: Store, clock: DemoClock): void {
+function loadPatriciaStory(db: Database, clock: DemoClock): void {
+  let at = PATRICIA_START;
+  const stamped = createStore(db, { now: () => at });
   const events = [
-    ...ESTADOS_DE_CUENTA.map((event) => ({ at: event.at, add: () => store.addEstadoDeCuenta(event.input) })),
-    ...SENALES.map((event) => ({ at: event.at, add: () => store.addSenal(event.input) })),
+    ...ESTADOS_DE_CUENTA.map((event) => ({ at: event.at, add: () => stamped.addEstadoDeCuenta(event.input) })),
+    ...SENALES.map((event) => ({ at: event.at, add: () => stamped.addSenal(event.input) })),
   ];
   // Stable sort: an estado de cuenta goes in before the S1 that arrived with it.
   for (const event of events.sort((a, b) => a.at.getTime() - b.at.getTime())) {
-    clock.set(event.at);
+    at = event.at;
     event.add();
   }
   clock.set(PATRICIA_START);
@@ -194,11 +196,17 @@ export function loadPatriciaStory(store: Store, clock: DemoClock): void {
  * transaction: empties her history, restarts its ids, puts her back at etapa 1
  * without writing an etapa change, and loads the story again.
  */
-export function resetPatricia(db: Database, store: Store, clock: DemoClock): void {
+export function resetPatricia(db: Database, clock: DemoClock): void {
   db.transaction(() => {
+    // The reset is the one exception to the append-only decision log: lift the
+    // trigger, empty the log and put back the trigger exactly as the schema has it.
+    const noDelete = db
+      .query<{ sql: string }, []>("SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = 'decisions_no_delete'")
+      .get();
+    if (!noDelete) throw new Error("the decisions_no_delete trigger is missing");
     db.run("DROP TRIGGER decisions_no_delete");
     for (const table of RESET_TABLES) db.run(`DELETE FROM ${table}`);
-    db.run(DECISIONS_NO_DELETE);
+    db.run(noDelete.sql);
     db.run(`DELETE FROM sqlite_sequence WHERE name IN (${RESET_TABLES.map(() => "?").join(", ")})`, [
       ...RESET_TABLES,
     ]);
@@ -214,6 +222,6 @@ export function resetPatricia(db: Database, store: Store, clock: DemoClock): voi
         PATRICIA_AT_START.enPausa ? 1 : 0,
       ],
     );
-    loadPatriciaStory(store, clock);
+    loadPatriciaStory(db, clock);
   })();
 }

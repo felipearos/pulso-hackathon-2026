@@ -11,7 +11,7 @@ const db = openDatabase(databasePath());
 migrate(db);
 const clock = createDemoClock(db, systemClock);
 const store = createStore(db, clock);
-resetPatricia(db, store, clock);
+resetPatricia(db, clock);
 console.log(
   `Patricia vuelve al inicio: ${store.estadosDeCuenta().length} estados de cuenta y ${store.senales().length} señales cargados.`,
 );
