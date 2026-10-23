@@ -48,7 +48,7 @@ describe("cita scheduler", () => {
       store.addCita({ fecha, tipo, estado: "programada", etapa: 1, motivo: "sembrada", pendienteIds: [] });
     }
     await tickAt(t, "2026-10-25T21:30");
-    expect(store.citaDelDia("2026-10-25")).toMatchObject({ tipo: "domingo", estado: "callada" });
+    expect(store.citaOn("2026-10-25")).toMatchObject({ tipo: "domingo", estado: "callada" });
     expect(store.decisions().map(({ tipo, motivo }) => ({ tipo, motivo }))).toEqual([
       { tipo: "callar", motivo: "ya van tres citas esta semana" },
     ]);
@@ -70,7 +70,7 @@ describe("cita scheduler", () => {
     ]);
 
     await tickUntil(t, "2026-10-22T22:30");
-    const jueves = store.citaDelDia("2026-10-22");
+    const jueves = store.citaOn("2026-10-22");
     expect(jueves).toMatchObject({ tipo: "jueves", estado: "programada" });
     expect(jueves!.pendientes.map((p) => p.id)).toEqual([pendiente.id]);
     expect(store.decisions().filter((d) => d.tipo === "diferir")).toHaveLength(1);
@@ -114,7 +114,7 @@ describe("cita scheduler", () => {
     const t = createTestApp();
     const pendiente = t.app.store.addPendiente({ tipo: "bienvenida", motivo: "su primera cita", datos: {} });
     await tickUntil(t, "2026-10-19T22:30");
-    const cita = t.app.store.citaDelDia("2026-10-19");
+    const cita = t.app.store.citaOn("2026-10-19");
     expect(cita).toMatchObject({ tipo: "bienvenida", estado: "programada", motivo: "bienvenida" });
     expect(cita!.pendientes.map((p) => p.id)).toEqual([pendiente.id]);
     expect(t.app.store.decisions().at(-1)!.datos).toEqual({
@@ -123,6 +123,15 @@ describe("cita scheduler", () => {
       fecha: "2026-10-19",
       pendienteIds: [pendiente.id],
     });
+  });
+
+  test("a bienvenida de vuelta wins over a bienvenida still waiting", async () => {
+    const t = createTestApp();
+    t.app.store.addPendiente({ tipo: "bienvenida", motivo: "su primera cita", datos: {} });
+    t.app.store.addPendiente({ tipo: "bienvenida-de-vuelta", motivo: "volvió de la pausa", datos: {} });
+    await tickAt(t, "2026-10-19T22:30");
+    expect(t.app.store.citaOn("2026-10-19")).toMatchObject({ tipo: "bienvenida-de-vuelta", estado: "programada" });
+    expect(t.app.store.pendientes()).toEqual([]);
   });
 
   test("graduada, a month of ticks sets one graduada cita", async () => {

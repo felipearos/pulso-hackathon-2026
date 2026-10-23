@@ -107,15 +107,15 @@ export const migrations: Migration[] = [
       CREATE TABLE citas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha TEXT NOT NULL UNIQUE,
-        tipo TEXT NOT NULL,
+        tipo TEXT NOT NULL CHECK (tipo IN ('lunes', 'jueves', 'domingo', 'bienvenida', 'bienvenida-de-vuelta', 'graduada')),
         estado TEXT NOT NULL CHECK (estado IN ('programada', 'callada')),
-        etapa TEXT NOT NULL,
+        etapa TEXT NOT NULL CHECK (etapa IN ('1', '2', '3', '4', '5', 'graduada')),
         motivo TEXT NOT NULL,
         programada_at TEXT NOT NULL
       );
       CREATE TABLE pendientes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tipo TEXT NOT NULL,
+        tipo TEXT NOT NULL CHECK (tipo IN ('bienvenida', 'bienvenida-de-vuelta', 'preocupacion', 'senal')),
         motivo TEXT NOT NULL,
         datos TEXT NOT NULL,
         created_at TEXT NOT NULL,

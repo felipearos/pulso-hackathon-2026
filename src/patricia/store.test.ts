@@ -195,8 +195,8 @@ describe("store", () => {
       programadaAt: NIGHT,
     });
     expect(app.store.pendientes()).toEqual([]);
-    expect(app.store.citaDelDia("2026-10-20")).toEqual(cita);
-    expect(app.store.citaDelDia("2026-10-21")).toBeNull();
+    expect(app.store.citaOn("2026-10-20")).toEqual(cita);
+    expect(app.store.citaOn("2026-10-21")).toBeNull();
   });
 
   test("a day holds one cita: a second one is refused and takes no pendientes", () => {

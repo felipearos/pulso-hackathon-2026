@@ -107,7 +107,7 @@ export type TipoDecision =
   | "quedarse"
   /** Luna chose not to speak tonight. */
   | "callar"
-  /** Luna moved a cita to later. */
+  /** Luna moved a cita, or the pendientes the madrugada holds back, to later. */
   | "diferir"
   /** Luna proposed setting plata apartada. */
   | "proponer-plata-apartada"

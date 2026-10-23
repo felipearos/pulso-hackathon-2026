@@ -54,7 +54,7 @@ export type Store = {
     input: Omit<Cita, "id" | "pendientes" | "programadaAt"> & { pendienteIds: readonly number[] },
   ): Cita | null;
   /** The cita of a Santiago day, or null. */
-  citaDelDia(fecha: string): Cita | null;
+  citaOn(fecha: string): Cita | null;
   /** Oldest first. */
   citas(): Cita[];
 };
@@ -436,7 +436,7 @@ export function createStore(db: Database, clock: Clock): Store {
       })();
     },
 
-    citaDelDia(fecha) {
+    citaOn(fecha) {
       const row = selectCitaDelDia.get({ fecha });
       return row ? toCita(row) : null;
     },

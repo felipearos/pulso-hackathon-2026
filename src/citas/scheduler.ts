@@ -9,18 +9,18 @@ export type Scheduler = {
   tick(): void;
 };
 
-type Slot = { tipo: "lunes" | "jueves" | "domingo"; nombre: string; minute: number };
+type Slot = { tipo: "lunes" | "jueves" | "domingo"; label: string; minute: number };
 
 /** The three citas of the week, by Santiago weekday (0 is Sunday), at Santiago wall time. */
 const SLOTS: Partial<Record<number, Slot>> = {
-  1: { tipo: "lunes", nombre: "del lunes", minute: 22 * 60 + 30 },
-  4: { tipo: "jueves", nombre: "del jueves", minute: 22 * 60 + 30 },
-  0: { tipo: "domingo", nombre: "del domingo", minute: 21 * 60 + 30 },
+  1: { tipo: "lunes", label: "del lunes", minute: 22 * 60 + 30 },
+  4: { tipo: "jueves", label: "del jueves", minute: 22 * 60 + 30 },
+  0: { tipo: "domingo", label: "del domingo", minute: 21 * 60 + 30 },
 };
 
 /** The madrugada ends at 05:30, exclusive. */
 const MADRUGADA_END = 5 * 60 + 30;
-const MAX_CITAS_POR_SEMANA = 3;
+const MAX_CITAS_PER_WEEK = 3;
 
 /**
  * The cita scheduler. Each tick reads the demo clock and Patricia's state;
@@ -75,7 +75,7 @@ export function createScheduler({ db, store, clock }: { db: Database; store: Sto
       const slot = SLOTS[parts.weekday];
       if (!slot || minute < slot.minute) return;
       const fecha = santiagoDate(now);
-      if (store.citaDelDia(fecha)) return;
+      if (store.citaOn(fecha)) return;
 
       const { etapa, enPausa } = store.getPatricia();
       const citas = store.citas();
@@ -84,18 +84,18 @@ export function createScheduler({ db, store, clock }: { db: Database; store: Sto
       const graduada = etapa === "graduada";
       if (graduada) {
         const mes = fecha.slice(0, 7);
-        const yaHubo = citas.some((c) => c.tipo === "graduada" && c.estado === "programada" && c.fecha.startsWith(mes));
-        if (slot.tipo !== "lunes" || yaHubo) return;
+        const alreadyHad = citas.some((c) => c.tipo === "graduada" && c.estado === "programada" && c.fecha.startsWith(mes));
+        if (slot.tipo !== "lunes" || alreadyHad) return;
       }
       const slotTipo: TipoCita = graduada ? "graduada" : slot.tipo;
 
       if (enPausa) return callar(fecha, slotTipo, etapa, "en pausa: Luna no habla");
 
-      const [lunes, domingo] = semana(parts);
-      const programadasEstaSemana = citas.filter(
+      const [lunes, domingo] = weekBounds(parts);
+      const programadasThisWeek = citas.filter(
         (c) => c.estado === "programada" && c.fecha >= lunes && c.fecha <= domingo,
       ).length;
-      if (programadasEstaSemana >= MAX_CITAS_POR_SEMANA) {
+      if (programadasThisWeek >= MAX_CITAS_PER_WEEK) {
         return callar(fecha, slotTipo, etapa, "ya van tres citas esta semana");
       }
 
@@ -107,12 +107,12 @@ export function createScheduler({ db, store, clock }: { db: Database; store: Sto
           : pendientes.some((p) => p.tipo === "bienvenida")
             ? "bienvenida"
             : slot.tipo;
-      programar(fecha, tipo, etapa, motivoDe(tipo, slot, etapa), pendientes);
+      programar(fecha, tipo, etapa, motivoFor(tipo, slot, etapa), pendientes);
     },
   };
 }
 
-function motivoDe(tipo: TipoCita, slot: Slot, etapa: Etapa): string {
+function motivoFor(tipo: TipoCita, slot: Slot, etapa: Etapa): string {
   switch (tipo) {
     case "graduada":
       return "cita del mes, graduada";
@@ -121,14 +121,14 @@ function motivoDe(tipo: TipoCita, slot: Slot, etapa: Etapa): string {
     case "bienvenida-de-vuelta":
       return "bienvenida de vuelta";
     default:
-      return `cita ${slot.nombre}, etapa ${etapa}`;
+      return `cita ${slot.label}, etapa ${etapa}`;
   }
 }
 
 /** The Monday and Sunday, `YYYY-MM-DD`, of the Santiago week of `parts`. */
-function semana(parts: { year: number; month: number; day: number; weekday: number }): [string, string] {
-  const desdeLunes = (parts.weekday + 6) % 7;
+function weekBounds(parts: { year: number; month: number; day: number; weekday: number }): [string, string] {
+  const sinceMonday = (parts.weekday + 6) % 7;
   const day = (offset: number) =>
     new Date(Date.UTC(parts.year, parts.month - 1, parts.day + offset)).toISOString().slice(0, 10);
-  return [day(-desdeLunes), day(6 - desdeLunes)];
+  return [day(-sinceMonday), day(6 - sinceMonday)];
 }
