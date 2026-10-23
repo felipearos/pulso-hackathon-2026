@@ -94,6 +94,7 @@ const S1: StoryEvent<SenalInput>[] = CICLOS.map((ciclo) => ({
       from: BANK_STATEMENTS_FROM,
       subject: `${BANK}: tu estado de cuenta de ${MONTHS[ciclo - 1]} ya está disponible`,
     },
+    monto: null,
   },
 }));
 
@@ -107,6 +108,7 @@ const S5: StoryEvent<SenalInput>[] = CICLOS.slice(0, 7).map((ciclo) => ({
       from: BANK_PAYMENTS_FROM,
       subject: `${BANK}: recibimos tu pago de ${montoEnPantalla(ESTADOS_DE_CUENTA[ciclo - 1]!.input.pagoMinimo!)}`,
     },
+    monto: null,
   },
 }));
 
@@ -120,6 +122,7 @@ const S3: StoryEvent<SenalInput>[] = [
   input: {
     tipo: "S3",
     origen: { mailId, from: CATALOGUE_FROM, subject: `Te pagaron tu pedido del catálogo: ${montoEnPantalla(amount)}` },
+    monto: amount,
   },
 }));
 
@@ -137,6 +140,7 @@ const S4: StoryEvent<SenalInput>[] = [
         from: BANK_NOTICES_FROM,
         subject: `${BANK}: compra de ${montoEnPantalla(45_000)} en 3 cuotas en Farmacia Ejemplo`,
       },
+      monto: null,
     },
   },
   {
@@ -148,6 +152,7 @@ const S4: StoryEvent<SenalInput>[] = [
         from: BANK_NOTICES_FROM,
         subject: `${BANK}: compra de ${montoEnPantalla(38_000)} en 6 cuotas en Tienda Ejemplo`,
       },
+      monto: null,
     },
   },
 ];
