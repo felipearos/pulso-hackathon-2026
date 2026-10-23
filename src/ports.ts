@@ -30,6 +30,8 @@ export type WhatsApp = {
 };
 
 export type LlmRequest = {
+  /** Claude model id; unset means the adapter's default. */
+  model?: string;
   system?: string;
   prompt: string;
 };
