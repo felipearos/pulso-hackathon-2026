@@ -37,6 +37,8 @@ async function jueves(t: ReturnType<typeof createTestApp>) {
   await t.app.tick();
   const cita = t.app.store.citaOn("2026-10-22");
   expect(cita).toMatchObject({ tipo: "jueves", estado: "programada" });
+  // The cita's own audio is not under test here; only the replies to her emoji are.
+  t.whatsapp.outbox.length = 0;
   return cita!;
 }
 
@@ -66,7 +68,7 @@ describe("the jueves propuesta through the app", () => {
     const [respuesta] = decisionsOf(t, "respuesta-propuesta");
     expect(respuesta!.datos).toMatchObject({ citaId: cita.id, eleccion: "propuesta", monto: 50000, source: "draft" });
     expect(respuesta!.motivo).toBe("eligió pagar $50.000");
-    expect(t.app.store.mensajesSalientes()).toEqual([]);
+    expect(t.app.store.mensajesSalientes().filter((m) => m.kind === "text")).toEqual([]);
 
     await t.app.receiveMensaje({ text: "👍", whatsappId: "in-2" });
     expect(t.whatsapp.outbox).toHaveLength(1);
