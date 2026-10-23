@@ -18,8 +18,8 @@ const SLOTS: Partial<Record<number, Slot>> = {
   0: { tipo: "domingo", label: "del domingo", minute: 21 * 60 + 30 },
 };
 
-/** The madrugada ends at 05:30, exclusive. */
-const MADRUGADA_END = 5 * 60 + 30;
+/** The madrugada ends at 05:30, exclusive, in minutes of the Santiago day. */
+export const MADRUGADA_END = 5 * 60 + 30;
 const MAX_CITAS_PER_WEEK = 3;
 
 /**

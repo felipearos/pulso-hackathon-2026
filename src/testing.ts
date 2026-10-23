@@ -22,14 +22,19 @@ export type TestApp = {
  * Pass `db` to build it over an existing base, as a restart would.
  */
 export function createTestApp(
-  options: { now?: Date; llm?: ConstructorParameters<typeof FakeLlm>[0]; db?: Database } = {},
+  options: {
+    now?: Date;
+    llm?: ConstructorParameters<typeof FakeLlm>[0];
+    voice?: ConstructorParameters<typeof FakeVoice>[0];
+    db?: Database;
+  } = {},
 ): TestApp {
   const ports = {
     clock: new FakeClock(options.now ?? TEST_START),
     mail: new FakeMail(),
     whatsapp: new FakeWhatsApp(),
     llm: new FakeLlm(options.llm ?? []),
-    voice: new FakeVoice(),
+    voice: new FakeVoice(options.voice),
     db: options.db ?? openDatabase(":memory:"),
   };
   return { app: createApp(ports), ...ports };
