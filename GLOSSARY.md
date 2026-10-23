@@ -50,6 +50,12 @@ _Avoid:_ "amount", "importe".
 
 Paying more than the pago mínimo. Half of the case's success condition.
 
+When a «recibimos tu pago» this week says she paid more than the pago mínimo
+of her latest estado de cuenta, the domingo's one cifra is la fecha en que
+queda libre paying that much each month, and how many months earlier than
+paying only the mínimo («en marzo de 2028, 42 meses antes»). The domingo
+also asks how she slept this week («cómo dormiste esta semana») with 😴 🥱 😣.
+
 ## Cuotas
 
 Instalments. She buys in cuotas when anxious («Total, son cuotas chicas»),

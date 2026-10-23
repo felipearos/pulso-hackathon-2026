@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { FakeLlm } from "../fakes";
-import type { Statement } from "../figures/payoff";
+import { payoff, type Statement } from "../figures/payoff";
 import type { Cita, Etapa, EstadoDeCuenta, TipoCita } from "../patricia/entities";
-import { ANGUSTIA_EMOJIS } from "../escalera/policy";
+import { ANGUSTIA_EMOJIS, SUENO_EMOJIS } from "../escalera/policy";
 import { SAFE_TEMPLATE, findFigures, type ValidatorDecision } from "../validator/validator";
 import { REDACTOR_MODEL, allowedFigures, cifraEscrita, decisionDeCita, redactarGuion } from "./redactor";
 
@@ -111,11 +111,49 @@ describe("decisionDeCita on domingo", () => {
     for (const emoji of ANGUSTIA_EMOJIS) expect(decision.pregunta).toContain(emoji);
   });
 
+  test("the pregunta also asks how she slept, with the sleep emojis and no figure", () => {
+    const decision = decisionDeCita({ cita: cita(1, "domingo"), estadoDeCuenta: estadoOcho, pagoRecibido: false });
+    for (const emoji of ANGUSTIA_EMOJIS) expect(decision.pregunta).toContain(emoji);
+    for (const emoji of SUENO_EMOJIS) expect(decision.pregunta).toContain(emoji);
+    expect(decision.pregunta).toContain("cómo dormiste");
+    expect(findFigures(decision.pregunta)).toEqual([]);
+  });
+
   test("a pago recibido does not change a lunes cita", () => {
     const decision = decisionDeCita({ cita: cita(1), estadoDeCuenta: estadoOcho, pagoRecibido: true });
     expect(decision.buenaNoticia.regla).toBe("sin-mora");
     expect(decision.cifra).toEqual({ kind: "pago-minimo", monto: 41_900 });
     expect(decision.pregunta).toContain("💛");
+  });
+});
+
+describe("decisionDeCita with a pago sobre el mínimo", () => {
+  test("on domingo the cifra is the fecha en que queda libre from the motor de cifras", () => {
+    const domingo = cita(1, "domingo");
+    const decision = decisionDeCita({ cita: domingo, estadoDeCuenta: estadoOcho, pagoSobreElMinimo: 50_000 });
+    const { fixedPayment, versusMinimum } = payoff(statementEight, 50_000, domingo.fecha);
+    if (!fixedPayment.ends || !versusMinimum.comparable) throw new Error("estado 8 pays off at 50.000");
+    expect(decision.cifra).toEqual({
+      kind: "fecha-libre",
+      freeOn: fixedPayment.freeOn,
+      mesesAdelantados: versusMinimum.monthsSaved,
+    });
+    expect(versusMinimum.monthsSaved).toBeGreaterThan(30);
+  });
+
+  test("on domingo without it the cifra is the usual one", () => {
+    const decision = decisionDeCita({ cita: cita(1, "domingo"), estadoDeCuenta: estadoOcho });
+    expect(decision.cifra).toEqual({ kind: "pago-minimo", monto: 41_900 });
+  });
+
+  test("a lunes cita ignores it", () => {
+    const decision = decisionDeCita({ cita: cita(1), estadoDeCuenta: estadoOcho, pagoSobreElMinimo: 50_000 });
+    expect(decision.cifra).toEqual({ kind: "pago-minimo", monto: 41_900 });
+  });
+
+  test("a pago that never ends the balance falls back to the usual cifra", () => {
+    const decision = decisionDeCita({ cita: cita(2, "domingo"), estadoDeCuenta: estadoOcho, pagoSobreElMinimo: 1_000 });
+    expect(decision.cifra).toEqual(decisionDeCita({ cita: cita(2), estadoDeCuenta: estadoOcho }).cifra);
   });
 });
 
@@ -127,6 +165,16 @@ describe("figure rules", () => {
       maxFigures: 2,
     });
     expect(allowedFigures(null)).toEqual({ allowedFigures: [], maxFigures: 1 });
+  });
+
+  test("la fecha en que queda libre is written as month, year and meses antes, and allows those two", () => {
+    const cifra = { kind: "fecha-libre" as const, freeOn: "2028-03-26", mesesAdelantados: 42 };
+    expect(cifraEscrita(cifra)).toBe("en marzo de 2028, 42 meses antes");
+    expect(allowedFigures(cifra)).toEqual({ allowedFigures: [2028, 42], maxFigures: 2 });
+    expect(findFigures(cifraEscrita(cifra))).toEqual([2028, 42]);
+    expect(cifraEscrita({ kind: "fecha-libre", freeOn: "2027-12-05", mesesAdelantados: 1 })).toBe(
+      "en diciembre de 2027, 1 mes antes",
+    );
   });
 
   test("cifraEscrita writes the figure as the guion must say it", () => {
@@ -152,6 +200,28 @@ describe("redactarGuion", () => {
     expect(guion).toMatch(EMOJI_AT_END);
     expect(llm.calls[0]!.model).toBe(REDACTOR_MODEL);
     expect(llm.calls[0]!.prompt).toContain("$41.900");
+    expect(decisions).toEqual([]);
+  });
+
+  test("domingo after a pago sobre el mínimo: the guion carries la fecha en que queda libre and passes", async () => {
+    const decision = decisionDeCita({
+      cita: cita(1, "domingo"),
+      estadoDeCuenta: estadoOcho,
+      pagoSobreElMinimo: 50_000,
+    });
+    if (decision.cifra?.kind !== "fecha-libre") throw new Error("expected la fecha en que queda libre");
+    const escrita = cifraEscrita(decision.cifra);
+    const llm = new FakeLlm([
+      ["Escribe el guion", `Hola, Patricia. Estás al día. Pagando como esta semana, quedas libre de la tarjeta ${escrita}.`],
+      ["Respóndeme", "OK"],
+    ]);
+    const { decisions, recordDecision } = recorder();
+
+    const { guion, source } = await redactarGuion({ llm, decision, recordDecision });
+
+    expect(source).toBe("draft");
+    expect(guion).toContain(escrita);
+    expect(llm.calls[0]!.prompt).toContain(`«${escrita}»`);
     expect(decisions).toEqual([]);
   });
 
