@@ -1,3 +1,4 @@
+import { recibirRespuestaBienvenida } from "./citas/bienvenida-respuestas";
 import { createCitaSender } from "./citas/envio";
 import { createScheduler } from "./citas/scheduler";
 import { createDemoClock, type DemoClock } from "./clock/demo-clock";
@@ -118,7 +119,15 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     extractEstadoDeCuenta: extract,
     store,
     clock,
-    receiveMensaje: (input) => receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp }, input),
+    receiveMensaje: async (input) => {
+      try {
+        await recibirRespuestaBienvenida({ store, llm: ports.llm }, input.text);
+      } catch (error) {
+        // A failed bienvenida answer must not cost the escalera its step.
+        console.error(`bienvenida: answer failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      return receiveMensaje({ store, llm: ports.llm, whatsapp: ports.whatsapp }, input);
+    },
     reset: () => resetPatricia(ports.db, clock),
   };
 }
