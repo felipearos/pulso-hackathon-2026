@@ -10,9 +10,10 @@ export function databasePath(env: Record<string, string | undefined> = process.e
 }
 
 /**
- * The webhook's two Meta secrets. Both are read lazily, like the real ports'
- * variables: the app has to start and answer `/health` on the operator's PC
- * before anyone has set them.
+ * The webhook's two Meta secrets. Either may be missing and the app still
+ * starts and answers `/health` on the operator's PC: an unset secret only makes
+ * the webhook refuse deliveries (401) and the challenge (403), which is what
+ * lets the units come up before anyone has filled Doppler in.
  */
 export function webhookConfig(env: Record<string, string | undefined> = process.env): WebhookConfig {
   return { appSecret: env.WHATSAPP_APP_SECRET, verifyToken: env.WHATSAPP_VERIFY_TOKEN };

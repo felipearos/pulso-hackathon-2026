@@ -148,11 +148,16 @@ describe("whatsapp webhook: POST", () => {
       },
     });
     const response = await webhook.receive(post(delivery(text("wamid.TEST1", "hola"))));
+
+    // Nothing has even entered the handler yet: it waits for a macrotask, so
+    // the 200 is on its way whatever the message turns out to need.
     expect(response.status).toBe(200);
-    await Promise.resolve();
-    await Promise.resolve();
+    expect(entered).toBe(false);
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(entered).toBe(true);
     expect(finished).toBe(false);
+
     release();
     await webhook.drain();
     expect(finished).toBe(true);
@@ -229,6 +234,37 @@ describe("whatsapp webhook: POST", () => {
     expect(seen).toEqual(["wamid.TEST1", "wamid.TEST2"]);
   });
 
+  test("a reaction she removed says nothing", async () => {
+    const { webhook, received } = setup();
+    await webhook.receive(
+      post(
+        delivery({
+          from: FROM,
+          id: "wamid.TEST1",
+          timestamp: "1792792800",
+          type: "reaction",
+          reaction: { message_id: "wamid.LUNA1", emoji: "" },
+        }),
+      ),
+    );
+    await webhook.drain();
+    expect(received[0]?.body).toEqual({ kind: "other", type: "reaction" });
+  });
+
+  test.each([
+    ["no sha256 prefix", "abc123"],
+    ["a hex digest with no prefix", createHmac("sha256", SECRET).update("x").digest("hex")],
+    ["non-hex characters", "sha256=zzzz"],
+    ["an odd number of hex digits", "sha256=abc"],
+    ["an empty digest", "sha256="],
+  ])("a signature with %s is rejected", async (_name, signature) => {
+    const { webhook, received } = setup();
+    const response = await webhook.receive(post(delivery(text("wamid.TEST1", "hola")), signature));
+    await webhook.drain();
+    expect(response.status).toBe(401);
+    expect(received).toHaveLength(0);
+  });
+
   test("audio and image messages map to media id and mime type", async () => {
     const { webhook, received } = setup();
     await webhook.receive(
@@ -236,7 +272,14 @@ describe("whatsapp webhook: POST", () => {
         delivery(
           { from: FROM, id: "wamid.TEST1", timestamp: "1792792800", type: "audio", audio: { id: "media-audio-1", mime_type: "audio/ogg; codecs=opus" } },
           { from: FROM, id: "wamid.TEST2", timestamp: "1792792801", type: "image", image: { id: "media-image-1", mime_type: "image/jpeg" } },
-          { from: FROM, id: "wamid.TEST3", timestamp: "1792792802", type: "reaction", reaction: { emoji: "👍" } },
+          {
+            from: FROM,
+            id: "wamid.TEST3",
+            timestamp: "1792792802",
+            type: "reaction",
+            reaction: { message_id: "wamid.LUNA1", emoji: "👍" },
+          },
+          { from: FROM, id: "wamid.TEST4", timestamp: "1792792803", type: "sticker", sticker: { id: "s1" } },
         ),
       ),
     );
@@ -244,7 +287,8 @@ describe("whatsapp webhook: POST", () => {
     expect(received.map((mensaje) => mensaje.body)).toEqual([
       { kind: "audio", mediaId: "media-audio-1", mimeType: "audio/ogg; codecs=opus" },
       { kind: "image", mediaId: "media-image-1", mimeType: "image/jpeg" },
-      { kind: "other", type: "reaction" },
+      { kind: "reaction", emoji: "👍", toWhatsappId: "wamid.LUNA1" },
+      { kind: "other", type: "sticker" },
     ]);
   });
 });

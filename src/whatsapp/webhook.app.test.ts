@@ -114,18 +114,38 @@ describe("the whatsapp webhook through the app factory", () => {
   });
 
   test("the 200 is sent before the message is processed", async () => {
-    // The LLM is what makes processing slow in production. A prompt the fake has
-    // no row for makes `complete` reject, which the classifier turns into
-    // `other` — so this asserts the order, not the classification: nothing is
-    // recorded at the moment the 200 is returned.
+    // A 👍 is the fastest message there is: the classifier reads it with no LLM
+    // call at all. If even this one is still unprocessed when the caller sees
+    // the 200, the order holds for everything slower.
     const { app } = createTestApp();
 
-    const response = await app.handle(signedPost(delivery(textMessage("wamid.TEST1", "me llegó la cuenta"))));
+    const response = await app.handle(signedPost(delivery(textMessage("wamid.TEST1", "👍"))));
 
     expect(response.status).toBe(200);
     expect(app.store.mensajesEntrantes()).toEqual([]);
+    expect(app.store.decisions()).toEqual([]);
 
     await app.drain();
     expect(app.store.mensajesEntrantes()).toHaveLength(1);
+  });
+
+  test("a 👍 reaction to Luna's audio arrives as acceptance too", async () => {
+    const { app } = createTestApp();
+    const reaction = {
+      from: FROM,
+      id: "wamid.TEST2",
+      timestamp: "1792792800",
+      type: "reaction",
+      reaction: { message_id: "wamid.LUNA1", emoji: "👍" },
+    };
+
+    const response = await app.handle(signedPost(delivery(reaction)));
+    expect(response.status).toBe(200);
+    await app.drain();
+
+    const entrantes = app.store.mensajesEntrantes();
+    expect(entrantes).toHaveLength(1);
+    expect(entrantes[0]?.intencion).toEqual({ kind: "accepted" });
+    expect(app.store.decisions()).toHaveLength(1);
   });
 });

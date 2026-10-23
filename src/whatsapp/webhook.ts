@@ -28,6 +28,8 @@ export type InboundMensaje = {
     | { kind: "text"; text: string }
     | { kind: "audio"; mediaId: string; mimeType: string | null }
     | { kind: "image"; mediaId: string; mimeType: string | null }
+    /** She answered Luna's audio with an emoji instead of writing; the emoji is the answer. */
+    | { kind: "reaction"; emoji: string; toWhatsappId: string | null }
     | { kind: "other"; type: string };
 };
 
@@ -39,7 +41,13 @@ export type WebhookDeps = {
   onMensaje(mensaje: InboundMensaje): Promise<void>;
   /** Called with every message taken in, before `onMensaje`; opens Meta's 24 h window. */
   recordInbound(at: Date): void;
-  /** The demo clock; stands in for `when` when Meta's timestamp is unreadable. */
+  /**
+   * The demo clock; stands in for `when` when Meta's timestamp is unreadable.
+   * Meta's own timestamp is real time, so on that path `recordInbound` and the
+   * port's 24 h window agree. On this fallback they only agree while the demo
+   * clock is unset — an edge case kept deliberately, because ADR 0002 leaves
+   * the app no other clock to read.
+   */
   now(): Date;
   log?: (line: string, detail?: unknown) => void;
 };
@@ -115,7 +123,20 @@ function bodyOf(message: Json): InboundMensaje["body"] {
     return text === null ? { kind: "other", type } : { kind: "text", text };
   }
   if (type === "audio" || type === "image") return mediaBody(type, message[type]);
+  if (type === "reaction") return reactionBody(message.reaction, type);
   return { kind: "other", type };
+}
+
+/**
+ * Reacting 👍 to Luna's audio is how most people answer on WhatsApp, so a
+ * reaction carries the same weight as the emoji typed out. An empty `emoji`
+ * means she removed a reaction, which says nothing.
+ */
+function reactionBody(reaction: unknown, type: string): InboundMensaje["body"] {
+  if (!isObject(reaction)) return { kind: "other", type };
+  const emoji = stringField(reaction, "emoji");
+  if (emoji === null || emoji === "") return { kind: "other", type };
+  return { kind: "reaction", emoji, toWhatsappId: stringField(reaction, "message_id") };
 }
 
 /** Meta's timestamp is unix seconds as a string; null when it is unreadable. */
@@ -149,8 +170,11 @@ export function createWebhook(deps: WebhookDeps): Webhook {
   }
 
   function start(mensaje: InboundMensaje): void {
-    // Deliberately not awaited: Meta needs its 200 before Luna has finished thinking.
-    const task: Promise<void> = Promise.resolve()
+    // Deliberately not awaited: Meta needs its 200 before Luna has finished
+    // thinking. The handler waits for a macrotask, not a microtask, so the 200
+    // is on its way before any processing begins whatever the message is —
+    // a microtask would run before the caller of `receive` saw the response.
+    const task: Promise<void> = new Promise<void>((resolve) => setTimeout(resolve, 0))
       .then(() => deps.onMensaje(mensaje))
       .catch((error: unknown) => log("whatsapp webhook: handler failed", { whatsappId: mensaje.whatsappId, error }))
       .finally(() => inFlight.delete(task));
@@ -184,8 +208,8 @@ export function createWebhook(deps: WebhookDeps): Webhook {
     }
 
     let received = 0;
-    for (const raw of rawMessages(payload)) {
-      const mensaje = toMensaje(raw);
+    for (const rawMessage of rawMessages(payload)) {
+      const mensaje = toMensaje(rawMessage);
       if (mensaje === null) continue;
       if (!deps.claim(mensaje.whatsappId)) {
         log("whatsapp webhook: already taken, skipping a meta retry", { whatsappId: mensaje.whatsappId });
