@@ -27,7 +27,8 @@ the operator restores it in a reviewed commit to stop every start again.
 - GitHub issues are the backlog. Only take ready, independent work through the
   harness frontier and shared claim leases. Respect every loop's claims.
 - Triager `tria` prepares bounded tickets and independent staffing groups;
-  the five coders each take one ready ticket per iteration.
+  the twelve coders each take one ready ticket per iteration, at most two
+  per spec.
 - Coders follow select → implement → verify → review → finish. Delegate
   implementation through the configured executor and run both standards and
   spec reviews through their configured models. Do not silently change models.
