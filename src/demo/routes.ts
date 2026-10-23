@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { DemoClock } from "../clock/demo-clock";
-import { SAMPLE_MAILS } from "../mail/samples";
+import { SAMPLE_MAILS, type SampleMailKind } from "../mail/samples";
 import type { Senal, TipoSenal } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { IncomingMail } from "../ports";
@@ -35,11 +35,14 @@ const ETIQUETAS: Record<TipoSenal, string> = {
   S2: "estado de cuenta de la tienda",
   S3: "pedido del catálogo pagado",
   S4: "compra en cuotas",
-  S5: "recibimos tu pago",
+  S5: "«recibimos tu pago»",
   S6: "aviso de vencimiento",
   S7: "sospechoso",
   ignorado: "ignorado",
 };
+
+/** Own keys only, so `toString` or `__proto__` is not a sample. */
+const isSampleMailKind = (kind: string): kind is SampleMailKind => Object.hasOwn(SAMPLE_MAILS, kind);
 
 /** One line of the conversation the simulador page shows. */
 export type MensajeDeLaConversacion = {
@@ -243,8 +246,8 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
       } catch {
         return badRequest(`no hay correo de muestra ${correoMatch[1]}`);
       }
-      if (!Object.hasOwn(SAMPLE_MAILS, kind)) return badRequest(`no hay correo de muestra ${kind}`);
-      const sample = SAMPLE_MAILS[kind as keyof typeof SAMPLE_MAILS];
+      if (!isSampleMailKind(kind)) return badRequest(`no hay correo de muestra ${kind}`);
+      const sample = SAMPLE_MAILS[kind];
       // It arrives now on the room's clock; its fixed id makes a second press the señal already stored.
       return run(async () => {
         await deps.injectMail({ ...sample, receivedAt: deps.clock.now() });

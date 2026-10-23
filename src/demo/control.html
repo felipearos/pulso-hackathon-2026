@@ -107,6 +107,7 @@
     <button type="button" data-correo="falso">Falso del banco</button>
     <button type="button" data-correo="publicidad">Publicidad</button>
   </div>
+  <h2>Últimos correos</h2>
   <ul id="correos"></ul>
 </section>
 
@@ -203,7 +204,7 @@
       item(`${shortTime.format(new Date(decision.at))} · ${decision.tipo}`, decision.motivo ?? "")),
       "Sin decisiones");
     fillList($("correos"), [...state.correos].reverse().map((correo) => {
-      const li = item(`${shortTime.format(new Date(correo.at))} · ${correo.etiqueta}`, correo.subject);
+      const li = item(`${shortTime.format(new Date(correo.at))} · ${correo.etiqueta}`, `${correo.subject} — ${correo.from}`);
       if (correo.tipo === "S7") li.className = "sospechoso";
       if (correo.tipo === "ignorado") li.className = "ignorado";
       return li;
