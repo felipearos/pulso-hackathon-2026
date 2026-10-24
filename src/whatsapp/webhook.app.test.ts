@@ -10,7 +10,7 @@ const FROM = "56900000000";
 const WEBHOOK_URL = "http://localhost/webhook/whatsapp";
 
 /** One Meta delivery carrying one message from Patricia. */
-function delivery(message: object): string {
+function delivery(message: object, profileName = "Patricia"): string {
   return JSON.stringify({
     object: "whatsapp_business_account",
     entry: [
@@ -22,7 +22,7 @@ function delivery(message: object): string {
             value: {
               messaging_product: "whatsapp",
               metadata: { display_phone_number: "56900000001", phone_number_id: "1" },
-              contacts: [{ profile: { name: "Patricia" }, wa_id: FROM }],
+              contacts: [{ profile: { name: profileName }, wa_id: FROM }],
               messages: [message],
             },
           },
@@ -69,6 +69,18 @@ describe("the whatsapp webhook through the app factory", () => {
     expect(app.store.mensajesEntrantes()).toEqual([]);
     expect(app.store.decisions()).toEqual([]);
     expect(whatsapp.inbound).toEqual([]);
+  });
+
+  test("her WhatsApp profile name becomes her nombre", async () => {
+    const { app } = createTestApp();
+    const body = delivery(textMessage("wamid.TEST1", "👍"), "Pati Soto");
+
+    const response = await app.handle(signedPost(body));
+    await app.drain();
+
+    expect(response.status).toBe(200);
+    expect(app.store.getPatricia().nombre).toBe("Pati");
+    expect(app.store.mensajesEntrantes()).toHaveLength(1);
   });
 
   test("a 👍 from Patricia is left as intención and as a decisión", async () => {

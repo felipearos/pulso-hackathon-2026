@@ -14,7 +14,7 @@ import { montoEnPalabras, montoEnPantalla } from "../voz/montos";
 import {
   decisionDeCita,
   type DecisionDeCita,
-  GUION_BIENVENIDA,
+  guionBienvenida,
   MAX_AUDIO_SECONDS,
   redactarGuion,
   type CifraPermitida,
@@ -203,7 +203,7 @@ export function createCitaSender({
     const bienvenida = cita.tipo === "bienvenida";
     const voz = vozDe(store.getPatricia().voz);
     let { guion, source }: { guion: string; source: ValidatedText["source"] | "guion-fijo" } = bienvenida
-      ? { guion: GUION_BIENVENIDA, source: "guion-fijo" }
+      ? { guion: guionBienvenida(store.getPatricia().nombre), source: "guion-fijo" }
       : await redactarGuion({ llm, decision, nombre: store.getPatricia().nombre, recordDecision });
     let acortado = false;
     let audio: SpokenAudio;

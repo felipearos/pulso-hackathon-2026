@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { parseSantiago } from "../clock/santiago";
 import { FakeLlm } from "../fakes";
 import { createTestApp, type TestApp } from "../testing";
-import { leerRespuestasBienvenida } from "./bienvenida-respuestas";
+import { leerRespuestasBienvenida, tomarNombreDelPerfil } from "./bienvenida-respuestas";
 
 const ANSWER = "Respuesta de Patricia a la bienvenida";
 const MOTIVO = "guardó lo que respondió a la bienvenida: nombre, hora y voz";
@@ -47,6 +47,8 @@ describe("leerRespuestasBienvenida", () => {
 });
 
 describe("app.receiveMensaje and the bienvenida", () => {
+  const PERFIL = "tomó el nombre de su perfil de WhatsApp";
+
   function setup(): TestApp {
     const t = createTestApp({
       now: parseSantiago("2026-10-19T09:00"),
@@ -124,5 +126,70 @@ describe("app.receiveMensaje and the bienvenida", () => {
 
     expect(answers(t)).toEqual(before);
     expect(saved(t)).toHaveLength(0);
+  });
+
+  function fromPerfil(t: TestApp) {
+    return t.app.store.decisions().filter((d) => d.motivo.startsWith(PERFIL));
+  }
+
+  test("her profile name is kept as her nombre and recorded as a decision", () => {
+    const t = setup();
+
+    expect(tomarNombreDelPerfil(t.app.store, "Pati")).toBe("Pati");
+
+    expect(t.app.store.getPatricia().nombre).toBe("Pati");
+    expect(fromPerfil(t)).toHaveLength(1);
+    expect(fromPerfil(t)[0]).toMatchObject({
+      tipo: "mensaje",
+      motivo: `${PERFIL}: Pati`,
+      datos: { perfilNombre: "Pati", nombre: "Pati" },
+    });
+  });
+
+  test("only the first word of her profile name is kept", () => {
+    const t = setup();
+    expect(tomarNombreDelPerfil(t.app.store, "  María José Soto ")).toBe("María");
+    expect(t.app.store.getPatricia().nombre).toBe("María");
+  });
+
+  test.each([["😀Pati"], ["Pati2"], ["Pati!"], [""], ["   "], [undefined]])(
+    "profile name %p leaves the nombre she had",
+    (perfilNombre) => {
+      const t = setup();
+      const before = t.app.store.getPatricia().nombre;
+
+      expect(tomarNombreDelPerfil(t.app.store, perfilNombre)).toBeNull();
+
+      expect(t.app.store.getPatricia().nombre).toBe(before);
+      expect(fromPerfil(t)).toHaveLength(0);
+    },
+  );
+
+  test("once she said her nombre in the bienvenida, a profile name never overwrites it", async () => {
+    const t = setup();
+    await tickAt(t, "2026-10-19T22:30");
+    await t.app.receiveMensaje({ text: MESSAGE, whatsappId: "w1" });
+
+    expect(tomarNombreDelPerfil(t.app.store, "Patricia Soto")).toBeNull();
+
+    expect(t.app.store.getPatricia().nombre).toBe("Paty");
+    expect(fromPerfil(t)).toHaveLength(0);
+  });
+
+  test("her answer to the bienvenida overwrites the profile name", async () => {
+    const t = setup();
+    tomarNombreDelPerfil(t.app.store, "Pati");
+    await tickAt(t, "2026-10-19T22:30");
+
+    await t.app.receiveMensaje({ text: MESSAGE, whatsappId: "w1" });
+
+    expect(t.app.store.getPatricia().nombre).toBe("Paty");
+  });
+
+  test("the same profile name twice writes one decision", () => {
+    const t = setup();
+    tomarNombreDelPerfil(t.app.store, "Pati");
+    expect(tomarNombreDelPerfil(t.app.store, "Pati Soto")).toBeNull();
+    expect(fromPerfil(t)).toHaveLength(1);
   });
 });

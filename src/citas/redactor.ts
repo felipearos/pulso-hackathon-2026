@@ -61,18 +61,23 @@ export type DecisionDeCita = {
 };
 
 /**
- * The guion de bienvenida, fixed: no LLM writes it. It has no digits, so the
- * hours are in words, and it stays well under MAX_AUDIO_SECONDS; if it were
- * ever longer it goes out as it is, never shortened by the LLM.
+ * The guion de bienvenida, fixed: no LLM writes it. It confirms the nombre
+ * Luna already has, exactly as given, and invites her to write another. It has
+ * no digits, so the hours are in words, and it stays well under
+ * MAX_AUDIO_SECONDS; if it were ever longer it goes out as it is, never
+ * shortened by the LLM.
  */
-export const GUION_BIENVENIDA =
-  "Hola, soy Luna. Estoy aquí para mirar tus cuentas contigo, con calma. " +
-  "¿Cómo te gusta que te llamen? " +
-  "Te voy a hablar los lunes y jueves a las diez y media de la noche, y el domingo a las nueve y media. " +
-  "¿Te acomoda esa hora, o prefieres otra? " +
-  "Esta es una de mis dos voces; si prefieres la otra, escríbeme «otra voz». " +
-  "Justo después te llega un mensaje con el enlace para darme «Permitir». " +
-  "Respóndeme escribiendo, cuando quieras.";
+export function guionBienvenida(nombre: string): string {
+  return (
+    `Hola ${nombre}, soy Luna. Estoy aquí para mirar tus cuentas contigo, con calma. ` +
+    `Te voy a decir ${nombre}; si prefieres otro nombre, escríbemelo. ` +
+    "Te voy a hablar los lunes y jueves a las diez y media de la noche, y el domingo a las nueve y media. " +
+    "¿Te acomoda esa hora, o prefieres otra? " +
+    "Esta es una de mis dos voces; si prefieres la otra, escríbeme «otra voz». " +
+    "Justo después te llega un mensaje con el enlace para darme «Permitir». " +
+    "Respóndeme escribiendo, cuando quieras."
+  );
+}
 
 const PREGUNTA_BIENVENIDA = "¿Te parece si seguimos conversando así? Respóndeme con un 💛 o un 🤔";
 const PREGUNTA = "¿Cómo te cayó escuchar esto? Respóndeme con un 💛 o un 🤔";

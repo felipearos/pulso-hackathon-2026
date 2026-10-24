@@ -287,7 +287,9 @@ describe("bienvenida", () => {
     const [audio, text] = t.app.store.mensajesSalientes();
     expect(audio!.kind).toBe("audio");
     expect(findFigures(audio!.text!)).toEqual([]);
-    expect(audio!.text).toContain("¿Cómo te gusta que te llamen?");
+    expect(audio!.text).toContain("Hola Patricia");
+    expect(audio!.text).toContain("Te voy a decir Patricia; si prefieres otro nombre, escríbemelo");
+    expect(audio!.text).not.toContain("¿Cómo te gusta que te llamen?");
     expect(audio!.text).toContain("diez y media");
     expect(audio!.text).toContain("otra voz");
     expect(t.app.store.citaOn("2026-10-19")?.mensajeSalienteId).toBe(audio!.id);
@@ -298,6 +300,16 @@ describe("bienvenida", () => {
     await tickAt(t, "2026-10-19T22:45");
     expect(t.whatsapp.outbox).toHaveLength(2);
     expect(t.voice.calls).toHaveLength(1);
+  });
+
+  test("confirms the nombre Luna has at send time", async () => {
+    const t = setupBienvenida();
+    t.app.store.updatePatricia({ nombre: "Pati" });
+    await tickAt(t, "2026-10-19T22:30");
+
+    const [audio] = t.app.store.mensajesSalientes();
+    expect(audio!.text).toContain("Hola Pati, soy Luna");
+    expect(audio!.text).toContain("Te voy a decir Pati; si prefieres otro nombre, escríbemelo");
   });
 
   test("a failed link is retried alone on the next tick, and recorded once", async () => {

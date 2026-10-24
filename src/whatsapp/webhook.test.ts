@@ -40,6 +40,13 @@ function delivery(...messages: object[]): string {
   });
 }
 
+/** A delivery like `delivery`, with `contacts` in place of the default one; undefined drops the key. */
+function withContacts(contacts: unknown, ...messages: object[]): string {
+  const payload = JSON.parse(delivery(...messages));
+  payload.entry[0].changes[0].value.contacts = contacts;
+  return JSON.stringify(payload);
+}
+
 function text(id: string, body: string, timestamp = "1792792800"): object {
   return { from: FROM, id, timestamp, type: "text", text: { body } };
 }
@@ -219,8 +226,53 @@ describe("whatsapp webhook: POST", () => {
     await webhook.receive(post(delivery(text("wamid.TEST1", "👍", "1792792800"))));
     await webhook.drain();
     const when = new Date(1792792800 * 1000);
-    expect(received).toEqual([{ whatsappId: "wamid.TEST1", from: FROM, when, body: { kind: "text", text: "👍" } }]);
+    expect(received).toEqual([
+      { whatsappId: "wamid.TEST1", from: FROM, when, perfilNombre: "Patricia", body: { kind: "text", text: "👍" } },
+    ]);
     expect(inbound).toEqual([when]);
+  });
+
+  test("the profile name of the contact matching the sender wins over the first one", async () => {
+    const { webhook, received } = setup();
+    const body = withContacts(
+      [
+        { profile: { name: "Otra Persona" }, wa_id: "56900000009" },
+        { profile: { name: "Patricia" }, wa_id: FROM },
+      ],
+      text("wamid.TEST1", "hola"),
+    );
+    await webhook.receive(post(body));
+    await webhook.drain();
+    expect(received[0]?.perfilNombre).toBe("Patricia");
+  });
+
+  test("with no contact matching the sender, the first contact's name is used", async () => {
+    const { webhook, received } = setup();
+    await webhook.receive(post(withContacts([{ profile: { name: "Pati" }, wa_id: "56900000009" }], text("wamid.TEST1", "hola"))));
+    await webhook.drain();
+    expect(received[0]?.perfilNombre).toBe("Pati");
+  });
+
+  test("a delivery without contacts reaches the handler with no perfilNombre key", async () => {
+    const { webhook, received } = setup();
+    await webhook.receive(post(withContacts(undefined, text("wamid.TEST1", "hola"))));
+    await webhook.drain();
+    expect(received).toHaveLength(1);
+    expect(Object.hasOwn(received[0]!, "perfilNombre")).toBe(false);
+  });
+
+  test.each([
+    ["an empty name", [{ profile: { name: "" }, wa_id: FROM }]],
+    ["a non-string name", [{ profile: { name: 42 }, wa_id: FROM }]],
+    ["a contact with no profile", [{ wa_id: FROM }]],
+    ["contacts that are not an array", { profile: { name: "Patricia" }, wa_id: FROM }],
+    ["contacts that are not objects", ["Patricia", null]],
+  ])("%s leaves perfilNombre out", async (_label, contacts) => {
+    const { webhook, received } = setup();
+    await webhook.receive(post(withContacts(contacts, text("wamid.TEST1", "hola"))));
+    await webhook.drain();
+    expect(received).toHaveLength(1);
+    expect(Object.hasOwn(received[0]!, "perfilNombre")).toBe(false);
   });
 
   test("an unreadable timestamp falls back to the injected clock", async () => {
