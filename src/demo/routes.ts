@@ -25,8 +25,10 @@ export type DemoDeps = {
   tickAt?(at: Date): Promise<void>;
   reset(): void | Promise<void>;
   guion: readonly MomentoDelGuion[];
-  /** The control room page, served as is. */
+  /** The control room page, served as is: only what the pitch shows, beside the phone. */
   page: string;
+  /** The full control room at /sala/old, with the simulador's conversation; optional while callers adopt it. */
+  oldPage?: string;
   /** The channel the app sends through; /sala switches it between Meta and the simulador. */
   canal: Canal;
   /** The simulador, for the bytes of the audios and fotos the page plays and shows. */
@@ -299,6 +301,9 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
 
     if (request.method === "GET" && pathname === "/sala") {
       return new Response(deps.page, { headers: { "content-type": "text/html; charset=utf-8" } });
+    }
+    if (request.method === "GET" && pathname === "/sala/old" && deps.oldPage !== undefined) {
+      return new Response(deps.oldPage, { headers: { "content-type": "text/html; charset=utf-8" } });
     }
     if (request.method === "GET" && pathname === "/sala/state") return Response.json(state());
     if (request.method === "POST" && pathname === "/sala/tick") return run(deps.tick);

@@ -9,6 +9,7 @@ import { nightAudioSender } from "./demo/night-audio";
 import { createQrRoutes, entradaLink } from "./demo/qr";
 import { createDemoRoutes } from "./demo/routes";
 import controlPage from "./demo/control.html" with { type: "text" };
+import controlOldPage from "./demo/control-old.html" with { type: "text" };
 import { pauseIfSilent } from "./escalera/pausa";
 import type { EtapaMove } from "./escalera/policy";
 import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
@@ -305,6 +306,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     });
   // A text import hands over the file's contents; Bun's types only know the HTML-bundle import.
   const controlPageText = controlPage as unknown as string;
+  const controlOldPageText = controlOldPage as unknown as string;
   const demo = createDemoRoutes({
     token: options.demoToken,
     clock,
@@ -314,6 +316,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     reset,
     guion: GUION,
     page: controlPageText,
+    oldPage: controlOldPageText,
     canal,
     simulador,
     inject: (inbound) => webhook.inject(inbound),

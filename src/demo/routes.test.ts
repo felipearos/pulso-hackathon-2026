@@ -38,6 +38,7 @@ describe("/sala without the operator token", () => {
     ["POST", "/sala/tick"],
     ["POST", "/sala/reset"],
     ["POST", "/sala/momentos/jue-2230"],
+    ["GET", "/sala/old"],
     ["GET", "/sala/conversacion"],
     ["GET", "/sala/simulador/media/sim-out-1"],
     ["POST", "/sala/simulador"],
@@ -85,9 +86,21 @@ describe("/sala with the operator token", () => {
     expect(await response.text()).toContain("Sala de control");
   });
 
-  test("the control room page calls every /sala endpoint with the token header", async () => {
+  test("the control room page calls the pitch's /sala endpoints with the token header", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
     const page = await (await get(app, `/sala?token=${TOKEN}`)).text();
+    for (const reference of ["/sala/state", "/sala/momentos/", "/sala/reset", "/sala/tick", "/sala/correos/", "x-demo-token"]) {
+      expect(page).toContain(reference);
+    }
+    expect(page).not.toContain("/sala/conversacion");
+  });
+
+  test("the full control room at /sala/old also calls the simulador's endpoints", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    const response = await get(app, `/sala/old?token=${TOKEN}`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    const page = await response.text();
     for (const reference of [
       "/sala/state",
       "/sala/momentos/",
