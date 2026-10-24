@@ -69,6 +69,8 @@ const demoPage = Bun.file(new URL("./demo/page.html", import.meta.url));
 // The landing and its coming-soon page ship with the repo the same way.
 const landingPage = Bun.file(new URL("./web/pages/landing.html", import.meta.url));
 const soonPage = Bun.file(new URL("./web/pages/pronto.html", import.meta.url));
+// The pitch deck, self-contained; its QR opens the landing.
+const pitchDeck = Bun.file(new URL("./web/pages/presentacion.html", import.meta.url));
 const landingImageDir = new URL("./web/pages/img/", import.meta.url);
 const landingImages = Object.fromEntries(
   readdirSync(landingImageDir)
@@ -268,6 +270,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   const routes = createHandler({
     demoPage,
     landingPage,
+    pitchDeck,
     soonPage,
     entradaLink: entradaLink(options.entradaPhone) ?? undefined,
     landingImages,
