@@ -3,7 +3,8 @@ import { SENDERS } from "./senders";
 
 // A request is a verb asking her to hand over a secret, so a footer like «no compartas tu clave»
 // or «nunca te pediremos tu clave» does not turn a real estado de cuenta into S7.
-const ASK = String.raw`\b(?:ingresa|ingrese|confirma|confirme|actualiza|actualice|envia|envie|enviar|digita|digite|indica|indique|escribe|escriba|responde|responda|usa|use|comparte|comparta)\b`;
+const ASK_VERBS = "ingresa|ingrese|confirma|confirme|actualiza|actualice|envia|envie|enviar|digita|digite|indica|indique|escribe|escriba|responde|responda|usa|use|comparte|comparta";
+const ASK = String.raw`\b(?:${ASK_VERBS})\b`;
 const SECRET = String.raw`\b(?:claves?|contrasenas?|ruts?|pin|cvv|coordenadas|codigo)\b`;
 
 const SECRET_PATTERNS = [
@@ -15,10 +16,13 @@ const SECRET_PATTERNS = [
 
 // An allowed sender explaining how to open an attached file defines its password as her RUT
 // («usa como contraseña tu RUT», «la clave son los primeros 4 dígitos de tu RUT»). Such a phrase
-// is dropped before the secret check only when its sentence or the one before names the file,
-// and nothing left in its sentence asks for something or sends her to log in elsewhere.
+// is dropped before the secret check only when the mail names the file and nothing left in the
+// whole mail asks for something or sends her somewhere to log in.
 const FILE = /\b(?:pdf|archivo|adjunto|documento)\b/;
-const ASKS = new RegExp(ASK);
+// The same verbs with a pronoun attached («respóndenos», «envíala»), plus ways to hand it over by phone.
+const REQUEST = new RegExp(
+  String.raw`\b(?:${ASK_VERBS}|llama|dicta|manda)(?:nos|me|la|lo|las|los|le|sela|selo)?\b`,
+);
 const ELSEWHERE = /\b(?:entra|entrar|ingresar|accede|acceder|sucursal|sitio|pagina|web|app|aplicacion|portal|enlace|link)\b/;
 const FILE_PASSWORD_PATTERNS = [
   /\b(?:usa|use|utiliza|utilice)\s+como\s+(?:clave|contrasena)\s+(?:tu|su)\s+(?:numero\s+de\s+)?rut\b/g,
@@ -29,14 +33,9 @@ const FILE_PASSWORD_PATTERNS = [
 ];
 
 function withoutFilePassword(content: string): string {
-  const sentences = content.split(/(?<=[.!?\n])/);
-  return sentences
-    .map((sentence, index) => {
-      if (!FILE.test(sentence) && !FILE.test(sentences[index - 1] ?? "")) return sentence;
-      const stripped = FILE_PASSWORD_PATTERNS.reduce((text, pattern) => text.replace(pattern, " "), sentence);
-      return ASKS.test(stripped) || ELSEWHERE.test(stripped) ? sentence : stripped;
-    })
-    .join("");
+  if (!FILE.test(content)) return content;
+  const stripped = FILE_PASSWORD_PATTERNS.reduce((text, pattern) => text.replace(pattern, " "), content);
+  return REQUEST.test(stripped) || ELSEWHERE.test(stripped) ? content : stripped;
 }
 
 function normalize(text: string): string {
