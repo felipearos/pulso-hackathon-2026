@@ -362,6 +362,16 @@ scripted week at /demo is a separate screen. Written "the control room" in
 English prose.
 _Avoid:_ "dashboard", "admin panel".
 
+## Mi semana
+
+/mi-semana: Patricia's own read-only page, opened with her pase
+(`?pase=`, derived from `DEMO_TOKEN` like the jurado's; /sala/mi-semana
+sends the operator there). It starts with the good news (lo apartado), then
+her noches with Luna, her pagos sobre el mínimo, her next cita, the cifra of
+the last audio and her etapa as five moons. It never shows the mails, the
+decisions or her RUT.
+_Avoid:_ "dashboard", "panel".
+
 ## Primeros pasos
 
 Patricia's initial steps as the team sees them at the top of the sala de

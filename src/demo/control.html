@@ -190,7 +190,7 @@
     <div id="etapa"></div>
     <div id="reloj-tipo"></div>
   </div>
-  <p id="qr"><a id="qr-entrada" href="/sala/qr/entrada" target="_blank">QR de entrada</a><a id="qr-jurado" href="/sala/qr/jurado" target="_blank">QR del jurado</a></p>
+  <p id="qr"><a id="qr-entrada" href="/sala/qr/entrada" target="_blank">QR de entrada</a><a id="qr-jurado" href="/sala/qr/jurado" target="_blank">QR del jurado</a><a id="mi-semana" href="/sala/mi-semana" target="_blank">Mi semana</a></p>
   <div class="botones">
     <span id="momentos"></span>
     <button id="tick" type="button">Tick</button>
@@ -256,7 +256,7 @@
 <script>
   const token = new URLSearchParams(location.search).get("token") ?? "";
   const $ = (id) => document.getElementById(id);
-  for (const id of ["qr-entrada", "qr-jurado", "simulador-aviso"]) $(id).href += `?token=${encodeURIComponent(token)}`;
+  for (const id of ["qr-entrada", "qr-jurado", "mi-semana", "simulador-aviso"]) $(id).href += `?token=${encodeURIComponent(token)}`;
   const fullTime = new Intl.DateTimeFormat("es-CL", {
     timeZone: "America/Santiago", weekday: "short", day: "numeric", month: "short",
     hour: "2-digit", minute: "2-digit",
