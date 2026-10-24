@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#FBF8F1">
+<title>Mi semana con Luna</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2096%2096%22%3E%3Crect%20width%3D%2296%22%20height%3D%2296%22%20rx%3D%2226%22%20fill%3D%22%23232E78%22%2F%3E%3Cdefs%3E%3Cmask%20id%3D%22f%22%3E%3Crect%20width%3D%2296%22%20height%3D%2296%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2256%22%20cy%3D%2231%22%20r%3D%2212%22%20fill%3D%22%23000%22%2F%3E%3C%2Fmask%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M19%2050%20L48%2028%20L77%2050%22%20fill%3D%22none%22%20stroke%3D%22%23FBF8F1%22%20stroke-width%3D%224.5%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2246%22%20cy%3D%2238.5%22%20r%3D%2216%22%20fill%3D%22%23F2B33D%22%20mask%3D%22url(%23f)%22%2F%3E%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2258%22%20height%3D%2227%22%20rx%3D%226%22%20fill%3D%22%23232E78%22%20stroke%3D%22%23FBF8F1%22%20stroke-width%3D%224.5%22%2F%3E%3Cpath%20d%3D%22M22%2074.5%20L48%2059%20L74%2074.5%22%20fill%3D%22none%22%20stroke%3D%22%23FBF8F1%22%20stroke-width%3D%223.5%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%20opacity%3D%22.5%22%2F%3E%3C%2Fsvg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* The same tokens as the sala de control (src/demo/control.html) and the landing; keep them in step. */
+  :root {
+    --bg: #FBF8F1;
+    --surface: #F3EDE1;
+    --card: #FFFFFF;
+    --ink: #17181C;
+    --ink-2: #45474F;
+    --night: #232E78;
+    --night-deep: #141D4A;
+    --moon: #F2B33D;
+    --moon-soft: #FBEFD2;
+    --on-night: #FFFFFF;
+    --line: #E7E1D4;
+    --grad-dusk:
+      radial-gradient(60% 70% at 12% 8%, rgba(196, 189, 247, 0.75), transparent 70%),
+      radial-gradient(55% 60% at 92% 18%, rgba(178, 222, 240, 0.8), transparent 70%),
+      radial-gradient(70% 60% at 70% 100%, rgba(251, 239, 210, 0.95), transparent 70%),
+      linear-gradient(160deg, #ECE9FB 0%, #E3EEF8 55%, #FBF3E1 100%);
+    --grad-chip: linear-gradient(140deg, #E6E9F6 0%, #FBEFD2 100%);
+    --shadow: 0 1px 2px rgba(20, 29, 74, 0.05), 0 12px 32px rgba(20, 29, 74, 0.08);
+    --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --f-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+    /* States the landing never needs: a suspicious mail, an error, a done step. */
+    --peligro: #B3261E;
+    --peligro-soft: #FCE8E6;
+    --ok: #1E7A46;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 10px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 17px/1.5 var(--f-body);
+  }
+  :focus-visible { outline: 3px solid var(--night); outline-offset: 3px; border-radius: 6px; }
+  .wrap { max-width: 960px; margin: 0 auto; display: grid; gap: 14px; }
+
+  /* Header: the landing's dusk hero card. */
+  header { border-radius: 28px; background: var(--grad-dusk); padding: 18px 22px 28px; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; }
+  .brand svg { width: 36px; height: 36px; flex: none; }
+  .brand b { font-family: var(--f-display); font-weight: 800; font-size: 26px; letter-spacing: -0.02em; color: var(--night); }
+  h1 { font: 700 clamp(32px, 8vw, 48px)/1.1 var(--f-display); letter-spacing: -0.015em; margin: 18px 0 6px; }
+  #fecha { color: var(--ink-2); font-size: 18px; margin: 0; }
+
+  /* The good news first: a night banner, as the landing's closing one. */
+  .destacado {
+    border-radius: 28px; padding: 26px 24px; color: var(--on-night);
+    background: linear-gradient(120deg, #141D4A 0%, #232E78 55%, #4757B8 100%);
+    display: grid; gap: 6px;
+  }
+  .destacado small { color: #D5DAF0; font-size: 16px; }
+  .destacado strong { font: 800 clamp(40px, 10vw, 60px)/1 var(--f-display); letter-spacing: -0.02em; color: var(--moon); }
+  .destacado p { margin: 0; font-size: 18px; }
+
+  .cards { display: grid; gap: 14px; }
+  .card { background: var(--card); border-radius: 22px; padding: 20px 22px; box-shadow: var(--shadow); }
+  .icon-chip { width: 44px; height: 44px; border-radius: 14px; background: var(--grad-chip); display: grid; place-items: center; margin-bottom: 12px; font-size: 22px; }
+  h2 { font: 700 19px/1.2 var(--f-display); margin: 0 0 6px; color: var(--night); letter-spacing: -0.01em; }
+  .card p { margin: 0; color: var(--ink-2); }
+  .cifra { font: 700 26px/1.2 var(--f-display); color: var(--ink); margin: 2px 0 4px !important; }
+
+  /* The escalera as five moons: lit up to the etapa she is in. */
+  .lunas { display: flex; gap: 8px; margin: 6px 0 10px; }
+  .lunas i { width: 26px; height: 26px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--line); }
+  .lunas i.on { background: var(--moon); border-color: var(--moon); }
+
+  footer { text-align: center; color: var(--ink-2); font-size: 15px; padding: 8px 0 18px; }
+  @media (min-width: 700px) {
+    body { padding: 16px; }
+    header { padding: 22px 32px 36px; }
+    .cards { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <mask id="logo-crescent"><rect width="96" height="96" fill="#fff"/><circle cx="56" cy="31" r="12" fill="#000"/></mask>
+    <!-- Luna's logo, the open envelope with the moon rising (src/web/marca.ts draws the same). -->
+    <symbol id="logo" viewBox="0 0 96 96"><rect width="96" height="96" rx="26" fill="#232E78"/><path d="M19 50 L48 28 L77 50" fill="none" stroke="#FBF8F1" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="46" cy="38.5" r="16" fill="#F2B33D" mask="url(#logo-crescent)"/><rect x="19" y="50" width="58" height="27" rx="6" fill="#232E78" stroke="#FBF8F1" stroke-width="4.5"/><path d="M22 74.5 L48 59 L74 74.5" fill="none" stroke="#FBF8F1" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round" opacity=".5"/></symbol>
+  </defs>
+</svg>
+<div class="wrap">
+  <header>
+    <span class="brand"><svg aria-hidden="true" focusable="false"><use href="#logo"/></svg><b>luna</b></span>
+    <h1 id="saludo">Tu semana con Luna</h1>
+    <p id="fecha"></p>
+  </header>
+
+  <section class="destacado" aria-live="polite">
+    <small>Lo bueno de esta semana</small>
+    <strong id="apartado">—</strong>
+    <p id="apartado-texto">apartado para ti</p>
+  </section>
+
+  <div class="cards">
+    <section class="card">
+      <div class="icon-chip" aria-hidden="true">🌙</div>
+      <h2>Noches con Luna</h2>
+      <p class="cifra" id="noches">—</p>
+      <p id="noches-texto"></p>
+    </section>
+    <section class="card">
+      <div class="icon-chip" aria-hidden="true">💳</div>
+      <h2>Pagos sobre el mínimo</h2>
+      <p class="cifra" id="pagos">—</p>
+      <p id="pagos-texto"></p>
+    </section>
+    <section class="card">
+      <div class="icon-chip" aria-hidden="true">🗓️</div>
+      <h2>Tu próxima cita</h2>
+      <p class="cifra" id="cita">—</p>
+      <p id="cita-texto"></p>
+    </section>
+    <section class="card">
+      <div class="icon-chip" aria-hidden="true">🎧</div>
+      <h2>Lo último que te conté</h2>
+      <p class="cifra" id="audio">—</p>
+      <p id="audio-texto"></p>
+    </section>
+    <section class="card" style="grid-column: 1 / -1">
+      <h2>Tu camino</h2>
+      <div class="lunas" id="lunas" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <p id="camino"></p>
+    </section>
+  </div>
+
+  <footer>Luna solo lee tus correos. Nunca paga, nunca mueve tu plata.</footer>
+</div>
+
+<script>
+  const pase = new URLSearchParams(location.search).get("pase") ?? "";
+  const $ = (id) => document.getElementById(id);
+  const fecha = new Intl.DateTimeFormat("es-CL", { timeZone: "America/Santiago", weekday: "long", day: "numeric", month: "long" });
+  const dia = new Intl.DateTimeFormat("es-CL", { timeZone: "America/Santiago", weekday: "long", day: "numeric", month: "long" });
+  const pesos = new Intl.NumberFormat("es-CL");
+  const peso = (monto) => `$${pesos.format(monto)}`;
+  const CAMINO = {
+    1: "Por ahora Luna mira tus cuentas por ti.",
+    2: "Vas bien: ya conversamos tus cuentas juntas.",
+    3: "Cada vez te cuento más, y tú decides.",
+    4: "Ya me trajiste la cuenta de la tienda. ¡Bien!",
+    5: "Ya abres tú la cuenta del banco.",
+    graduada: "¡Ya lo abres tú! Luna te acompaña una vez al mes.",
+  };
+
+  function cifraText(cifra) {
+    if (cifra.kind === "pago-minimo") return { cifra: peso(cifra.monto), texto: "es el pago mínimo de este mes" };
+    if (cifra.kind === "salida") return { cifra: `${cifra.meses} meses`, texto: `para salir, con cuotas de ${peso(cifra.cuota)}` };
+    if (cifra.kind === "fecha-libre") return { cifra: `Libre el ${cifra.freeOn}`, texto: `${cifra.mesesAdelantados} meses antes que pagando solo el mínimo` };
+    return { cifra: "—", texto: "" };
+  }
+
+  function render(s) {
+    $("saludo").textContent = `Hola, ${s.nombre}`;
+    $("fecha").textContent = `Tu semana con Luna · ${fecha.format(new Date(s.now))}`;
+
+    const m = s.metricas;
+    $("apartado").textContent = peso(m.apartadoDeLaSemana);
+    $("apartado-texto").textContent = m.apartadoDeLaSemana > 0
+      ? `apartado esta semana${s.bolsillo ? ` en «${s.bolsillo}»` : ""}`
+      : "Cuando apartes algo, aquí lo vas a ver crecer.";
+
+    $("noches").textContent = m.noches.escuchadas === 1 ? "1 noche" : `${m.noches.escuchadas} noches`;
+    $("noches-texto").textContent = m.noches.escuchadas > 0
+      ? "escuchaste a Luna esta semana, sin apuro."
+      : "Cuando escuches un audio, aparece aquí. Sin apuro.";
+
+    const p = m.pagosSobreElMinimo;
+    $("pagos").textContent = p.pagos > 0 ? `${p.sobreElMinimo} de ${p.pagos}` : "Todavía no";
+    $("pagos-texto").textContent = p.pagos > 0
+      ? `pagaste más del mínimo. La meta: ${p.meta.sobre} de cada ${p.meta.de}.`
+      : "Cuando pagues, Luna lo cuenta aquí.";
+
+    const c = s.proximaCita;
+    $("cita").textContent = c ? c.hora : "Sin cita";
+    $("cita-texto").textContent = c
+      ? `el ${dia.format(new Date(`${c.fecha}T12:00:00-03:00`))}, un audio cortito`
+      : "Luna está en pausa. Escríbele cuando quieras.";
+
+    const a = s.ultimoAudio;
+    if (a && a.cifra) {
+      const t = cifraText(a.cifra);
+      $("audio").textContent = t.cifra;
+      $("audio-texto").textContent = t.texto;
+    } else {
+      $("audio").textContent = a ? "Sin números" : "Pronto";
+      $("audio-texto").textContent = a ? "El último audio fue solo para acompañarte." : "Tu primer audio llega en la noche.";
+    }
+
+    const n = s.etapa === "graduada" ? 5 : Number(s.etapa);
+    [...$("lunas").children].forEach((luna, i) => luna.classList.toggle("on", i < n));
+    $("camino").textContent = CAMINO[s.etapa] ?? "";
+  }
+
+  async function poll() {
+    try {
+      const response = await fetch(`/mi-semana/state?pase=${encodeURIComponent(pase)}`);
+      if (response.ok) render(await response.json());
+    } catch {
+      // A missed poll just waits for the next one.
+    }
+  }
+
+  poll();
+  setInterval(poll, 5000);
+</script>
+</body>
+</html>

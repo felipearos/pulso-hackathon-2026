@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { CifraPermitida } from "../citas/redactor";
 import { proximaCita } from "../citas/scheduler";
 import type { DemoClock } from "../clock/demo-clock";
@@ -34,6 +34,8 @@ export type DemoDeps = {
   page: string;
   /** The full control room at /sala/old, with the simulador's conversation; optional while callers adopt it. */
   oldPage?: string;
+  /** Patricia's own page at /mi-semana, read-only; optional while callers adopt it, and without it /mi-semana answers 404. */
+  miSemanaPage?: string;
   /** The channel the app sends through; /sala switches it between Meta and the simulador. */
   canal: Canal;
   /** The simulador, for the bytes of the audios and fotos the page plays and shows. */
@@ -113,6 +115,11 @@ export function tokenMatches(expected: string, given: string | null): boolean {
   return given !== null && timingSafeEqual(digest(expected), digest(given));
 }
 
+/** Patricia's pase for /mi-semana, derived from the operator token like the jurado's, so there is nothing to store. */
+export function paseDeMiSemana(token: string): string {
+  return createHmac("sha256", token).update("mi-semana").digest("base64url").slice(0, 24);
+}
+
 /** The operator's token: the `x-demo-token` header (the page's calls) or else `?token=` (the projector's URL). */
 export function givenToken(request: Request, url: URL): string | null {
   return request.headers.get("x-demo-token") || url.searchParams.get("token");
@@ -168,6 +175,35 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
       fuente,
     };
   };
+  const metricas = (now: Date) => ({
+    noches: nochesDeLaSemana({
+      citas: deps.store.citas(),
+      salientes: deps.store.mensajesSalientes(),
+      entrantes: deps.store.mensajesEntrantes(),
+      now,
+    }),
+    apartadoDeLaSemana: deps.store.plataApartada().total,
+    pagosSobreElMinimo: pagosSobreElMinimo({
+      senales: deps.store.senales(),
+      estadosDeCuenta: deps.store.estadosDeCuenta(),
+      now,
+    }),
+  });
+  /** What Patricia's own page shows: her good news and her next cita, never the mails, decisions or her RUT. */
+  const miSemana = () => {
+    const now = deps.clock.now();
+    const patricia = deps.store.getPatricia();
+    const ultimo = cifraDelUltimoAudio();
+    return {
+      now: now.toISOString(),
+      nombre: patricia.nombre,
+      etapa: patricia.etapa,
+      bolsillo: patricia.bolsillo,
+      metricas: metricas(now),
+      proximaCita: proximaCita(now, patricia, (fecha) => deps.store.citaOn(fecha)),
+      ultimoAudio: ultimo ? { at: ultimo.at, cifra: ultimo.cifra } : null,
+    };
+  };
   const state = () => {
     const now = deps.clock.now();
     return {
@@ -200,20 +236,7 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
           from: origen.from,
           etiqueta: ETIQUETAS[tipo],
         })),
-      metricas: {
-        noches: nochesDeLaSemana({
-          citas: deps.store.citas(),
-          salientes: deps.store.mensajesSalientes(),
-          entrantes: deps.store.mensajesEntrantes(),
-          now,
-        }),
-        apartadoDeLaSemana: deps.store.plataApartada().total,
-        pagosSobreElMinimo: pagosSobreElMinimo({
-          senales: deps.store.senales(),
-          estadosDeCuenta: deps.store.estadosDeCuenta(),
-          now,
-        }),
-      },
+      metricas: metricas(now),
     };
   };
   const run = async (step: () => void | Promise<void>): Promise<Response> => {
@@ -305,6 +328,17 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
   return async (request) => {
     const url = new URL(request.url);
     const { pathname } = url;
+    if (pathname === "/mi-semana" || pathname.startsWith("/mi-semana/")) {
+      const pase = deps.token ? paseDeMiSemana(deps.token) : null;
+      if (pase === null || deps.miSemanaPage === undefined || !tokenMatches(pase, url.searchParams.get("pase"))) {
+        return NOT_FOUND();
+      }
+      if (request.method === "GET" && pathname === "/mi-semana") {
+        return new Response(deps.miSemanaPage, { headers: { "content-type": "text/html; charset=utf-8" } });
+      }
+      if (request.method === "GET" && pathname === "/mi-semana/state") return Response.json(miSemana());
+      return NOT_FOUND();
+    }
     if (pathname !== "/sala" && !pathname.startsWith("/sala/")) return null;
     if (!deps.token || !tokenMatches(deps.token, givenToken(request, url))) return NOT_FOUND();
 
@@ -313,6 +347,12 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
     }
     if (request.method === "GET" && pathname === "/sala/old" && deps.oldPage !== undefined) {
       return new Response(deps.oldPage, { headers: { "content-type": "text/html; charset=utf-8" } });
+    }
+    if (request.method === "GET" && pathname === "/sala/mi-semana" && deps.token) {
+      return new Response(null, {
+        status: 302,
+        headers: { location: `/mi-semana?pase=${encodeURIComponent(paseDeMiSemana(deps.token))}` },
+      });
     }
     if (request.method === "GET" && pathname === "/sala/state") return Response.json(state());
     if (request.method === "POST" && pathname === "/sala/tick") return run(deps.tick);

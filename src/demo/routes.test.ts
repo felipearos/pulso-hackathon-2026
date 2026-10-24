@@ -5,6 +5,7 @@ import { PATRICIA_RUT_FICTICIO, PATRICIA_START } from "../patricia/fixtures";
 import type { App } from "../app";
 import type { TipoSenal } from "../patricia/entities";
 import { createTestApp, type TestApp } from "../testing";
+import { paseDeMiSemana } from "./routes";
 import type { Hold } from "../fakes";
 
 const TOKEN = "operador-secreto-de-prueba";
@@ -711,5 +712,60 @@ describe("/sala metricas", () => {
     const body = await metricas(t.app);
     expect(body.apartadoDeLaSemana).toBe(2_500);
     expect(body.pagosSobreElMinimo).toEqual({ sobreElMinimo: 1, pagos: 2, meta: { sobre: 2, de: 3 } });
+  });
+});
+
+describe("/mi-semana, Patricia's own page", () => {
+  const PASE = paseDeMiSemana(TOKEN);
+
+  test("answers 404 without the pase, with a wrong one, or with no token configured", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    for (const path of ["/mi-semana", "/mi-semana/state"]) {
+      for (const query of ["", "?pase=otro", `?pase=${PASE}x`, `?token=${TOKEN}`]) {
+        expect([path, query, (await get(app, `${path}${query}`)).status]).toEqual([path, query, 404]);
+      }
+    }
+    const { app: off } = createTestApp();
+    expect((await get(off, `/mi-semana?pase=${PASE}`)).status).toBe(404);
+  });
+
+  test("the pase opens the page, which reads its state with the same pase", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    const response = await get(app, `/mi-semana?pase=${PASE}`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    const page = await response.text();
+    expect(page).toContain("/mi-semana/state");
+    expect(page).not.toContain(TOKEN);
+  });
+
+  test("the state has her good news and next cita, never the mails, decisions or RUT", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    app.reset();
+    await post(app, "/sala/correos/banco");
+    const body = (await (await get(app, `/mi-semana/state?pase=${PASE}`)).json()) as {
+      metricas: { pagosSobreElMinimo: { meta: unknown } };
+    };
+    expect(Object.keys(body).sort()).toEqual([
+      "bolsillo",
+      "etapa",
+      "metricas",
+      "nombre",
+      "now",
+      "proximaCita",
+      "ultimoAudio",
+    ]);
+    const text = JSON.stringify(body);
+    expect(text).not.toContain(PATRICIA_RUT_FICTICIO);
+    expect(text).not.toContain("@");
+    expect(body.metricas.pagosSobreElMinimo.meta).toEqual({ sobre: 2, de: 3 });
+  });
+
+  test("the sala sends the operator to the page with Patricia's pase", async () => {
+    const { app } = createTestApp({ demoToken: TOKEN });
+    expect((await get(app, "/sala/mi-semana")).status).toBe(404);
+    const response = await get(app, `/sala/mi-semana?token=${TOKEN}`);
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(`/mi-semana?pase=${encodeURIComponent(PASE)}`);
   });
 });
