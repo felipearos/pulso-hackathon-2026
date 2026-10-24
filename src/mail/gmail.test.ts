@@ -265,7 +265,7 @@ describe("createGmailMail", () => {
       expect(mails[0]!.adjuntos?.map((adjunto) => adjunto.nombre)).toEqual(["chico.pdf"]);
       expect(attachmentPaths(requests)).toEqual(["/gmail/v1/users/me/messages/pdf-mail/attachments/small"]);
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(String(warn.mock.calls[0]![0])).toContain("grande.pdf");
+      expect(String(warn.mock.calls[0]![0])).not.toContain("grande.pdf");
       expect(String(warn.mock.calls[0]![0])).toContain("pdf-mail");
     } finally {
       warn.mockRestore();
@@ -304,17 +304,23 @@ describe("createGmailMail", () => {
     expect(attachmentPaths(requests)).toEqual([]);
   });
 
-  test("throws and keeps the cursor when an attachment download fails", async () => {
+  test("keeps the mail without the attachment and advances the cursor when an attachment download fails", async () => {
     const state = makeAccount();
     const { fetch } = attachmentFetch(
       [{ filename: "estado.pdf", mimeType: "application/pdf", body: { attachmentId: "att-1" } }],
       {},
     );
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const mails = await createGmailMail({ account: state.account, fetch }).fetchNew([SENDER]);
 
-    await expect(createGmailMail({ account: state.account, fetch }).fetchNew([SENDER])).rejects.toThrow(
-      "gmail: attachment failed (404)",
-    );
-    expect(state.saved).toEqual([]);
+      expect(mails).toHaveLength(1);
+      expect(mails[0]).not.toHaveProperty("adjuntos");
+      expect(state.saved).toHaveLength(1);
+      expect(String(warn.mock.calls[0]![0])).toContain("gmail: attachment failed (404)");
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test("does not make a request for an empty sender list", async () => {

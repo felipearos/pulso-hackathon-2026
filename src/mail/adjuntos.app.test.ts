@@ -13,11 +13,10 @@ describe("mails with a pdf attachment through the app", () => {
     const injected = gmail.inject({ from: BANCO, subject: "Tu compra en 3 cuotas en Farmacia Ejemplo", receivedAt: clock.now(), adjuntos: [PDF] });
     await app.tick();
 
-    expect(injected.adjuntos).toEqual([PDF]);
     expect(app.store.senalForMail(injected.id)?.tipo).toBe("S4");
   });
 
-  test("receiveMail, the /sala way in, accepts a mail with adjuntos", async () => {
+  test("receiveMail accepts a mail with adjuntos", async () => {
     const { app, clock } = createTestApp();
     const mail: IncomingMail = {
       id: "adjunto-1",

@@ -140,19 +140,25 @@ export function createGmailMail({ account, fetch: fetchGmail = fetch }: { accoun
       const nombre = part.filename!;
       const declared = part.body?.size;
       if (typeof declared === "number" && declared > MAX_ADJUNTO_BYTES) {
-        console.warn(`gmail: attachment dropped, over the size cap (mail ${mailId}, ${nombre}, ${declared} bytes)`);
+        console.warn(`gmail: attachment dropped, over the size cap (mail ${mailId}, ${declared} bytes)`);
         continue;
       }
       let data = part.body?.data;
       const attachmentId = part.body?.attachmentId;
       if (typeof data !== "string" && typeof attachmentId === "string") {
         const url = `${messageUrl}/attachments/${encodeURIComponent(attachmentId)}`;
-        data = (await requestJson<GmailAttachment>("attachment", url, token)).data;
+        try {
+          data = (await requestJson<GmailAttachment>("attachment", url, token)).data;
+        } catch (error) {
+          // An attachment is extra: its failure must not hold back the mail and the ones after it.
+          console.warn(`gmail: attachment dropped, ${error instanceof Error ? error.message : String(error)} (mail ${mailId})`);
+          continue;
+        }
       }
       if (typeof data !== "string") continue;
       const bytes = new Uint8Array(Buffer.from(data, "base64url"));
       if (bytes.byteLength > MAX_ADJUNTO_BYTES) {
-        console.warn(`gmail: attachment dropped, over the size cap (mail ${mailId}, ${nombre}, ${bytes.byteLength} bytes)`);
+        console.warn(`gmail: attachment dropped, over the size cap (mail ${mailId}, ${bytes.byteLength} bytes)`);
         continue;
       }
       kept.push({ nombre, mimeType: part.mimeType!.toLowerCase(), bytes });
