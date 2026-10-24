@@ -111,6 +111,24 @@ describe("createWhatsAppCloud", () => {
     });
   });
 
+  test("a text with a button goes out as a call-to-action message, the url behind the button", async () => {
+    const { whatsapp, requests, clock } = setup({ responses: [ok("wamid-1")] });
+    whatsapp.recordInbound(clock.now());
+    const url = "https://example.test/permitir";
+    const result = await whatsapp.send({ kind: "text", text: "toca el botón", button: { label: "Permitir", url } });
+    expect(result).toEqual({ id: "wamid-1" });
+    expect(requests[0]?.json).toEqual({
+      messaging_product: "whatsapp",
+      to: "56900000000",
+      type: "interactive",
+      interactive: {
+        type: "cta_url",
+        body: { text: "toca el botón" },
+        action: { name: "cta_url", parameters: { display_text: "Permitir", url } },
+      },
+    });
+  });
+
   test("an audio inside the window uploads the media first, then sends it as a voice note", async () => {
     const { whatsapp, requests, clock } = setup({ responses: [Response.json({ id: "media-1" }), ok("wamid-2")] });
     whatsapp.recordInbound(clock.now());

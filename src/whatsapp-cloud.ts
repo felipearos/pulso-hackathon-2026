@@ -217,6 +217,17 @@ export function createWhatsAppCloud(deps: WhatsAppCloudDeps): WhatsAppCloud {
     }
     switch (message.kind) {
       case "text":
+        if (message.button) {
+          // Meta's call-to-action message: the body with one button that opens the url.
+          return postMessage(config, "text", {
+            type: "interactive",
+            interactive: {
+              type: "cta_url",
+              body: { text: message.text },
+              action: { name: "cta_url", parameters: { display_text: message.button.label, url: message.button.url } },
+            },
+          });
+        }
         return postMessage(config, "text", { type: "text", text: { body: message.text } });
       case "audio": {
         const id = await uploadMedia(config, "audio", message.audio, message.mimeType, "audio.ogg");

@@ -150,10 +150,13 @@ export function createCitaSender({
       .some((m) => m.kind === "text" && m.id > cita.mensajeSalienteId! && m.text?.includes(permitirUrl()));
 
   const sendPermitir = async (cita: { id: number; motivo: string }): Promise<void> => {
-    const text = `Para que pueda leer los correos de tu banco y de tu tienda, toca aquí y dale «Permitir» (solo lectura): ${permitirUrl()}`;
+    const body = "Para que pueda leer los correos de tu banco y de tu tienda, toca el botón y dale «Permitir» (solo lectura).";
+    const url = permitirUrl();
+    // Stored with the link: it is what tells a sent «Permitir» apart, and what the simulador shows.
+    const text = `${body} ${url}`;
     let id: string;
     try {
-      ({ id } = await whatsapp.send({ kind: "text", text }));
+      ({ id } = await whatsapp.send({ kind: "text", text: body, button: { label: "Permitir", url } }));
     } catch (cause) {
       const error = cause instanceof Error ? cause.message : String(cause);
       console.error(`cita ${cita.id}: permitir link send failed: ${error}`);

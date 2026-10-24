@@ -39,7 +39,8 @@ export type Mail = {
 };
 
 export type OutgoingWhatsApp =
-  | { kind: "text"; text: string }
+  /** `button` sends the text with one button that opens `url`, in place of a bare link. */
+  | { kind: "text"; text: string; button?: { label: string; url: string } }
   | { kind: "audio"; audio: Uint8Array; mimeType: string; durationSeconds: number }
   | { kind: "image"; image: Uint8Array; mimeType: string; caption?: string };
 
