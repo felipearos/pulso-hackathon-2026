@@ -6,6 +6,7 @@ import type { Store } from "../patricia/store";
 import type { IncomingMail, Llm, Web } from "../ports";
 import { documentText } from "../web/documento";
 import { allowedLink } from "../web/link";
+import { claveDesdeRut, leerReglaDeClave } from "./clave-pdf";
 import { allowedSender } from "./senders";
 
 /**
@@ -116,18 +117,67 @@ async function textoDeLaTienda(web: Web, mail: IncomingMail): Promise<string | n
   }
 }
 
+/** Why an S1's PDF could not be opened; never carries the RUT or the clave. */
+type CasoNoAbre = "sin-rut" | "clave-invalida" | "sin-clave-no-abre" | "clave-no-abre";
+
+const MOTIVO_NO_ABRE: Record<CasoNoAbre, string> = {
+  "sin-rut":
+    "No abrí el estado de cuenta del banco: el correo dice que la clave sale del RUT y no tengo el RUT de Patricia.",
+  "clave-invalida":
+    "No abrí el estado de cuenta del banco: con el RUT guardado no pude armar la clave que pide el correo.",
+  "sin-clave-no-abre":
+    "No abrí el estado de cuenta del banco: el PDF pide una clave y el correo no dice cómo se arma.",
+  "clave-no-abre":
+    "No abrí el estado de cuenta del banco: la clave que pide el correo no abrió el PDF, y no pruebo otras.",
+};
+
 /**
- * Reads the estado de cuenta of an S1 mail (the bank's, in its text) or an S2
- * mail (the tienda's, behind its link) and stores it with its extraction.
- * Every figure not found gets a `callar-cifra` decision, so Luna never invents
- * it. Null for any other mail, for an S2 with no allowed link, and when the
- * link could not be read or Claude failed twice: then nothing is stored, so
- * the mail can be read again. The stored extraction when it was read.
+ * The text of an S1 mail's attached PDF, opened with the one clave the mail's
+ * rule makes from Patricia's RUT, or without a clave when the rule says so or
+ * the mail does not say. Never tries another clave. The case when it did not open.
+ */
+async function textoDelAdjunto(
+  store: Store,
+  llm: Llm,
+  mail: IncomingMail,
+  bytes: Uint8Array,
+): Promise<{ text: string } | { caso: CasoNoAbre }> {
+  // One retry, as for the figures: a failed call is not a mail that says nothing.
+  const regla = (await leerReglaDeClave(mail.text, llm)) ?? (await leerReglaDeClave(mail.text, llm));
+  const pdf = { contentType: "application/pdf", body: bytes };
+  if (regla === null || regla.regla === "sin-clave") {
+    const text = await documentText(pdf);
+    return text === null ? { caso: "sin-clave-no-abre" } : { text };
+  }
+  const rut = store.getPatricia().rut;
+  if (rut === undefined || rut === null || rut === "") return { caso: "sin-rut" };
+  const clave = claveDesdeRut(rut, regla.regla, regla.n);
+  if (clave === null) return { caso: "clave-invalida" };
+  const text = await documentText(pdf, { clave });
+  return text === null ? { caso: "clave-no-abre" } : { text };
+}
+
+function closedForMail(store: Store, mailId: string): boolean {
+  return store
+    .decisions()
+    .some((d) => d.tipo === "no-abre-estado-de-cuenta" && (d.datos as { mailId?: unknown } | null)?.mailId === mailId);
+}
+
+/**
+ * Reads the estado de cuenta of an S1 mail (the bank's, from its attached PDF,
+ * or from its text when it has none) or an S2 mail (the tienda's, behind its
+ * link) and stores it with its extraction. Every figure not found gets a
+ * `callar-cifra` decision, so Luna never invents it. Null for any other mail,
+ * for an S2 with no allowed link, and when the link could not be read or
+ * Claude failed twice: then nothing is stored, so the mail can be read again.
+ * "cerrado" when an S1's PDF could not be opened: one
+ * `no-abre-estado-de-cuenta` decision says why, and the mail is not read
+ * again. The stored extraction when it was read.
  */
 export async function extractEstadoDeCuenta(
   deps: { store: Store; llm: Llm; db: Database; web: Web },
   mail: IncomingMail,
-): Promise<Extraccion | null> {
+): Promise<Extraccion | "cerrado" | null> {
   const { store, llm, db, web } = deps;
   const tipo = store.senalForMail(mail.id)?.tipo;
   if (tipo !== "S1" && tipo !== "S2") return null;
@@ -135,7 +185,31 @@ export async function extractEstadoDeCuenta(
   if (existing !== null) return existing;
 
   const origen = tipo === "S1" ? "banco" : "tienda";
-  const text = origen === "banco" ? mail.text : await textoDeLaTienda(web, mail);
+  const adjunto = origen === "banco" ? mail.adjuntos?.[0] : undefined;
+  let text: string | null;
+  if (adjunto !== undefined) {
+    if (closedForMail(store, mail.id)) return "cerrado";
+    const leido = await textoDelAdjunto(store, llm, mail, adjunto.bytes);
+    if ("caso" in leido) {
+      const { caso } = leido;
+      console.error(`estado de cuenta: ${mail.id} PDF did not open (${caso}); mail closed`);
+      return db.transaction(() => {
+        // Another call may have read or closed this mail while the LLM answered.
+        const won = store.extraccionForMail(mail.id);
+        if (won !== null) return won;
+        if (closedForMail(store, mail.id)) return "cerrado" as const;
+        store.recordDecision({
+          tipo: "no-abre-estado-de-cuenta",
+          motivo: MOTIVO_NO_ABRE[caso],
+          datos: { mailId: mail.id, caso },
+        });
+        return "cerrado" as const;
+      })();
+    }
+    text = leido.text;
+  } else {
+    text = origen === "banco" ? mail.text : await textoDeLaTienda(web, mail);
+  }
   if (text === null) return null;
   // One retry: a failed call is not an estado de cuenta without figures.
   const cifras = (await extractCifras(text, llm)) ?? (await extractCifras(text, llm));

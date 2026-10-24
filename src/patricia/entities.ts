@@ -125,6 +125,8 @@ export type TipoDecision =
   | "callar"
   /** A figure the extractor did not find or doubted: Luna keeps it to herself. */
   | "callar-cifra"
+  /** The bank's estado de cuenta PDF did not open: Luna closes that mail and says why. */
+  | "no-abre-estado-de-cuenta"
   /** Luna moved a cita, or the pendientes the madrugada holds back, to later. */
   | "diferir"
   /** Luna proposed setting plata apartada. */
