@@ -44,6 +44,12 @@ export function paseDelJurado(token: string): string {
   return createHmac("sha256", token).update("jurado").digest("base64url").slice(0, PASE_LENGTH);
 }
 
+/** The wa.me link that opens a chat with Luna saying «Hola Luna»; null without a number. */
+export function entradaLink(phone: string | undefined): string | null {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  return digits ? `https://wa.me/${digits}?text=Hola%20Luna` : null;
+}
+
 /** A projector page: one big line and the QR under it. */
 function projectorPage(title: string, line: string, svg: string, link: string): string {
   return `<!doctype html>
@@ -180,14 +186,13 @@ export function createQrRoutes(deps: QrDeps): (request: Request) => Promise<Resp
   let inFlight = 0;
 
   const entrada = async () => {
-    const digits = (deps.entradaPhone ?? "").replace(/\D/g, "");
-    if (!digits) {
+    const link = entradaLink(deps.entradaPhone);
+    if (!link) {
       return html(
         "<!doctype html><html lang=\"es\"><meta charset=\"utf-8\"><title>Luna</title><p>El número de entrada no está configurado (<code>WHATSAPP_ENTRADA_PHONE</code>).</p></html>",
         503,
       );
     }
-    const link = `https://wa.me/${digits}?text=Hola%20Luna`;
     const svg = await QRCode.toString(link, { type: "svg", margin: 1 });
     return html(projectorPage("entrada", "Escanéalo y Luna te saluda", svg, link));
   };
