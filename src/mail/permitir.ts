@@ -39,13 +39,26 @@ const STATE_TTL_MS = 15 * 60 * 1000;
 const MAX_RUT_BODY_BYTES = 4 * 1024;
 
 const EXPIRED_LINK = "Este link ya no sirve. Abre de nuevo el link que te mandó Luna.";
-const LISTO = "Listo. Desde ahora me entero sola de lo que te llega del banco y de la tienda. Puedes cerrar esta página.";
+const LISTO = "Listo. Desde ahora me entero sola de lo que te llega del banco y de la tienda.";
+
+/** What Luna writes in the chat once the «Permitir» is done; it promises only what the audio de la noche does. */
+export function avisoPermitir(nombre: string): string {
+  return `Listo, ${nombre}, tu correo quedó conectado. Cuando llegue algo del banco o de la tienda, te lo cuento en tu audio de la noche.`;
+}
 
 export type PermitirDeps = {
   mail: Mail;
   store: Store;
   /** Raw time source: only ages the `state`, which is real time, not the demo's. */
   clock: Clock;
+  /** The wa.me chat with Luna the closing page links back to; unset, the page has no button. */
+  entradaLink?: string;
+  /**
+   * Tells Patricia on WhatsApp that her correo is connected, once the «Permitir»
+   * is done; resolves true once it went out. Unset, nothing is sent. It must
+   * not throw: a failed send must not cost her the page.
+   */
+  avisar?: () => Promise<boolean>;
 };
 
 export type Permitir = {
@@ -54,7 +67,7 @@ export type Permitir = {
 };
 
 export function createPermitir(deps: PermitirDeps): Permitir {
-  const { mail, store, clock } = deps;
+  const { mail, store, clock, entradaLink } = deps;
   const issued = new Map<string, number>();
   /** Single-use tokens of the RUT forms shown, with when each was issued. */
   const rutTokens = new Map<string, number>();
@@ -63,6 +76,12 @@ export function createPermitir(deps: PermitirDeps): Permitir {
     const now = clock.now().getTime();
     for (const [state, at] of issued) if (now - at > STATE_TTL_MS) issued.delete(state);
     for (const [token, at] of rutTokens) if (now - at > STATE_TTL_MS) rutTokens.delete(token);
+  };
+
+  /** The «Permitir» is over: Luna says so in the chat, and the page sends her back to it. */
+  const done = async (message: string): Promise<Response> => {
+    const avisado = (await deps.avisar?.()) ?? false;
+    return closing(message, entradaLink, avisado);
   };
 
   const start = async (): Promise<Response> => {
@@ -109,7 +128,7 @@ export function createPermitir(deps: PermitirDeps): Permitir {
     });
     if (store.getPatricia().rut) {
       // She gave it once already: the RUT is asked a single time.
-      return page(200, LISTO);
+      return done(LISTO);
     }
     const token = crypto.randomUUID();
     rutTokens.set(token, clock.now().getTime());
@@ -127,7 +146,7 @@ export function createPermitir(deps: PermitirDeps): Permitir {
     if (respuesta === "ahora-no") {
       rutTokens.delete(token);
       store.updatePatricia({ rut: null });
-      return page(200, "Está bien, no guardé tu RUT. Tu correo sigue conectado y yo me las arreglo igual. Puedes cerrar esta página.");
+      return done("Está bien, no guardé tu RUT. Tu correo sigue conectado y yo me las arreglo igual.");
     }
     if (respuesta !== "permitir") return page(400, EXPIRED_LINK);
     const normalized = normalizeRut(form.get("rut") ?? "");
@@ -142,7 +161,7 @@ export function createPermitir(deps: PermitirDeps): Permitir {
       motivo: "Patricia dio su RUT en la página del «Permitir», para abrir los estados de cuenta que llegan con clave",
       datos: {},
     });
-    return page(200, LISTO);
+    return done(LISTO);
   };
 
   return {
@@ -183,6 +202,16 @@ function page(status: number, message: string): Response {
   return html(status, `<p>${escapeHtml(message)}</p>`);
 }
 
+/** The page that closes the «Permitir»: back to the chat, where Luna just wrote. */
+function closing(message: string, entradaLink: string | undefined, avisado: boolean): Response {
+  if (!entradaLink) return page(200, `${message} Puedes cerrar esta página.`);
+  const escribi = avisado ? "<p>Te escribí en WhatsApp.</p>" : "";
+  return html(
+    200,
+    `<p>${escapeHtml(message)}</p>${escribi}<a class="volver" href="${escapeHtml(entradaLink)}">Volver a WhatsApp</a>`,
+  );
+}
+
 const FIELD_STYLE = "display: block; box-sizing: border-box; width: 100%; font-size: 1.2rem; padding: 0.75rem; margin: 0.5rem 0";
 
 /** The RUT form after a connected callback; `notice` is the kind word when the RUT did not check out. */
@@ -219,6 +248,8 @@ const PAGE_STYLE = [
   `button { font-family: inherit; font-weight: 600; min-height: 56px; border: 0; border-radius: 999px; background: ${NOCHE}; color: ${PAPEL}; cursor: pointer; }`,
   `button[value="ahora-no"] { color: ${NOCHE}; border: 2px solid #DDD5C4; }`,
   `button:focus-visible { outline: 3px solid ${LUNA}; outline-offset: 2px; }`,
+  `.volver { display: flex; align-items: center; justify-content: center; min-height: 56px; margin-top: 8px; border-radius: 999px; background: ${NOCHE}; color: ${PAPEL}; font-weight: 600; text-decoration: none; }`,
+  `.volver:focus-visible { outline: 3px solid ${LUNA}; outline-offset: 2px; }`,
   `[role="alert"] { background: ${ARENA}; border-radius: 14px; padding: 12px 16px; }`,
 ].join("\n");
 
