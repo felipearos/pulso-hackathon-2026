@@ -63,6 +63,23 @@ describe("FakeMail", () => {
     expect((await mail.fetchNew(["bancoficticio.example"])).map((m) => m.subject)).toEqual(["uno"]);
     expect(await mail.fetchNew(["correo.example"])).toEqual([]);
   });
+
+  test("fetchNew returns injected attachments", async () => {
+    const mail = new FakeMail();
+    const adjuntos = [{ nombre: "estado.pdf", mimeType: "application/pdf", bytes: new TextEncoder().encode("%PDF-1.4") }];
+    mail.inject({ from: "aviso@bancoficticio.example", subject: "Estado", receivedAt, adjuntos });
+    const [fetched] = await mail.fetchNew(["bancoficticio.example"]);
+    expect(fetched!.adjuntos).toEqual(adjuntos);
+  });
+
+  test("fetchNew strips the attachments of a suspicious mail", async () => {
+    const mail = new FakeMail();
+    const adjuntos = [{ nombre: "estado.pdf", mimeType: "application/pdf", bytes: new TextEncoder().encode("%PDF-1.4") }];
+    mail.inject({ from: "aviso@bancoficticio.example", subject: "Estado", receivedAt, text: "Ingresa tu clave aquí", adjuntos });
+    const [fetched] = await mail.fetchNew(["bancoficticio.example"]);
+    expect(fetched).toMatchObject({ subject: "Estado", text: "Ingresa tu clave aquí" });
+    expect(fetched).not.toHaveProperty("adjuntos");
+  });
 });
 
 describe("FakeWhatsApp", () => {

@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import type { GmailAccount, GmailCursor } from "./gmail-oauth";
-import { createGmailMail } from "./gmail";
+import { MAX_ADJUNTO_BYTES, createGmailMail } from "./gmail";
 
 const START_MS = 1_000_000;
 const SENDER = "bancoficticio.example";
@@ -64,6 +64,30 @@ function fullMessage(id: string, internalDate: number, from: string, parts: obje
 
 function getId(url: URL): string {
   return decodeURIComponent(url.pathname.split("/").at(-1)!);
+}
+
+const PDF_TEXT = "%PDF-1.4 estado ficticio";
+
+function pdfBytes(): Uint8Array {
+  return new Uint8Array(Buffer.from(PDF_TEXT, "utf8"));
+}
+
+function attachmentPaths(requests: Array<{ url: URL }>): string[] {
+  return requests.map((request) => request.url.pathname).filter((path) => path.includes("/attachments/"));
+}
+
+/** One allowed mail, id `pdf-mail`, whose attachments are served from `stored` by attachment id. */
+function attachmentFetch(parts: object[], stored: Record<string, string>) {
+  return recordedFetch((url) => {
+    const marker = "/attachments/";
+    if (url.pathname.includes(marker)) {
+      const attachmentId = decodeURIComponent(url.pathname.slice(url.pathname.indexOf(marker) + marker.length));
+      const text = stored[attachmentId];
+      return text === undefined ? json({}, 404) : json({ data: encoded(text), size: text.length });
+    }
+    if (url.searchParams.has("format")) return json(fullMessage("pdf-mail", 1_001_000, "avisos@bancoficticio.example", parts));
+    return json({ messages: [{ id: "pdf-mail" }] });
+  });
 }
 
 describe("createGmailMail", () => {
@@ -175,6 +199,128 @@ describe("createGmailMail", () => {
     expect(await createGmailMail({ account: state.account, fetch }).fetchNew([SENDER])).toEqual([]);
     expect(state.cursor()).toEqual({ ms: START_MS, ids: [] });
     expect(requests.map((request) => request.url.searchParams.get("format"))).toEqual([null, "metadata"]);
+    expect(attachmentPaths(requests)).toEqual([]);
+  });
+
+  test("downloads a pdf attachment by attachmentId and returns its bytes", async () => {
+    const state = makeAccount();
+    const { fetch, requests } = attachmentFetch(
+      [
+        { mimeType: "text/plain", body: { data: encoded("Tu estado de cuenta va adjunto.") } },
+        { filename: "estado.pdf", mimeType: "application/pdf", body: { attachmentId: "att/1", size: 8 } },
+      ],
+      { "att/1": PDF_TEXT },
+    );
+
+    const mails = await createGmailMail({ account: state.account, fetch }).fetchNew([SENDER]);
+
+    expect(mails[0]!.adjuntos).toEqual([{ nombre: "estado.pdf", mimeType: "application/pdf", bytes: pdfBytes() }]);
+    expect(attachmentPaths(requests)).toEqual([`/gmail/v1/users/me/messages/pdf-mail/attachments/${encodeURIComponent("att/1")}`]);
+  });
+
+  test("downloads an octet-stream part whose filename ends in .PDF", async () => {
+    const state = makeAccount();
+    const { fetch, requests } = attachmentFetch(
+      [{ filename: "Estado.PDF", mimeType: "application/octet-stream", body: { attachmentId: "att-1" } }],
+      { "att-1": PDF_TEXT },
+    );
+
+    const mails = await createGmailMail({ account: state.account, fetch }).fetchNew([SENDER]);
+
+    expect(mails[0]!.adjuntos).toEqual([{ nombre: "Estado.PDF", mimeType: "application/octet-stream", bytes: pdfBytes() }]);
+    expect(attachmentPaths(requests)).toHaveLength(1);
+  });
+
+  test("never requests attachments that are not pdfs", async () => {
+    const state = makeAccount();
+    const { fetch, requests } = attachmentFetch(
+      [
+        { filename: "estado.zip", mimeType: "application/octet-stream", body: { attachmentId: "zip" } },
+        { filename: "logo.png", mimeType: "image/png", body: { attachmentId: "png" } },
+        { mimeType: "application/pdf", body: { attachmentId: "unnamed" } },
+      ],
+      {},
+    );
+
+    const mails = await createGmailMail({ account: state.account, fetch }).fetchNew([SENDER]);
+
+    expect(mails[0]).not.toHaveProperty("adjuntos");
+    expect(attachmentPaths(requests)).toEqual([]);
+  });
+
+  test("never requests an attachment declared over the size cap", async () => {
+    const state = makeAccount();
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    const { fetch, requests } = attachmentFetch(
+      [
+        { filename: "grande.pdf", mimeType: "application/pdf", body: { attachmentId: "big", size: MAX_ADJUNTO_BYTES + 1 } },
+        { filename: "chico.pdf", mimeType: "application/pdf", body: { attachmentId: "small", size: 8 } },
+      ],
+      { small: PDF_TEXT },
+    );
+
+    try {
+      const mails = await createGmailMail({ account: state.account, fetch }).fetchNew([SENDER]);
+
+      expect(mails[0]!.adjuntos?.map((adjunto) => adjunto.nombre)).toEqual(["chico.pdf"]);
+      expect(attachmentPaths(requests)).toEqual(["/gmail/v1/users/me/messages/pdf-mail/attachments/small"]);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]![0])).not.toContain("grande.pdf");
+      expect(String(warn.mock.calls[0]![0])).toContain("pdf-mail");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test("requests no attachment of a suspicious mail", async () => {
+    for (const text of ["Ingresa tu clave para ver el estado.", "Revisa https://phishing.example/estado"]) {
+      const state = makeAccount();
+      const { fetch, requests } = attachmentFetch(
+        [
+          { mimeType: "text/plain", body: { data: encoded(text) } },
+          { filename: "estado.pdf", mimeType: "application/pdf", body: { attachmentId: "att-1" } },
+        ],
+        { "att-1": PDF_TEXT },
+      );
+
+      const mails = await createGmailMail({ account: state.account, fetch }).fetchNew([SENDER]);
+
+      expect(mails).toHaveLength(1);
+      expect(mails[0]).not.toHaveProperty("adjuntos");
+      expect(attachmentPaths(requests)).toEqual([]);
+    }
+  });
+
+  test("decodes an inline pdf without an attachment request", async () => {
+    const state = makeAccount();
+    const { fetch, requests } = attachmentFetch(
+      [{ filename: "estado.pdf", mimeType: "application/pdf", body: { data: encoded(PDF_TEXT), size: 8 } }],
+      {},
+    );
+
+    const mails = await createGmailMail({ account: state.account, fetch }).fetchNew([SENDER]);
+
+    expect(mails[0]!.adjuntos).toEqual([{ nombre: "estado.pdf", mimeType: "application/pdf", bytes: pdfBytes() }]);
+    expect(attachmentPaths(requests)).toEqual([]);
+  });
+
+  test("keeps the mail without the attachment and advances the cursor when an attachment download fails", async () => {
+    const state = makeAccount();
+    const { fetch } = attachmentFetch(
+      [{ filename: "estado.pdf", mimeType: "application/pdf", body: { attachmentId: "att-1" } }],
+      {},
+    );
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const mails = await createGmailMail({ account: state.account, fetch }).fetchNew([SENDER]);
+
+      expect(mails).toHaveLength(1);
+      expect(mails[0]).not.toHaveProperty("adjuntos");
+      expect(state.saved).toHaveLength(1);
+      expect(String(warn.mock.calls[0]![0])).toContain("gmail: attachment failed (404)");
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test("does not make a request for an empty sender list", async () => {
