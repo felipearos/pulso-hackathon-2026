@@ -33,7 +33,7 @@ const NAMED_ENTITIES: Record<string, string> = {
 /**
  * The readable text of the page or PDF a mail links to, as a plain-text dump
  * the extractor reads. Null when the type is not supported or there is no text.
- * `clave` opens an encrypted PDF; a wrong or missing one gives null.
+ * `clave` opens an encrypted PDF; for one, a wrong or missing clave gives null.
  */
 export async function documentText(doc: WebDocument, options: { clave?: string } = {}): Promise<string | null> {
   const [mediaType = "", ...params] = doc.contentType.split(";").map((part) => part.trim());
