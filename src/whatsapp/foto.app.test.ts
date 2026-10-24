@@ -67,7 +67,7 @@ function setup(
     ...(options.now ? { now: options.now } : {}),
     llm: [
       ["Foto de un estado de cuenta:", JSON.stringify({ pagoMinimo: options.pagoMinimo ?? null })],
-      [/Lo abriste tú/, "OK"],
+      [/abriste tú/, "OK"],
       ...(options.classify ?? []),
     ],
   });

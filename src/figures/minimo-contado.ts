@@ -24,8 +24,10 @@ const DE_LA_TIENDA: Record<Origen, string> = { banco: "", tienda: " de la tienda
  * has none to compare it with (`comparado` false): then it is only celebrated.
  */
 export function textoMinimoCoincide(origen: Origen, minimo: number, nombre: string, comparado = true): string {
-  const celebracion = `¡Lo abriste tú, ${nombre}! El mínimo${DE_LA_TIENDA[origen]} es ${montoEnPantalla(minimo)}.`;
-  return comparado ? `${celebracion} Lo leímos igual.` : celebracion;
+  // Worded so the tone review passes it: «Lo leímos igual» read as a threat.
+  const celebracion = `¡Qué lindo, ${nombre}, lo abriste tú! El mínimo${DE_LA_TIENDA[origen]} es ${montoEnPantalla(minimo)}`;
+  const comparacion = comparado ? ", igual al que yo tenía anotado" : "";
+  return `${celebracion}${comparacion}. Gracias por compartirlo conmigo.`;
 }
 
 /** What Luna says when the mínimo Patricia brought is not the one she has: only hers is shown. */

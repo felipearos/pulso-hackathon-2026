@@ -11,7 +11,7 @@ import {
 } from "./minimo-contado";
 
 /** The tone review passes every text Luna answers a mínimo with. */
-const TONE_OK: [RegExp, string] = [/Lo abriste tú/, "OK"];
+const TONE_OK: [RegExp, string] = [/abriste tú/, "OK"];
 
 function estado(input: Partial<EstadoDeCuentaInput> & Pick<EstadoDeCuentaInput, "origen" | "ciclo">): EstadoDeCuentaInput {
   return { fechaCierre: null, fechaVencimiento: null, cifras: null, pagoMinimo: null, ...input };
