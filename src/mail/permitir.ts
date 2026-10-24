@@ -45,9 +45,9 @@ export function permitirUrl(env: Record<string, string | undefined> = process.en
 const STATE_TTL_MS = 15 * 60 * 1000;
 /** A RUT form is a few dozen bytes; anything past this is not one. */
 const MAX_RUT_BODY_BYTES = 4 * 1024;
-/** The contexto form carries three answers of up to `MAX_ANSWER_LENGTH` each. */
-const MAX_CONTEXTO_BODY_BYTES = MAX_RUT_BODY_BYTES * 2;
 const MAX_ANSWER_LENGTH = 280;
+/** Twice the RUT cap: fits three full answers even percent-encoded (3 × 280 × 9 bytes); grow it with `MAX_ANSWER_LENGTH`. */
+const MAX_CONTEXTO_BODY_BYTES = MAX_RUT_BODY_BYTES * 2;
 
 const EXPIRED_LINK = "Este link ya no sirve. Abre de nuevo el link que te mandó Luna.";
 const UNREADABLE = "Eso no lo pude leer. Abre de nuevo el link que te mandó Luna.";
@@ -191,7 +191,7 @@ export function createPermitir(deps: PermitirDeps): Permitir {
     };
     if (Object.values(submitted).some((value) => value !== null && value.length > MAX_ANSWER_LENGTH)) {
       // The token stays valid and her words come back: she only has to shorten one.
-      return contextoForm(422, token, submitted, "Una respuesta quedó muy larga. Acórtala un poco, con 280 letras alcanza.");
+      return contextoForm(422, token, submitted, `Una respuesta quedó muy larga. Acórtala un poco, con ${MAX_ANSWER_LENGTH} letras alcanza.`);
     }
     contextoTokens.delete(token);
     store.updatePatricia({ contexto: submitted });
