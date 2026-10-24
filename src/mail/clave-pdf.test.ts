@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { HAIKU_MODEL } from "../claude-cli";
 import { FakeLlm } from "../fakes";
-import { claveDesdeRut, leerReglaDeClave, type ReglaDeClave } from "./clave-pdf";
+import { claveDesdeRut, enmascararRut, leerReglaDeClave, type ReglaDeClave } from "./clave-pdf";
 
 const RUT = "12345678-5";
 
@@ -161,4 +161,17 @@ describe("leerReglaDeClave", () => {
       expect(request.prompt).not.toMatch(/\d{6}/);
     },
   );
+});
+
+describe("enmascararRut", () => {
+  test("masks a RUT in every printed form", () => {
+    for (const rut of ["12.345.678-5", "9.876.543-K", "123456785", "12345678-5"]) {
+      expect(enmascararRut(`RUT ${rut} titular`)).toBe("RUT [RUT] titular");
+    }
+  });
+
+  test("leaves the estado de cuenta's figures, dates and card digits alone", () => {
+    const text = "Total $1.234.567 Cupo $12.345.678 Pagar hasta 15/10/2026 Tarjeta XXXX XXXX XXXX 0000 Tasa 3,10 %";
+    expect(enmascararRut(text)).toBe(text);
+  });
 });
