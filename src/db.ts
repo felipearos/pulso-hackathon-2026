@@ -186,6 +186,13 @@ export const migrations: Migration[] = [
     // The hora she answered in the bienvenida, `HH:MM`; null until she answers.
     sql: "ALTER TABLE patricia ADD COLUMN hora_cita TEXT;",
   },
+  {
+    version: 11,
+    name: "rut",
+    // Her RUT, normalized (`12345678-5`), given once on the «Permitir» page so
+    // Luna can open the estado de cuenta PDFs; null until she gives it.
+    sql: "ALTER TABLE patricia ADD COLUMN rut TEXT;",
+  },
 ];
 
 /** Opens the SQLite file, creating its directory, or an in-memory database for `:memory:`. */

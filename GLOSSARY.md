@@ -208,6 +208,17 @@ subdomains (`src/web/link.ts`), for the S2 estado de cuenta that only brings
 a link. Anything else is never downloaded.
 _Avoid:_ "whitelist".
 
+## RUT
+
+Patricia's Chilean national id, asked once on the page `/gmail/callback`
+shows after her «Permitir», never by WhatsApp. Banks lock the estado de
+cuenta PDF with a clave made from it, so with it Luna can open them.
+Stored normalized (`12345678-5`) in `Patricia.rut`, null until she gives
+it, after «Ahora no» and after the reset; validated by módulo 11 (`src/mail/rut.ts`). It
+never leaves the base: not in logs, the registro de decisiones, /demo,
+/sala or any LLM prompt.
+_Avoid:_ "clave" for the RUT itself; the clave is what the bank derives from it.
+
 ## Registro de decisiones
 
 The append-only log of everything Luna decided (move the etapa, stay quiet,

@@ -12,10 +12,20 @@ describe("store", () => {
       voz: null,
       hora: null,
       gmailPermitido: false,
+      rut: null,
       etapa: 1,
       bolsillo: null,
       enPausa: false,
     });
+  });
+
+  test("keeps the RUT across other updates until it is cleared", () => {
+    const { app } = createTestApp();
+    app.store.updatePatricia({ rut: "12345678-5" });
+    app.store.updatePatricia({ bolsillo: "Para mí" });
+    expect(app.store.getPatricia().rut).toBe("12345678-5");
+    app.store.updatePatricia({ rut: null });
+    expect(app.store.getPatricia().rut).toBeNull();
   });
 
   test("a second Patricia cannot be inserted", () => {
