@@ -6,18 +6,37 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sala de control</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2096%2096%22%3E%3Crect%20width%3D%2296%22%20height%3D%2296%22%20rx%3D%2226%22%20fill%3D%22%23232E78%22%2F%3E%3Cdefs%3E%3Cmask%20id%3D%22f%22%3E%3Crect%20width%3D%2296%22%20height%3D%2296%22%20fill%3D%22%23fff%22%2F%3E%3Ccircle%20cx%3D%2256%22%20cy%3D%2231%22%20r%3D%2212%22%20fill%3D%22%23000%22%2F%3E%3C%2Fmask%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M19%2050%20L48%2028%20L77%2050%22%20fill%3D%22none%22%20stroke%3D%22%23FBF8F1%22%20stroke-width%3D%224.5%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2246%22%20cy%3D%2238.5%22%20r%3D%2216%22%20fill%3D%22%23F2B33D%22%20mask%3D%22url(%23f)%22%2F%3E%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2258%22%20height%3D%2227%22%20rx%3D%226%22%20fill%3D%22%23232E78%22%20stroke%3D%22%23FBF8F1%22%20stroke-width%3D%224.5%22%2F%3E%3Cpath%20d%3D%22M22%2074.5%20L48%2059%20L74%2074.5%22%20fill%3D%22none%22%20stroke%3D%22%23FBF8F1%22%20stroke-width%3D%223.5%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%20opacity%3D%22.5%22%2F%3E%3C%2Fsvg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* Luna's «Noche tibia» tokens, the same as src/web/pages/landing.html; keep them in step. */
   :root {
-    color-scheme: dark;
-    --fondo: #0b0b0d;
-    --panel: #141418;
-    --borde: #2a2a30;
-    --tenue: #9a9aa0;
-    --texto: #f5f5f5;
-    --amarillo: #ffd866;
-    --celeste: #8fd3ff;
-    --rojo: #ff8a80;
-    --verde: #a6e3a1;
+    --bg: #FBF8F1;
+    --surface: #F3EDE1;
+    --card: #FFFFFF;
+    --ink: #17181C;
+    --ink-2: #45474F;
+    --night: #232E78;
+    --night-deep: #141D4A;
+    --moon: #F2B33D;
+    --moon-soft: #FBEFD2;
+    --on-night: #FFFFFF;
+    --line: #E7E1D4;
+    --grad-dusk:
+      radial-gradient(60% 70% at 12% 8%, rgba(196, 189, 247, 0.75), transparent 70%),
+      radial-gradient(55% 60% at 92% 18%, rgba(178, 222, 240, 0.8), transparent 70%),
+      radial-gradient(70% 60% at 70% 100%, rgba(251, 239, 210, 0.95), transparent 70%),
+      linear-gradient(160deg, #ECE9FB 0%, #E3EEF8 55%, #FBF3E1 100%);
+    --grad-chip: linear-gradient(140deg, #E6E9F6 0%, #FBEFD2 100%);
+    --shadow: 0 1px 2px rgba(20, 29, 74, 0.05), 0 12px 32px rgba(20, 29, 74, 0.08);
+    --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --f-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+    /* States the landing never needs: a suspicious mail, an error, a done step. */
+    --peligro: #B3261E;
+    --peligro-soft: #FCE8E6;
+    --ok: #1E7A46;
+    color-scheme: light;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -25,98 +44,147 @@
     margin: 0;
     display: flex;
     flex-direction: column;
-    background: var(--fondo);
-    color: var(--texto);
-    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    gap: 12px;
+    padding: 10px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.45 var(--f-body);
   }
+  a { color: var(--night); }
+  :focus-visible { outline: 3px solid var(--night); outline-offset: 3px; border-radius: 6px; }
+
+  /* Header: the landing's dusk hero card. */
   header {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 12px 24px;
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--borde);
-    background: var(--panel);
+    padding: 14px 22px;
+    border-radius: 24px;
+    background: var(--grad-dusk);
   }
-  .reloj-bloque { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  h1 { font-size: 13px; margin: 0; color: var(--tenue); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
-  #reloj { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  #reloj-tipo { font-size: 12px; color: var(--amarillo); }
+  .brand { display: inline-flex; align-items: center; gap: 10px; }
+  .brand svg { width: 36px; height: 36px; flex: none; }
+  .brand b { font-family: var(--f-display); font-weight: 800; font-size: 26px; letter-spacing: -0.02em; color: var(--night); }
+  .reloj-bloque { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  h1 {
+    font: 600 13px/1 var(--f-body); margin: 0; color: var(--ink-2);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding-left: 14px; border-left: 1px solid rgba(35, 46, 120, 0.2);
+  }
+  #reloj { font-family: var(--f-display); font-size: 28px; font-weight: 800; letter-spacing: -0.015em; color: var(--night); font-variant-numeric: tabular-nums; }
+  #reloj-tipo { font-size: 13px; color: var(--ink-2); }
   #etapa {
-    font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px;
-    background: #2a2a1d; color: var(--amarillo); border: 1px solid var(--amarillo);
+    font-size: 13px; font-weight: 600; padding: 3px 12px; border-radius: 999px;
+    background: var(--moon-soft); color: var(--night-deep); border: 1px solid var(--moon);
   }
+  #etapa:empty { display: none; }
   #qr { margin: 0; display: flex; gap: 14px; }
-  #qr a { color: var(--celeste); font-size: 12px; }
-  .botones { display: flex; flex-wrap: wrap; gap: 6px; }
-  header .botones { flex: 1; justify-content: flex-end; }
+  #qr a { font-size: 14px; font-weight: 600; }
+  .botones { display: flex; flex-wrap: wrap; gap: 8px; }
+  header .botones { flex: 1; justify-content: flex-end; align-items: center; }
+
+  /* Buttons: the landing's pills. */
   button {
-    font: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 6px 12px;
-    border-radius: 8px;
-    border: 1px solid #ffffff;
-    background: #ffffff;
-    color: var(--fondo);
+    font: 600 14px/1.2 var(--f-body);
+    min-height: 38px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--night-deep);
     cursor: pointer;
+    transition: background .2s ease, transform .2s ease;
   }
-  button:hover { filter: brightness(0.9); }
+  button:hover { background: var(--moon-soft); }
+  button:active { transform: translateY(1px); }
   button:disabled { opacity: 0.45; cursor: wait; }
-  #tick { background: var(--celeste); border-color: var(--celeste); }
-  #reiniciar { margin-left: 12px; background: transparent; color: var(--rojo); border-color: var(--rojo); }
-  #estado { flex-basis: 100%; min-height: 1.2em; margin: -4px 0 0; font-size: 13px; font-weight: 600; color: var(--amarillo); }
+  #momentos button, #tick, #primeros-pasos button {
+    background: var(--night); border-color: var(--night); color: var(--on-night);
+    box-shadow: 0 6px 16px rgba(35, 46, 120, 0.2);
+  }
+  #momentos button:hover, #tick:hover, #primeros-pasos button:hover { background: var(--night-deep); }
+  #tick { background: var(--card); color: var(--night); box-shadow: none; }
+  #tick:hover { background: var(--moon-soft); }
+  #reiniciar { margin-left: 12px; background: transparent; color: var(--peligro); border-color: var(--peligro); }
+  #reiniciar:hover { background: var(--peligro-soft); }
+  [data-correo] { background: var(--grad-chip); border-color: transparent; }
+  [data-correo="falso"] { background: var(--peligro-soft); color: var(--peligro); }
+
+  #estado { flex-basis: 100%; min-height: 1.2em; margin: -4px 0 0; font-size: 14px; font-weight: 600; color: var(--night); }
   #estado:empty { display: none; }
-  #estado.error { color: var(--rojo); }
+  #estado.error { color: var(--peligro); }
+  #simulador-aviso {
+    flex-basis: 100%; padding: 8px 14px; border-radius: 14px; font-size: 14px; font-weight: 600;
+    background: var(--moon-soft); color: var(--night-deep); border: 1px solid var(--moon); text-decoration: none;
+  }
+  #simulador-aviso[hidden] { display: none; }
+
+  /* Cards, as in the landing's «how it goes» panel. */
+  .card { background: var(--card); border-radius: 20px; padding: 14px 18px; box-shadow: var(--shadow); }
+  h2 { font: 700 17px/1.2 var(--f-display); margin: 0 0 8px; color: var(--night); letter-spacing: -0.01em; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  li:last-child { border-bottom: 0; }
+  .meta { font-weight: 600; margin-right: 8px; }
+  .vacio { color: var(--ink-2); font-style: italic; }
+  #momentos { display: contents; }
+  #metricas li { display: flex; justify-content: space-between; gap: 12px; }
+  #metricas li > .meta { font-weight: 400; color: var(--ink-2); text-align: left; }
+  #metricas li:not(.vacio) { font-family: var(--f-display); font-weight: 700; font-size: 17px; color: var(--night); font-variant-numeric: tabular-nums; text-align: right; }
+  #metricas li > .meta { font-family: var(--f-body); font-size: 15px; }
+  #decisiones li, #correos li, #citas li, #etapas li { font-size: 14px; }
+  #correos li.sospechoso {
+    margin: 4px 0; padding: 8px 12px; border: 1px solid var(--peligro); border-radius: 12px;
+    background: var(--peligro-soft); color: var(--peligro); font-weight: 600;
+  }
+  #correos li.ignorado { color: var(--ink-2); }
+
+  /* Primeros pasos: one tile per step, a moon chip once it is done. */
+  #primeros-pasos { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  #primeros-pasos li {
+    border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px;
+    background: var(--bg); font-size: 14px; color: var(--ink-2); overflow-wrap: anywhere;
+  }
+  #primeros-pasos li:last-child { border-bottom: 1px solid var(--line); }
+  #primeros-pasos li > .meta { color: var(--ink); }
+  #primeros-pasos li > .meta:first-child {
+    display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 8px;
+    border-radius: 50%; border: 1.5px solid var(--line); background: var(--card); color: transparent; font-size: 13px;
+  }
+  #primeros-pasos li.hecho { background: var(--grad-chip); border-color: transparent; }
+  #primeros-pasos li.hecho > .meta:first-child { background: var(--night); border-color: var(--night); color: var(--moon); }
+  #primeros-pasos button { min-height: 32px; margin-top: 4px; }
+
   main {
     flex: 1;
     min-height: 0;
     display: grid;
     grid-template-columns: minmax(300px, 1fr) minmax(360px, 1.3fr);
-    gap: 1px;
-    background: var(--borde);
+    gap: 12px;
   }
-  .columna { min-height: 0; overflow-y: auto; padding: 4px 16px 16px; background: var(--fondo); }
-  h2 {
-    font-size: 11px; margin: 16px 0 6px; color: var(--tenue);
-    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;
-  }
-  ul { list-style: none; padding: 0; margin: 0; }
-  li { padding: 6px 0; border-bottom: 1px solid var(--borde); }
-  li:last-child { border-bottom: 0; }
-  .meta { font-weight: 600; margin-right: 8px; }
-  li > .meta { color: #d8d8dc; }
-  .vacio { color: var(--tenue); font-style: italic; }
-  #momentos { display: contents; }
-  #metricas li { display: flex; justify-content: space-between; gap: 12px; }
-  #metricas li > .meta { font-weight: 400; color: var(--tenue); }
-  #metricas li:not(.vacio) { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
-  #metricas li > .meta { text-align: left; }
-  #decisiones li, #correos li, #citas li, #etapas li { font-size: 13px; }
-  .primeros-pasos { padding: 4px 16px 16px; border-bottom: 1px solid var(--borde); }
-  #correos li.sospechoso {
-    padding: 6px 8px;
-    border: 1px solid var(--rojo);
-    border-radius: 6px;
-    background: #3a1414;
-    font-weight: 600;
-  }
-  #correos li.ignorado { color: var(--tenue); }
-  #simulador-aviso {
-    flex-basis: 100%; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 700;
-    background: #3a1414; color: var(--rojo); border: 1px solid var(--rojo); text-decoration: none;
-  }
-  #simulador-aviso[hidden] { display: none; }
+  .columna { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 2px 2px 12px; }
   @media (max-width: 1100px) {
     body { height: auto; }
     main { grid-template-columns: 1fr; }
     .columna { overflow: visible; }
   }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; }
+  }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <mask id="logo-crescent"><rect width="96" height="96" fill="#fff"/><circle cx="56" cy="31" r="12" fill="#000"/></mask>
+    <!-- Luna's logo, the open envelope with the moon rising (src/web/marca.ts draws the same). -->
+    <symbol id="logo" viewBox="0 0 96 96"><rect width="96" height="96" rx="26" fill="#232E78"/><path d="M19 50 L48 28 L77 50" fill="none" stroke="#FBF8F1" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="46" cy="38.5" r="16" fill="#F2B33D" mask="url(#logo-crescent)"/><rect x="19" y="50" width="58" height="27" rx="6" fill="#232E78" stroke="#FBF8F1" stroke-width="4.5"/><path d="M22 74.5 L48 59 L74 74.5" fill="none" stroke="#FBF8F1" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round" opacity=".5"/></symbol>
+  </defs>
+</svg>
 <header>
   <div class="reloj-bloque">
+    <span class="brand"><svg aria-hidden="true" focusable="false"><use href="#logo"/></svg><b>luna</b></span>
     <h1>Sala de control</h1>
     <div id="reloj">—</div>
     <div id="etapa"></div>
@@ -132,40 +200,56 @@
   <div id="estado" role="status"></div>
 </header>
 
-<section class="primeros-pasos">
+<section class="card">
   <h2>Primeros pasos</h2>
   <ul id="primeros-pasos"></ul>
 </section>
 
 <main>
   <section class="columna">
-    <h2>Próxima cita</h2>
-    <ul id="proxima-cita"></ul>
-    <h2>Esta semana</h2>
-    <ul id="metricas"></ul>
-    <h2>De dónde salió la cifra del último audio</h2>
-    <ul id="cifra"></ul>
-    <h2>Historial de etapa</h2>
-    <ul id="etapas"></ul>
-    <h2>Citas</h2>
-    <ul id="citas"></ul>
+    <div class="card">
+      <h2>Próxima cita</h2>
+      <ul id="proxima-cita"></ul>
+    </div>
+    <div class="card">
+      <h2>Esta semana</h2>
+      <ul id="metricas"></ul>
+    </div>
+    <div class="card">
+      <h2>De dónde salió la cifra del último audio</h2>
+      <ul id="cifra"></ul>
+    </div>
+    <div class="card">
+      <h2>Historial de etapa</h2>
+      <ul id="etapas"></ul>
+    </div>
+    <div class="card">
+      <h2>Citas</h2>
+      <ul id="citas"></ul>
+    </div>
   </section>
 
   <section class="columna">
-    <h2>Correos de muestra</h2>
-    <div class="botones">
-      <button type="button" data-correo="banco">Banco</button>
-      <button type="button" data-correo="tienda">Tienda</button>
-      <button type="button" data-correo="pedido">Pedido</button>
-      <button type="button" data-correo="cuotas">Cuotas</button>
-      <button type="button" data-correo="pago">Pago</button>
-      <button type="button" data-correo="falso">Falso del banco</button>
-      <button type="button" data-correo="publicidad">Publicidad</button>
+    <div class="card">
+      <h2>Correos de muestra</h2>
+      <div class="botones">
+        <button type="button" data-correo="banco">Banco</button>
+        <button type="button" data-correo="tienda">Tienda</button>
+        <button type="button" data-correo="pedido">Pedido</button>
+        <button type="button" data-correo="cuotas">Cuotas</button>
+        <button type="button" data-correo="pago">Pago</button>
+        <button type="button" data-correo="falso">Falso del banco</button>
+        <button type="button" data-correo="publicidad">Publicidad</button>
+      </div>
     </div>
-    <h2>Últimos correos</h2>
-    <ul id="correos"></ul>
-    <h2>Decisiones</h2>
-    <ul id="decisiones"></ul>
+    <div class="card">
+      <h2>Últimos correos</h2>
+      <ul id="correos"></ul>
+    </div>
+    <div class="card">
+      <h2>Decisiones</h2>
+      <ul id="decisiones"></ul>
+    </div>
   </section>
 </main>
 
@@ -219,6 +303,7 @@
   function renderPrimerosPasos(steps) {
     const rows = (Array.isArray(steps) ? steps : []).map((step) => {
       const li = document.createElement("li");
+      li.classList.toggle("hecho", Boolean(step.hecho));
       const status = document.createElement("span");
       status.className = "meta";
       status.textContent = step.hecho ? "✓" : "○";
