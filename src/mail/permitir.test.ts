@@ -594,6 +594,7 @@ describe("closing the «Permitir» in the chat", () => {
     expect(response.status).toBe(200);
     expect(texts(whatsapp.outbox)).toEqual([avisoPermitir(nombre)]);
     expect(app.store.mensajesSalientes().at(-1)?.text).toBe(avisoPermitir(nombre));
+    expect(app.store.decisions().at(-1)).toMatchObject({ tipo: "mensaje", motivo: "salió el aviso de que su correo quedó conectado" });
     expect(html).toContain("Te escribí en WhatsApp.");
     expect(html).toContain(`href="${ENTRADA_LINK}"`);
     expect(html).not.toContain("Puedes cerrar esta página");
@@ -651,7 +652,7 @@ describe("closing the «Permitir» in the chat", () => {
     expect(response.status).toBe(200);
     expect(html).toContain("Volver a WhatsApp");
     expect(html).not.toContain("Te escribí en WhatsApp.");
-    expect(app.store.decisions().at(-1)?.motivo).toContain("no salió el aviso");
+    expect(app.store.decisions().at(-1)).toMatchObject({ tipo: "mensaje", motivo: "no salió el aviso de que su correo quedó conectado" });
   });
 
   test("the aviso has no figure and passes the validador's code checks", () => {

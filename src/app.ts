@@ -247,6 +247,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     voice: ports.voice,
     whatsapp: canal,
   });
+  const chatLink = entradaLink(options.entradaPhone) ?? undefined;
   // Closing the «Permitir» in the chat, so Patricia is not left on a web page wondering what comes next.
   const avisar = async (): Promise<boolean> => {
     const text = avisoPermitir(store.getPatricia().nombre);
@@ -269,7 +270,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     mail: ports.mail,
     store,
     clock: ports.clock,
-    entradaLink: entradaLink(options.entradaPhone) ?? undefined,
+    entradaLink: chatLink,
     avisar,
   });
   const webhook = createWebhook({
@@ -296,7 +297,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     landingPage,
     pitchDeck,
     soonPage,
-    entradaLink: entradaLink(options.entradaPhone) ?? undefined,
+    entradaLink: chatLink,
     landingImages,
     nightAudio,
     sendNightAudio: nightAudioSender(canal, nightAudio),

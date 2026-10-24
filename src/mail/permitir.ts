@@ -95,7 +95,13 @@ export function createPermitir(deps: PermitirDeps): Permitir {
 
   /** The «Permitir» is over: Luna says so in the chat, and the page sends her back to it. */
   const done = async (message: string): Promise<Response> => {
-    const avisado = (await deps.avisar?.()) ?? false;
+    let avisado = false;
+    try {
+      avisado = (await deps.avisar?.()) ?? false;
+    } catch (error) {
+      // `avisar` handles its own send failures; this only keeps the page if it breaks anyway.
+      console.error(`permitir: aviso failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
     return closing(message, entradaLink, avisado);
   };
 
