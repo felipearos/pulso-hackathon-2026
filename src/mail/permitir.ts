@@ -1,6 +1,7 @@
 import { MissingEnvError } from "../missing-env";
 import type { Store } from "../patricia/store";
 import type { Clock, Mail } from "../ports";
+import { ARENA, LUNA, logoIcon, MARCA_HEAD, NOCHE, PAPEL, TINTA } from "../web/marca";
 import { normalizeRut } from "./rut";
 
 /*
@@ -202,8 +203,27 @@ function rutForm(status: number, token: string, notice?: string): Response {
   return html(status, body);
 }
 
+/** Luna's look on Patricia's phone: the message in a white card on Papel, under the logo. */
+const PAGE_STYLE = [
+  "* { box-sizing: border-box; }",
+  `body { margin: 0; padding: 0 16px; background: ${PAPEL}; color: ${TINTA}; font-family: "Instrument Sans", "Helvetica Neue", Arial, sans-serif; font-size: 19px; line-height: 1.5; -webkit-text-size-adjust: 100%; }`,
+  ".marca { display: flex; align-items: center; gap: 12px; max-width: 32rem; margin: 0 auto; padding: 28px 0 8px; }",
+  ".marca svg { width: 44px; height: 44px; flex: none; }",
+  `.marca span { font-family: Archivo, "Helvetica Neue", Arial, sans-serif; font-weight: 800; font-size: 30px; letter-spacing: -0.02em; color: ${NOCHE}; }`,
+  "main { max-width: 32rem; margin: 16px auto 48px; padding: 28px 22px; background: #FFFFFF; border-radius: 24px; box-shadow: 0 1px 2px rgba(20, 29, 74, 0.05), 0 12px 32px rgba(20, 29, 74, 0.08); }",
+  "p { margin: 0 0 16px; }",
+  "p:last-child { margin-bottom: 0; }",
+  "label { display: block; font-weight: 600; margin-top: 8px; }",
+  `input { border: 2px solid #DDD5C4; border-radius: 14px; background: #FFFFFF; color: ${TINTA}; font-family: inherit; }`,
+  `input:focus { outline: 3px solid ${NOCHE}; outline-offset: 2px; border-color: ${NOCHE}; }`,
+  `button { font-family: inherit; font-weight: 600; min-height: 56px; border: 0; border-radius: 999px; background: ${NOCHE}; color: ${PAPEL}; cursor: pointer; }`,
+  `button[value="ahora-no"] { color: ${NOCHE}; border: 2px solid #DDD5C4; }`,
+  `button:focus-visible { outline: 3px solid ${LUNA}; outline-offset: 2px; }`,
+  `[role="alert"] { background: ${ARENA}; border-radius: 14px; padding: 12px 16px; }`,
+].join("\n");
+
 function html(status: number, body: string): Response {
-  const document = `<!doctype html><html lang="es-CL"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Luna</title></head><body style="font-family: system-ui, sans-serif; max-width: 32rem; margin: 3rem auto; padding: 0 1rem; font-size: 1.2rem; line-height: 1.5">${body}</body></html>`;
+  const document = `<!doctype html><html lang="es-CL"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="${PAPEL}"><title>Luna</title>${MARCA_HEAD}<style>${PAGE_STYLE}</style></head><body><header class="marca">${logoIcon()}<span>luna</span></header><main>${body}</main></body></html>`;
   return new Response(document, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 
