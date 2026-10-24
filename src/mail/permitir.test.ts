@@ -11,6 +11,8 @@ const STATE_TTL_MS = 15 * 60 * 1000;
 const VALID_RUT = "12345678-5";
 /** Fictional: 10.000.013, whose dígito verificador is K. */
 const VALID_RUT_K = "10000013-K";
+/** A contexto already answered, so the RUT tests end on the page's last message. */
+const STORED_CONTEXTO = { deQueVive: "Ventas por catálogo", queLePreocupa: null, queLePesa: null };
 
 async function start(app: ReturnType<typeof createTestApp>["app"]): Promise<{ response: Response; state: string }> {
   const response = await app.handle(new Request(START_URL));
@@ -163,6 +165,7 @@ describe("RUT form", () => {
 
   test("a valid RUT with dots and a lowercase k is stored normalized and recorded without it", async () => {
     const { app } = createTestApp();
+    app.store.updatePatricia({ contexto: STORED_CONTEXTO });
     const { token } = await connect(app);
 
     const response = await app.handle(submitRut({ token, respuesta: "permitir", rut: "10.000.013-k" }));
@@ -222,6 +225,7 @@ describe("RUT form", () => {
 
   test("«Ahora no» leaves the RUT empty and the correo connected", async () => {
     const { app } = createTestApp();
+    app.store.updatePatricia({ contexto: STORED_CONTEXTO });
     const { token } = await connect(app);
 
     const response = await app.handle(submitRut({ token, respuesta: "ahora-no", rut: VALID_RUT }));
@@ -254,7 +258,7 @@ describe("RUT form", () => {
 
   test("once she gave her RUT, a later callback does not ask again", async () => {
     const { app } = createTestApp();
-    app.store.updatePatricia({ rut: VALID_RUT });
+    app.store.updatePatricia({ rut: VALID_RUT, contexto: STORED_CONTEXTO });
 
     const { response, html, token } = await connect(app);
 
@@ -297,6 +301,268 @@ describe("RUT form", () => {
     const output = logged.map((entry) => String(entry)).join("\n");
     expect(output).not.toContain("12345678");
     expect(output).not.toContain("12.345.678");
+  });
+});
+
+const CONTEXTO_URL = "http://localhost/gmail/contexto";
+const LISTO_TEXT = "Desde ahora me entero sola";
+const RUT_AHORA_NO_TEXT = "no guardé tu RUT";
+const PREGUNTAS = [
+  "¿De qué vives hoy?",
+  "¿Qué tarjetas o deudas son las que más te preocupan?",
+  "¿Qué es lo que más te pesa cuando piensas en tus cuentas?",
+];
+
+function submitContexto(fields: Record<string, string>): Request {
+  return new Request(CONTEXTO_URL, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(fields).toString(),
+  });
+}
+
+async function read(response: Response): Promise<{ status: number; html: string }> {
+  return { status: response.status, html: await response.text() };
+}
+
+function tokenOf(html: string): string {
+  return /name="token" value="([^"]+)"/.exec(html)?.[1] ?? "";
+}
+
+type Path = { name: string; finalText: string; run(app: TestApp): Promise<{ status: number; html: string }> };
+
+/** The three ways the «Permitir» page ends, each run from a fresh callback. */
+const PATHS: Path[] = [
+  {
+    name: "a callback with the RUT already given",
+    finalText: LISTO_TEXT,
+    async run(app) {
+      app.store.updatePatricia({ rut: VALID_RUT });
+      const { response, html } = await connect(app);
+      return { status: response.status, html };
+    },
+  },
+  {
+    name: "«Ahora no» in the RUT form",
+    finalText: RUT_AHORA_NO_TEXT,
+    async run(app) {
+      const { token } = await connect(app);
+      return read(await app.handle(submitRut({ token, respuesta: "ahora-no" })));
+    },
+  },
+  {
+    name: "a saved RUT",
+    finalText: LISTO_TEXT,
+    async run(app) {
+      const { token } = await connect(app);
+      return read(await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT })));
+    },
+  },
+];
+
+/** Runs a path with no contexto stored and returns the contexto form's token. */
+async function reachContexto(app: TestApp, path: Path = PATHS[2]!): Promise<string> {
+  const token = tokenOf((await path.run(app)).html);
+  if (!token) throw new Error("the contexto form did not show");
+  return token;
+}
+
+function contextoDecisions(app: TestApp) {
+  return app.store.decisions().filter((entry) => entry.tipo === "contar-contexto");
+}
+
+describe("contexto form", () => {
+  for (const path of PATHS) {
+    test(`${path.name} shows the contexto form while she has not answered it`, async () => {
+      const { app } = createTestApp();
+
+      const { status, html } = await path.run(app);
+
+      expect(status).toBe(200);
+      expect(html).toContain("Esto me ayuda a entenderte. Puedes dejar cualquiera en blanco.");
+      for (const pregunta of PREGUNTAS) expect(html).toContain(pregunta);
+      expect(html).toContain('action="/gmail/contexto"');
+      expect(html).toContain('value="guardar"');
+      expect(html).toContain('value="ahora-no"');
+      expect(html).toContain('maxlength="280"');
+      expect(html).not.toContain(path.finalText);
+      expect(tokenOf(html)).not.toBe("");
+    });
+
+    test(`${path.name} ends on its own page once the contexto is stored`, async () => {
+      const { app } = createTestApp();
+      app.store.updatePatricia({ contexto: STORED_CONTEXTO });
+
+      const { status, html } = await path.run(app);
+
+      expect(status).toBe(200);
+      expect(html).toContain(path.finalText);
+      expect(html).not.toContain("Esto me ayuda a entenderte");
+    });
+  }
+
+  test("Guardar trims, nulls the blanks, stores and ends on the path's page", async () => {
+    const { app } = createTestApp();
+    const token = await reachContexto(app);
+
+    const response = await app.handle(
+      submitContexto({ token, respuesta: "guardar", deQueVive: "  Ventas por catálogo  ", queLePreocupa: "   ", queLePesa: "La tarjeta de la tienda" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain(LISTO_TEXT);
+    expect(app.store.getPatricia().contexto).toEqual({
+      deQueVive: "Ventas por catálogo",
+      queLePreocupa: null,
+      queLePesa: "La tarjeta de la tienda",
+    });
+    const decisions = contextoDecisions(app);
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]?.motivo).toBe("Patricia contó su contexto: 2 de 3 preguntas");
+    expect(decisions[0]?.datos).toEqual({});
+  });
+
+  test("after «Ahora no» in the RUT form, Guardar ends on that «Ahora no» page", async () => {
+    const { app } = createTestApp();
+    const token = await reachContexto(app, PATHS[1]);
+
+    const response = await app.handle(submitContexto({ token, respuesta: "guardar" }));
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(html).toContain(RUT_AHORA_NO_TEXT);
+    expect(html).not.toContain(LISTO_TEXT);
+    expect(app.store.getPatricia().contexto).toEqual({ deQueVive: null, queLePreocupa: null, queLePesa: null });
+    expect(contextoDecisions(app)[0]?.motivo).toBe("Patricia contó su contexto: 0 de 3 preguntas");
+  });
+
+  test("an answer over 280 characters stores nothing and keeps the token", async () => {
+    const { app } = createTestApp();
+    const token = await reachContexto(app);
+
+    const response = await app.handle(
+      submitContexto({ token, respuesta: "guardar", deQueVive: "Una pensión", queLePesa: "x".repeat(281) }),
+    );
+    const html = await response.text();
+
+    expect(response.status).toBe(422);
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("Una pensión");
+    expect(tokenOf(html)).toBe(token);
+    expect(app.store.getPatricia().contexto ?? null).toBeNull();
+    expect(contextoDecisions(app)).toEqual([]);
+
+    const retry = await app.handle(submitContexto({ token, respuesta: "guardar", queLePesa: "x".repeat(280) }));
+    expect(retry.status).toBe(200);
+    expect(app.store.getPatricia().contexto?.queLePesa).toBe("x".repeat(280));
+  });
+
+  test("the refilled form escapes her answers", async () => {
+    const { app } = createTestApp();
+    const token = await reachContexto(app);
+
+    const response = await app.handle(
+      submitContexto({ token, respuesta: "guardar", deQueVive: "<script>alert(1)</script>", queLePesa: "x".repeat(281) }),
+    );
+    const html = await response.text();
+
+    expect(response.status).toBe(422);
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).toContain("&#60;script&#62;");
+  });
+
+  test("«Ahora no» stores three nulls so she is not asked again", async () => {
+    const { app } = createTestApp();
+    const token = await reachContexto(app);
+
+    const response = await app.handle(submitContexto({ token, respuesta: "ahora-no", deQueVive: "Una pensión" }));
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain(LISTO_TEXT);
+    expect(app.store.getPatricia().contexto).toEqual({ deQueVive: null, queLePreocupa: null, queLePesa: null });
+    expect(contextoDecisions(app).map((entry) => entry.motivo)).toEqual(["Patricia prefirió no contar su contexto"]);
+
+    const again = await connect(app);
+    expect(again.html).toContain(LISTO_TEXT);
+    expect(again.token).toBe("");
+  });
+
+  test("a token works once, and a forged token writes nothing", async () => {
+    const { app } = createTestApp();
+    const token = await reachContexto(app);
+
+    const forged = await app.handle(submitContexto({ token: "forged", respuesta: "guardar", deQueVive: "Otra cosa" }));
+    expect(forged.status).toBe(400);
+    expect(await forged.text()).toContain("Este link ya no sirve");
+    expect(app.store.getPatricia().contexto ?? null).toBeNull();
+
+    expect((await app.handle(submitContexto({ token, respuesta: "guardar", deQueVive: "Una pensión" }))).status).toBe(200);
+    const reused = await app.handle(submitContexto({ token, respuesta: "guardar", deQueVive: "Otra cosa" }));
+    expect(reused.status).toBe(400);
+    expect(app.store.getPatricia().contexto?.deQueVive).toBe("Una pensión");
+    expect(contextoDecisions(app)).toHaveLength(1);
+  });
+
+  test("a token expires with the same TTL as the state", async () => {
+    const { app, clock } = createTestApp();
+    const token = await reachContexto(app);
+    clock.advance(STATE_TTL_MS + 1);
+
+    const response = await app.handle(submitContexto({ token, respuesta: "guardar", deQueVive: "Una pensión" }));
+
+    expect(response.status).toBe(400);
+    expect(await response.text()).toContain("Este link ya no sirve");
+    expect(app.store.getPatricia().contexto ?? null).toBeNull();
+    expect(contextoDecisions(app)).toEqual([]);
+  });
+
+  test("an unknown respuesta writes nothing and keeps the token", async () => {
+    const { app } = createTestApp();
+    const token = await reachContexto(app);
+
+    expect((await app.handle(submitContexto({ token, deQueVive: "Una pensión" }))).status).toBe(400);
+    expect(app.store.getPatricia().contexto ?? null).toBeNull();
+    expect((await app.handle(submitContexto({ token, respuesta: "guardar" }))).status).toBe(200);
+  });
+
+  test("an oversized body is refused before anything is stored", async () => {
+    const { app } = createTestApp();
+    const token = await reachContexto(app);
+
+    const response = await app.handle(
+      submitContexto({ token, respuesta: "guardar", deQueVive: "Una pensión", relleno: "x".repeat(9000) }),
+    );
+
+    expect(response.status).toBe(413);
+    expect(app.store.getPatricia().contexto ?? null).toBeNull();
+    expect(contextoDecisions(app)).toEqual([]);
+  });
+
+  test("her answers never reach the console nor the decision", async () => {
+    const { app } = createTestApp();
+    const token = await reachContexto(app);
+    const answers = { deQueVive: "Vendo empanadas", queLePreocupa: "La tarjeta Ripley", queLePesa: "Pagar solo el mínimo" };
+    const logged: unknown[] = [];
+    const spies = (["log", "error", "warn", "info", "debug"] as const).map((level) =>
+      spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        logged.push(...args);
+      }),
+    );
+
+    try {
+      const response = await app.handle(submitContexto({ token, respuesta: "guardar", ...answers }));
+      expect(response.status).toBe(200);
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
+
+    const output = logged.map((entry) => String(entry)).join("\n");
+    const recorded = JSON.stringify(contextoDecisions(app).map((entry) => [entry.motivo, entry.datos]));
+    for (const text of Object.values(answers)) {
+      expect(output).not.toContain(text);
+      expect(recorded).not.toContain(text);
+    }
+    expect(app.store.getPatricia().contexto).toEqual(answers);
   });
 });
 

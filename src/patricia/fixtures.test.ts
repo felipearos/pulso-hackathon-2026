@@ -57,6 +57,13 @@ describe("Patricia's story", () => {
     expect(app.store.getPatricia().rut).toBeNull();
   });
 
+  test("reset clears her contexto, so the demo asks it from scratch", () => {
+    const { app } = createTestApp();
+    app.store.updatePatricia({ contexto: { deQueVive: "una pensión", queLePreocupa: null, queLePesa: null } });
+    app.reset();
+    expect(app.store.getPatricia().contexto).toBeNull();
+  });
+
   test("every pago mínimo comes from its cifras and nothing is overdue", () => {
     const { app } = resetApp();
     for (const estado of app.store.estadosDeCuenta()) {
