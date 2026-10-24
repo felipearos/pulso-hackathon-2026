@@ -29,6 +29,7 @@ export const PATRICIA_AT_START: Patricia = {
   hora: null,
   gmailPermitido: true,
   rut: null,
+  contexto: null,
   etapa: 1,
   bolsillo: null,
   enPausa: false,
@@ -239,7 +240,7 @@ export function resetPatricia(db: Database, clock: DemoClock): void {
       ...RESET_TABLES,
     ]);
     db.run(
-      `UPDATE patricia SET nombre = ?, voz = ?, hora_cita = ?, gmail_permitido = ?, rut = ?, etapa = ?, bolsillo = ?, en_pausa = ?
+      `UPDATE patricia SET nombre = ?, voz = ?, hora_cita = ?, gmail_permitido = ?, rut = ?, contexto = ?, etapa = ?, bolsillo = ?, en_pausa = ?
        WHERE id = 1`,
       [
         PATRICIA_AT_START.nombre,
@@ -247,6 +248,7 @@ export function resetPatricia(db: Database, clock: DemoClock): void {
         PATRICIA_AT_START.hora ?? null,
         PATRICIA_AT_START.gmailPermitido ? 1 : 0,
         PATRICIA_AT_START.rut ?? null,
+        PATRICIA_AT_START.contexto ? JSON.stringify(PATRICIA_AT_START.contexto) : null,
         String(PATRICIA_AT_START.etapa),
         PATRICIA_AT_START.bolsillo,
         PATRICIA_AT_START.enPausa ? 1 : 0,

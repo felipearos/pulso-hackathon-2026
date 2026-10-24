@@ -13,6 +13,7 @@ describe("store", () => {
       hora: null,
       gmailPermitido: false,
       rut: null,
+      contexto: null,
       etapa: 1,
       bolsillo: null,
       enPausa: false,
@@ -26,6 +27,22 @@ describe("store", () => {
     expect(app.store.getPatricia().rut).toBe("12345678-5");
     app.store.updatePatricia({ rut: null });
     expect(app.store.getPatricia().rut).toBeNull();
+  });
+
+  test("keeps her contexto as given, and clears it back to null", () => {
+    const { app } = createTestApp();
+    const contexto = { deQueVive: "ventas por catálogo", queLePreocupa: null, queLePesa: "no saber cuánto debo" };
+    app.store.updatePatricia({ contexto });
+    app.store.updatePatricia({ bolsillo: "Para mí" });
+    expect(app.store.getPatricia().contexto).toEqual(contexto);
+    app.store.updatePatricia({ contexto: null });
+    expect(app.store.getPatricia().contexto).toBeNull();
+  });
+
+  test("an unreadable stored contexto reads as null, so she is asked again", () => {
+    const { app, db } = createTestApp();
+    db.run("UPDATE patricia SET contexto = 'no es json' WHERE id = 1");
+    expect(app.store.getPatricia().contexto).toBeNull();
   });
 
   test("a second Patricia cannot be inserted", () => {

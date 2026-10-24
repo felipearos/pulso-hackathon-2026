@@ -230,6 +230,18 @@ never leaves the base: not in logs, the registro de decisiones, /demo,
 /sala or any LLM prompt.
 _Avoid:_ "clave" for the RUT itself; the clave is what the bank derives from it.
 
+## Contexto de Patricia
+
+What Patricia tells Luna about herself in three optional questions (de qué
+vive, qué tarjetas o deudas le preocupan, qué le pesa de sus cuentas), asked
+once on the «Permitir» page, after the RUT and before its last message
+(`/gmail/contexto`), never by WhatsApp. Every question can be left blank,
+and «Ahora no» stores all three as null so she is not asked again. Stored as
+`Patricia.contexto` (`ContextoDePatricia`), null until she is asked and after
+the reset. Her answers never go into logs or the registro de decisiones: the
+`contar-contexto` decision only counts how many she answered.
+_Avoid:_ "perfil", "onboarding".
+
 ## Registro de decisiones
 
 The append-only log of everything Luna decided (move the etapa, stay quiet,

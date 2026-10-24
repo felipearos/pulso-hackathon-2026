@@ -88,6 +88,13 @@ export type MensajeEntrante = {
   receivedAt: Date;
 };
 
+/** Her three optional answers on the «Permitir» page; each null when she left it blank. */
+export type ContextoDePatricia = {
+  deQueVive: string | null;
+  queLePreocupa: string | null;
+  queLePesa: string | null;
+};
+
 /** Patricia herself. There is exactly one. */
 export type Patricia = {
   nombre: string;
@@ -99,6 +106,8 @@ export type Patricia = {
   gmailPermitido: boolean;
   /** Her RUT, normalized (`12345678-5`), for opening estado de cuenta PDFs; null until she gives it. Never leaves the base. */
   rut?: string | null;
+  /** What she told Luna about herself on the «Permitir» page; null until asked, all three null if she preferred not to. */
+  contexto?: ContextoDePatricia | null;
   etapa: Etapa;
   /** The name she gave the bolsillo; null until she names it. */
   bolsillo: string | null;
@@ -163,6 +172,8 @@ export type TipoDecision =
   | "permitir-correo"
   /** She gave her RUT on the «Permitir» page so Luna can open estado de cuenta PDFs; the RUT itself is never in `datos`. */
   | "permitir-rut"
+  /** She answered (or skipped) the three contexto questions on the «Permitir» page; her answers are never in `motivo` or `datos`. */
+  | "contar-contexto"
   /** Reading Gmail failed; one entry per run of failed polls, not per poll. */
   | "error-correo"
   /** She wrote something that reads as a crisis: Luna sent the crisis text and she went into pausa. */

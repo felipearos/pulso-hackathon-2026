@@ -193,6 +193,13 @@ export const migrations: Migration[] = [
     // Luna can open the estado de cuenta PDFs; null until she gives it.
     sql: "ALTER TABLE patricia ADD COLUMN rut TEXT;",
   },
+  {
+    version: 12,
+    name: "contexto",
+    // Her contexto de Patricia, the three optional answers on the «Permitir»
+    // page, as JSON; null until she is asked.
+    sql: "ALTER TABLE patricia ADD COLUMN contexto TEXT;",
+  },
 ];
 
 /** Opens the SQLite file, creating its directory, or an in-memory database for `:memory:`. */
