@@ -119,7 +119,7 @@ describe("cita sender", () => {
     expect(audios(t)).toHaveLength(1);
     expect(findFigures(t.app.store.mensajesSalientes()[0]!.text!)).toEqual([41_900]);
     const draftCall = t.llm.calls.find((c) => c.prompt.startsWith("Escribe el guion"));
-    expect(draftCall?.system).toContain(`«de qué vive: ${JSON.stringify("Cuido niños, mil al mes")}»`);
+    expect(draftCall?.system).toContain(`«de qué vive: ${JSON.stringify("Cuido niños, al mes")}»`);
     expect(draftCall?.system).toContain(`«qué le pesa: ${JSON.stringify("La tarjeta")}»`);
     expect(draftCall?.system).not.toContain("250");
   });

@@ -196,8 +196,13 @@ function contextoBlock(nombre: string, contexto: ContextoDePatricia | null | und
   if (!contexto) return null;
   const clean = (answer: string | null): string | null => {
     if (answer === null) return null;
-    const stripped = answer.replace(/\d/g, "").replace(/\s+/g, " ").trim();
-    return stripped === "" ? null : stripped;
+    // A number goes with the word that scales it («250 mil»), so what is left does not read as another amount.
+    const stripped = answer
+      .replace(/\d[\d.,]*(\s*(mil|millones?|lucas)\b)?/giu, "")
+      .replace(/\d|[«»]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return /\p{L}/u.test(stripped) ? stripped : null;
   };
   const answers: Array<[label: string, answer: string | null]> = [
     ["de qué vive", clean(contexto.deQueVive)],

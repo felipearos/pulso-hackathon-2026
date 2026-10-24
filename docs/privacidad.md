@@ -8,7 +8,7 @@ Luna es un prototipo construido durante la Hackatón Señales de Makana, el 23 y
 - **Los mensajes que llegan al número de WhatsApp de prueba**, para poder responderlos.
 - **Con el permiso de Gmail de solo lectura**, solo los correos de los remitentes que la persona confirma: su banco y su tienda.
 - **Su RUT, si lo da**, una sola vez y en la página del permiso de correo. Sirve para una sola cosa: abrir los estados de cuenta que el banco manda en PDF con una clave que sale del RUT. Se guarda en la base del servidor y nunca sale de ahí: no se manda a Meta, a Anthropic ni a ElevenLabs, no aparece en los registros ni en las pantallas de la demo. Si dice «Ahora no», Luna sigue funcionando sin abrir esos PDF.
-- **Lo que cuenta de ella, si lo cuenta**: las tres preguntas opcionales de la página del permiso de correo (de qué vive, qué deudas le preocupan, qué le pesa). Se guarda en la base del servidor y se manda a Anthropic solo para redactar el audio de la noche; no va a Meta ni a ElevenLabs, salvo como parte del guion ya redactado.
+- **Lo que cuenta de ella, si lo cuenta**: sus respuestas a las tres preguntas opcionales de la página del permiso de correo (de qué vive, qué deudas le preocupan, qué le pesa). Se guarda en la base del servidor y se manda a Anthropic solo para redactar el audio de la noche; no va a Meta ni a ElevenLabs, salvo como parte del guion ya redactado.
 
 ## Con quién se comparten
 
