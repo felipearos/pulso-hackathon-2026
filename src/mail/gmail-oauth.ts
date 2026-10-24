@@ -45,7 +45,7 @@ export class GmailAuthError extends Error {
 }
 
 export type GmailAccount = {
-  /** Google's consent page for `gmail.readonly`; asks for offline access so a refresh token comes back. */
+  /** Google's consent page for `gmail.readonly`; forced only until a refresh token is stored. */
   consentUrl(state: string): string;
   /** Trades the callback's code for tokens and stores them; the cursor survives a reconnect. */
   connect(code: string): Promise<void>;
@@ -123,10 +123,12 @@ export function createGmailAccount(deps: GmailAccountDeps): GmailAccount {
         response_type: "code",
         scope: GMAIL_SCOPE,
         access_type: "offline",
-        // Without `consent` Google skips the refresh token on a second «Permitir».
-        prompt: "consent",
         state,
       });
+      // The first «Permitir» forces the consent page so Google hands back a refresh
+      // token. Once one is stored, leaving `prompt` out lets Google approve the
+      // already granted scope and redirect straight back, without the consent page.
+      if (row() === null) params.set("prompt", "consent");
       // Pre-selects Patricia's account so Google skips its account chooser.
       if (env.GMAIL_LOGIN_HINT) params.set("login_hint", env.GMAIL_LOGIN_HINT);
       return `${AUTH_URL}?${params}`;

@@ -79,6 +79,18 @@ describe("createGmailAccount", () => {
     }
   });
 
+  test("skips the forced consent page once a refresh token is stored", async () => {
+    const { account } = makeAccount(() =>
+      Response.json({ access_token: "first-access", refresh_token: "first-refresh", expires_in: 3600 }),
+    );
+    await account.connect("authorization-code");
+
+    const url = new URL(account.consentUrl("state-123"));
+
+    expect(url.searchParams.has("prompt")).toBe(false);
+    expect(url.searchParams.get("access_type")).toBe("offline");
+  });
+
   test("reports every missing OAuth environment variable", () => {
     const db = openDatabase(":memory:");
     migrate(db);
