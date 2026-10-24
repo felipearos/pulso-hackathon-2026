@@ -160,9 +160,8 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `WHATSAPP_ENTRADA_PHONE` | dev, prd | /sala/qr/entrada: the WhatsApp number the projector's QR opens a chat with («Hola Luna»); unset, that page answers 503 |
 | `WHATSAPP_SIMULADOR` | none (optional) | set to 1 to boot with the /sala simulador as the channel instead of Meta; it can also be switched from /sala |
 | `DEMO_OPERATOR_KEY` | dev, prd | control room: the key that lets `/demo` move the clock and send the test audio; the operator opens `/demo?clave=<key>` once. Unset, `/demo` is view-only |
-| `ANTHROPIC_API_KEY` | none (optional) | llm port: Claude API; unset means Claude runs through the Claude Code CLI logged in on the machine (`claude -p`), which is how the live app runs |
-| `CLAUDE_BIN` | none (optional) | llm port: path of the `claude` binary used when there is no API key; defaults to `claude` on `PATH` |
-| `CLAUDE_CLI_SMOKE` | none (command line) | set it for one run to let the claude CLI smoke test spend the logged-in account |
+| `CLAUDE_BIN` | none (optional) | llm port: path of the `claude` binary; Claude only runs through the Claude Code CLI logged in on the machine (`claude -p`), never an API key; defaults to `claude` on `PATH` |
+| `CLAUDE_CLI_SMOKE` | none (command line) | set it for one run to let the claude CLI smoke tests (adapter, mail and escalera classifiers, figures extractor) spend the logged-in account |
 | `ELEVENLABS_API_KEY` | dev, prd | voice port: ElevenLabs API |
 | `ELEVENLABS_VOICE_ID` | dev, prd | voice port: the voice Patricia hears |
 | `ELEVENLABS_VOICE_ID_OTRA` | dev, prd | voice port: the other voice Patricia can choose in the bienvenida; falls back to ELEVENLABS_VOICE_ID |

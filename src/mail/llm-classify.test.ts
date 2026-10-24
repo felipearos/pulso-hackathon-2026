@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { HAIKU_MODEL } from "../anthropic";
+import { HAIKU_MODEL } from "../claude-cli";
 import { FakeLlm } from "../fakes";
 import { SAMPLE_MAILS } from "./samples";
 import { classifyByLlm } from "./llm-classify";

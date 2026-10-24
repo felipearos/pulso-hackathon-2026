@@ -92,7 +92,7 @@ describe("realPorts", () => {
     expect(urls).toEqual(["https://api.elevenlabs.io/v1/text-to-speech/otra-id?output_format=opus_48000_64"]);
   });
 
-  test("llm with no API key asks the claude binary", async () => {
+  test("llm asks the claude binary", async () => {
     const bin = join(mkdtempSync(join(tmpdir(), "claude-cli-")), "claude");
     // Answers with the model it was given, so the test sees the arguments arrived.
     writeFileSync(
@@ -105,13 +105,6 @@ describe("realPorts", () => {
     rmSync(dirname(bin), { recursive: true });
   });
 
-  test("llm with an API key calls Anthropic, not the CLI", async () => {
-    const urls: string[] = [];
-    const fetch = async (url: string) => (urls.push(url), new Response("no", { status: 401 }));
-    const env = { ...memory, ANTHROPIC_API_KEY: "key", CLAUDE_BIN: "/nonexistent/claude" };
-    const error = await rejection(realPorts(env, { fetch }).llm.complete({ prompt: "Hola" }));
-    expect((error as Error).message).toContain("Anthropic API request failed with status 401");
-  });
 
   test("whatsapp with every variable set is the real client", async () => {
     const env = {
