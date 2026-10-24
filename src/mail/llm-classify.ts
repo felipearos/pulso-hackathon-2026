@@ -1,4 +1,4 @@
-import { HAIKU_MODEL } from "../anthropic";
+import { HAIKU_MODEL } from "../claude-cli";
 import type { Llm, IncomingMail } from "../ports";
 import type { TipoSenal } from "../patricia/entities";
 import type { Classification } from "./rules";
