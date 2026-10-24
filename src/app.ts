@@ -20,7 +20,7 @@ import type { EtapaMove } from "./escalera/policy";
 import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
 import { extractEstadoDeCuenta, linkDelEstadoDeCuenta } from "./mail/estado-de-cuenta";
 import { receiveMail } from "./mail/ingest";
-import { createPermitir, DEFAULT_PUBLIC_BASE_URL, permitirUrl } from "./mail/permitir";
+import { avisoPermitir, createPermitir, DEFAULT_PUBLIC_BASE_URL, permitirUrl } from "./mail/permitir";
 import { allowedSenderDomains } from "./mail/senders";
 import type { Extraccion, Senal } from "./patricia/entities";
 import { resetPatricia } from "./patricia/fixtures";
@@ -247,7 +247,31 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     voice: ports.voice,
     whatsapp: canal,
   });
-  const permitir = createPermitir({ mail: ports.mail, store, clock: ports.clock });
+  // Closing the «Permitir» in the chat, so Patricia is not left on a web page wondering what comes next.
+  const avisar = async (): Promise<boolean> => {
+    const text = avisoPermitir(store.getPatricia().nombre);
+    let id: string;
+    try {
+      ({ id } = await canal.send({ kind: "text", text }));
+    } catch (error) {
+      const message = errorMessage(error);
+      console.error(`permitir: aviso send failed: ${message}`);
+      store.recordDecision({ tipo: "mensaje", motivo: "no salió el aviso de que su correo quedó conectado", datos: { error: message } });
+      return false;
+    }
+    inTransaction(() => {
+      store.addMensajeSaliente({ kind: "text", text, durationSeconds: null, whatsappId: id });
+      store.recordDecision({ tipo: "mensaje", motivo: "salió el aviso de que su correo quedó conectado", datos: { text } });
+    });
+    return true;
+  };
+  const permitir = createPermitir({
+    mail: ports.mail,
+    store,
+    clock: ports.clock,
+    entradaLink: entradaLink(options.entradaPhone) ?? undefined,
+    avisar,
+  });
   const webhook = createWebhook({
     config: options.webhook ?? {},
     claim: (whatsappId) => store.claimWhatsappId(whatsappId),
