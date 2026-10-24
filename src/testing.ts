@@ -42,6 +42,7 @@ export function createTestApp(
     simulador?: boolean;
     entradaPhone?: string;
     publicBaseUrl?: string;
+    gmailLoginHint?: boolean;
   } = {},
 ): TestApp {
   const ports = {
@@ -60,6 +61,7 @@ export function createTestApp(
     simulador: options.simulador,
     entradaPhone: options.entradaPhone,
     publicBaseUrl: options.publicBaseUrl,
+    gmailLoginHint: options.gmailLoginHint,
   });
   return { app, ...ports };
 }
