@@ -239,8 +239,10 @@ _Avoid:_ "distress", "stress", "anxiety", "level".
 
 ## Bienvenida
 
-Patricia's first cita, sent once: Luna asks how she likes to be called,
-whether the hora de la cita suits her, and offers the other voz. A text with
+Patricia's first cita, sent once: Luna greets her by her nombre (the first
+word of her WhatsApp profile name while she has given none) and invites her
+to write another, asks whether the hora de la cita suits her, and offers the
+other voz. A text with
 the «Permitir» link follows. What she writes back while it is the last cita
 sent is kept on Patricia.
 _Avoid:_ "onboarding", "welcome flow".

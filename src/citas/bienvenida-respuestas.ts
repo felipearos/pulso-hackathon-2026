@@ -9,10 +9,10 @@ export type RespuestasBienvenida = { nombre?: string; hora?: string; voz?: Voz }
 /** The night hour the bienvenida proposes, kept when she says it suits her. */
 const HORA_PROPUESTA = "22:30";
 
-const SYSTEM_PROMPT = `Patricia responde a la bienvenida de Luna, que le preguntó cómo le gusta que le digan y si le acomoda la hora de la noche (lunes y jueves 22:30, domingo 21:30) o qué hora prefiere.
+const SYSTEM_PROMPT = `Patricia responde a la bienvenida de Luna, que le dijo con qué nombre la va a llamar (y que si prefiere otro, se lo escriba) y le preguntó si le acomoda la hora de la noche (lunes y jueves 22:30, domingo 21:30) o qué hora prefiere.
 Responde SOLO un objeto JSON con la forma {"nombre":<texto o null>,"hora":"<HH:MM>" o null,"acomoda":<true, false o null>}.
 Reglas:
-- nombre: solo si dice cómo le gusta que le digan; si no, null.
+- nombre: solo si da otro nombre con el que quiere que le digan; si no, null.
 - acomoda: true si dice que la hora de la noche le acomoda; false si dice que no; null si no lo dice.
 - hora: solo si nombra otra hora, en formato de 24 horas HH:MM; si no, null.
 No agregues explicaciones, formato Markdown ni texto fuera del JSON.`;
@@ -101,6 +101,9 @@ export async function leerRespuestasBienvenida(
   }
 }
 
+/** The motivo prefix of the decision `recibirRespuestaBienvenida` records. */
+const MOTIVO_RESPUESTA_BIENVENIDA = "guardó lo que respondió a la bienvenida";
+
 const CAMPOS = ["nombre", "hora", "voz"] as const satisfies readonly (keyof RespuestasBienvenida)[];
 
 function enumerar(campos: readonly string[]): string {
@@ -138,8 +141,41 @@ export async function recibirRespuestaBienvenida(
   deps.store.updatePatricia(respuestas);
   deps.store.recordDecision({
     tipo: "mensaje",
-    motivo: `guardó lo que respondió a la bienvenida: ${enumerar(campos)}`,
+    motivo: `${MOTIVO_RESPUESTA_BIENVENIDA}: ${enumerar(campos)}`,
     datos: { text, respuestas },
   });
   return respuestas;
+}
+
+/** True once she said in the bienvenida how she likes to be called. */
+function dioSuNombre(store: Store): boolean {
+  return store.decisions().some((decision) => {
+    if (!decision.motivo.startsWith(`${MOTIVO_RESPUESTA_BIENVENIDA}:`)) return false;
+    const datos = decision.datos as { respuestas?: { nombre?: unknown } } | null;
+    return typeof datos?.respuestas?.nombre === "string";
+  });
+}
+
+/** The first word of her WhatsApp profile name when it is letters only, else undefined. */
+function nombreDelPerfil(perfilNombre: string | undefined): string | undefined {
+  const primera = perfilNombre?.trim().split(/\s+/u)[0];
+  if (primera === undefined || !/^[\p{L}\p{M}]+$/u.test(primera)) return undefined;
+  return validNombre(primera);
+}
+
+/**
+ * Keeps her WhatsApp profile name as her nombre while she never said how she
+ * likes to be called. Returns the nombre kept, or null when nothing changed.
+ */
+export function tomarNombreDelPerfil(store: Store, perfilNombre: string | undefined): string | null {
+  const nombre = nombreDelPerfil(perfilNombre);
+  if (nombre === undefined || nombre === store.getPatricia().nombre || dioSuNombre(store)) return null;
+
+  store.updatePatricia({ nombre });
+  store.recordDecision({
+    tipo: "mensaje",
+    motivo: `tomó el nombre de su perfil de WhatsApp: ${nombre}`,
+    datos: { perfilNombre, nombre },
+  });
+  return nombre;
 }

@@ -1,5 +1,5 @@
 import { readdirSync } from "node:fs";
-import { recibirRespuestaBienvenida } from "./citas/bienvenida-respuestas";
+import { recibirRespuestaBienvenida, tomarNombreDelPerfil } from "./citas/bienvenida-respuestas";
 import { createCitaSender } from "./citas/envio";
 import { createScheduler } from "./citas/scheduler";
 import { createDemoClock, type DemoClock } from "./clock/demo-clock";
@@ -211,10 +211,18 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     config: options.webhook ?? {},
     claim: (whatsappId) => store.claimWhatsappId(whatsappId),
     release: (whatsappId) => store.releaseWhatsappId(whatsappId),
-    onMensaje: (inbound) => receiveInbound(
+    onMensaje: (inbound) => {
+      try {
+        inTransaction(() => tomarNombreDelPerfil(store, inbound.perfilNombre));
+      } catch (error) {
+        // A failed profile name must not cost the message.
+        console.error(`perfil: nombre failed: ${errorMessage(error)}`);
+      }
+      return receiveInbound(
         { store, mensaje, inTransaction, whatsapp: canal, voice: ports.voice, llm: ports.llm },
         inbound,
-      ),
+      );
+    },
     recordInbound: (at) => canal.recordInbound(at),
     now: () => clock.now(),
   });
