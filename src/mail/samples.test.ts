@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { linkDelEstadoDeCuenta } from "./estado-de-cuenta";
-import { senderDomain } from "./senders";
+import { allowedSender, senderDomain } from "./senders";
 import { SAMPLE_MAILS } from "./samples";
 import { suspiciousReason } from "./suspicious";
 
@@ -16,11 +16,11 @@ describe("SAMPLE_MAILS", () => {
   });
 
   test("only the falso sample is suspicious", () => {
-    expect(suspiciousReason(SAMPLE_MAILS.falso)).not.toBeNull();
+    expect(suspiciousReason(SAMPLE_MAILS.falso, { senderAllowed: allowedSender(SAMPLE_MAILS.falso.from) !== null })).not.toBeNull();
 
     for (const [kind, mail] of Object.entries(SAMPLE_MAILS)) {
       if (kind === "falso") continue;
-      expect(suspiciousReason(mail)).toBeNull();
+      expect(suspiciousReason(mail, { senderAllowed: allowedSender(mail.from) !== null })).toBeNull();
     }
   });
 

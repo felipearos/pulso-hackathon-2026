@@ -4,7 +4,7 @@ import { SENDERS } from "./senders";
 // A request is a verb asking her to hand over a secret, so a footer like «no compartas tu clave»
 // or «nunca te pediremos tu clave» does not turn a real estado de cuenta into S7.
 const ASK = String.raw`\b(?:ingresa|ingrese|confirma|confirme|actualiza|actualice|envia|envie|enviar|digita|digite|indica|indique|escribe|escriba|responde|responda|usa|use|comparte|comparta)\b`;
-const SECRET = String.raw`\b(?:claves?|contrasenas?|pin|cvv|coordenadas|codigo)\b`;
+const SECRET = String.raw`\b(?:claves?|contrasenas?|ruts?|pin|cvv|coordenadas|codigo)\b`;
 
 const SECRET_PATTERNS = [
   new RegExp(`${ASK}[^.!?\\n]{0,60}${SECRET}`),
@@ -12,6 +12,23 @@ const SECRET_PATTERNS = [
   /\bconfirma\s+tus\s+datos\b/,
   /\bverifica\s+tu\s+cuenta\b/,
 ];
+
+// An allowed sender explaining how to open an attached file defines its password as her RUT
+// («usa como contraseña tu RUT», «la clave son los primeros 4 dígitos de tu RUT»). Those phrases
+// are dropped before the secret check; a request verb inside them keeps them in.
+const FILE = /\b(?:pdf|archivo|adjunto|documento)\b/;
+const FILE_PASSWORD_PATTERNS = [
+  /\b(?:usa|use|utiliza|utilice)\s+como\s+(?:clave|contrasena)\s+(?:tu|su)\s+(?:numero\s+de\s+)?rut\b/g,
+  new RegExp(
+    String.raw`\b(?:clave|contrasena)\s+(?:del?\s+(?:archivo|pdf|documento)\s+)?(?:es|son|sera|seran|corresponde\s+a|corresponden\s+a)\b(?:(?!${ASK})[^.!?\n]){0,60}?\brut\b`,
+    "g",
+  ),
+];
+
+function withoutFilePassword(content: string): string {
+  if (!FILE.test(content)) return content;
+  return FILE_PASSWORD_PATTERNS.reduce((text, pattern) => text.replace(pattern, " "), content);
+}
 
 function normalize(text: string): string {
   return text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
@@ -77,8 +94,11 @@ function outsideLinkReason(link: string): string {
   return `El correo trae un link a ${host}, que no pertenece a un remitente permitido. No abrimos sus links.`;
 }
 
-/** Returns a calm reason when an allowed sender's mail has suspicious content or links. */
-export function suspiciousReason(mail: Pick<IncomingMail, "subject" | "text" | "links">): string | null {
+/** Returns a calm reason when a mail has suspicious content or links. */
+export function suspiciousReason(
+  mail: Pick<IncomingMail, "subject" | "text" | "links">,
+  { senderAllowed }: { senderAllowed: boolean },
+): string | null {
   for (const link of mail.links) {
     let host: string;
     try {
@@ -89,7 +109,8 @@ export function suspiciousReason(mail: Pick<IncomingMail, "subject" | "text" | "
     if (!isAllowedLinkHost(host)) return outsideLinkReason(link);
   }
 
-  const content = normalize(`${mail.subject}\n${mail.text}`);
+  const normalized = normalize(`${mail.subject}\n${mail.text}`);
+  const content = senderAllowed ? withoutFilePassword(normalized) : normalized;
   if (SECRET_PATTERNS.some((pattern) => pattern.test(content))) {
     return "El correo pide o intenta confirmar datos privados. No abrimos sus links.";
   }

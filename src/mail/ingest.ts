@@ -11,7 +11,7 @@ import { suspiciousReason } from "./suspicious";
 
 /** Classifies a mail safely, using the LLM only when the rules cannot tell. */
 export async function classifyMail(mail: IncomingMail, llm: Llm): Promise<Classification> {
-  const suspicious = suspiciousReason(mail);
+  const suspicious = suspiciousReason(mail, { senderAllowed: allowedSender(mail.from) !== null });
   if (suspicious !== null) return { tipo: "S7", motivo: suspicious };
 
   const byRules = classifyByRules(mail);
