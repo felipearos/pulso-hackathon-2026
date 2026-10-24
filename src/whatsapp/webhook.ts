@@ -24,6 +24,11 @@ export type InboundMensaje = {
   /** Her phone number as Meta reports it, international form, no plus. */
   from: string;
   when: Date;
+  /**
+   * The name on her WhatsApp profile as Meta sends it, raw and unchecked;
+   * absent when the delivery carried no contact with a name.
+   */
+  perfilNombre?: string;
   body:
     | { kind: "text"; text: string }
     | { kind: "audio"; mediaId: string; mimeType: string | null }
@@ -108,16 +113,20 @@ function signatureMatches(body: Buffer, header: string | null, appSecret: string
   return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
+/** One message object as delivered, with the `contacts` of the change it came in. */
+type RawMessage = { message: unknown; contacts: unknown };
+
 /** Every message object in the delivery, across all entries and changes. */
-function rawMessages(payload: unknown): unknown[] {
+function rawMessages(payload: unknown): RawMessage[] {
   if (!isObject(payload) || !Array.isArray(payload.entry)) return [];
-  const messages: unknown[] = [];
+  const messages: RawMessage[] = [];
   for (const entry of payload.entry) {
     if (!isObject(entry) || !Array.isArray(entry.changes)) continue;
     for (const change of entry.changes) {
       // Status-only changes (delivery receipts) carry no `messages` and are skipped here.
       if (!isObject(change) || !isObject(change.value) || !Array.isArray(change.value.messages)) continue;
-      messages.push(...change.value.messages);
+      const contacts = change.value.contacts;
+      for (const message of change.value.messages) messages.push({ message, contacts });
     }
   }
   return messages;
@@ -152,6 +161,19 @@ function reactionBody(reaction: unknown, type: string): InboundMensaje["body"] {
   return { kind: "reaction", emoji, toWhatsappId: stringField(reaction, "message_id") };
 }
 
+/**
+ * The profile name of the contact whose `wa_id` is the sender, else of the
+ * first contact; null when there is none or it is not a non-empty string.
+ */
+function profileName(contacts: unknown, from: string): string | null {
+  if (!Array.isArray(contacts)) return null;
+  const objects = contacts.filter(isObject);
+  const contact = objects.find((candidate) => stringField(candidate, "wa_id") === from) ?? objects[0];
+  if (contact === undefined || !isObject(contact.profile)) return null;
+  const name = stringField(contact.profile, "name");
+  return name === null || name === "" ? null : name;
+}
+
 /** Meta's timestamp is unix seconds as a string; null when it is unreadable. */
 function parseWhen(timestamp: unknown): Date | null {
   if (typeof timestamp !== "string" && typeof timestamp !== "number") return null;
@@ -164,7 +186,7 @@ export function createWebhook(deps: WebhookDeps): Webhook {
   const log = deps.log ?? ((line: string, detail?: unknown) => console.error(line, detail ?? ""));
   const inFlight = new Set<Promise<void>>();
 
-  function toMensaje(raw: unknown): InboundMensaje | null {
+  function toMensaje({ message: raw, contacts }: RawMessage): InboundMensaje | null {
     if (!isObject(raw)) {
       log("whatsapp webhook: skipped a message that is not an object");
       return null;
@@ -179,7 +201,15 @@ export function createWebhook(deps: WebhookDeps): Webhook {
       log("whatsapp webhook: unreadable timestamp, using the demo clock", { whatsappId });
       when = deps.now();
     }
-    return { whatsappId, from: stringField(raw, "from") ?? "", when, body: bodyOf(raw) };
+    const from = stringField(raw, "from") ?? "";
+    const perfilNombre = profileName(contacts, from);
+    return {
+      whatsappId,
+      from,
+      when,
+      ...(perfilNombre === null ? {} : { perfilNombre }),
+      body: bodyOf(raw),
+    };
   }
 
   function start(mensaje: InboundMensaje): void {

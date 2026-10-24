@@ -94,6 +94,9 @@ export type MensajeDeLaConversacion = {
 /** How many of the latest messages /sala/conversacion answers with. */
 const MAX_MENSAJES = 100;
 
+/** The fictional WhatsApp profile name a simulador message carries, as Meta's delivery would. */
+const SIMULADOR_PERFIL_NOMBRE = "Patricia Soto";
+
 const NOT_FOUND = () => new Response("Not found", { status: 404 });
 
 const digest = (text: string) => createHash("sha256").update(text).digest();
@@ -332,7 +335,7 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
       const whatsappId = `sim-in-${crypto.randomUUID()}`;
       if (body.kind === "image") fotosDelSimulador.set(whatsappId, body.mediaId);
       // The webhook's own way in, so her answer takes the same flow as one Meta delivered.
-      deps.inject({ whatsappId, from: "simulador", when: deps.clock.now(), body });
+      deps.inject({ whatsappId, from: "simulador", when: deps.clock.now(), perfilNombre: SIMULADOR_PERFIL_NOMBRE, body });
       return Response.json({ whatsappId }, { status: 202 });
     }
     const correoMatch = /^\/sala\/correos\/([^/]+)$/.exec(pathname);
