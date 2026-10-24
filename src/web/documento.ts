@@ -33,15 +33,16 @@ const NAMED_ENTITIES: Record<string, string> = {
 /**
  * The readable text of the page or PDF a mail links to, as a plain-text dump
  * the extractor reads. Null when the type is not supported or there is no text.
+ * `clave` opens an encrypted PDF; for one, a wrong or missing clave gives null.
  */
-export async function documentText(doc: WebDocument): Promise<string | null> {
+export async function documentText(doc: WebDocument, options: { clave?: string } = {}): Promise<string | null> {
   const [mediaType = "", ...params] = doc.contentType.split(";").map((part) => part.trim());
   const charset = params.find((p) => p.toLowerCase().startsWith("charset="))?.slice(8).replace(/"/g, "");
   let type = mediaType.toLowerCase();
   if (type === "" || type === "application/octet-stream") type = sniff(doc.body);
 
   let text: string | null;
-  if (type === "application/pdf") text = await pdfText(doc.body);
+  if (type === "application/pdf") text = await pdfText(doc.body, options.clave);
   else if (type === "text/html" || type === "application/xhtml+xml") text = htmlText(decode(doc.body, charset));
   else if (type === "text/plain") text = decode(doc.body, charset);
   else text = null;
@@ -65,10 +66,10 @@ function decode(body: Uint8Array, charset: string | undefined): string {
   return new TextDecoder(label && LATIN1_CHARSETS.has(label) ? "windows-1252" : "utf-8").decode(body);
 }
 
-async function pdfText(body: Uint8Array): Promise<string | null> {
+async function pdfText(body: Uint8Array, clave: string | undefined): Promise<string | null> {
   try {
     // pdf.js may detach the buffer it is handed, so it gets a copy.
-    const pdf = await getDocumentProxy(new Uint8Array(body));
+    const pdf = await getDocumentProxy(new Uint8Array(body), clave === undefined ? {} : { password: clave });
     const { text } = await extractText(pdf, { mergePages: true });
     return text;
   } catch {

@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
+import { estadoDeCuenta8Pdf, estadoDeCuenta8PdfCifrado } from "../figures/fixtures/pdf";
 import { documentText } from "./documento";
 
 const encoder = new TextEncoder();
@@ -100,5 +101,43 @@ describe("documentText", () => {
 
   test("returns null for garbage typed as a PDF", async () => {
     expect(await documentText(doc("application/pdf", new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])))).toBeNull();
+  });
+});
+
+describe("documentText with a clave", () => {
+  const CLAVE = "12345";
+
+  test("opens an encrypted PDF with the right clave", async () => {
+    const plain = await documentText(doc("application/pdf", estadoDeCuenta8Pdf()));
+    expect(plain).not.toBeNull();
+    const text = await documentText(doc("application/pdf", estadoDeCuenta8PdfCifrado(CLAVE)), { clave: CLAVE });
+    expect(text).toBe(plain);
+  });
+
+  test("returns null for an encrypted PDF with the wrong clave", async () => {
+    const text = await documentText(doc("application/pdf", estadoDeCuenta8PdfCifrado(CLAVE)), { clave: "99999" });
+    expect(text).toBeNull();
+  });
+
+  test("returns null for an encrypted PDF without a clave", async () => {
+    expect(await documentText(doc("application/pdf", estadoDeCuenta8PdfCifrado(CLAVE)))).toBeNull();
+  });
+
+  test("still reads an unencrypted PDF when given a clave", async () => {
+    const plain = await documentText(doc("application/pdf", estadoDeCuenta8Pdf()));
+    expect(await documentText(doc("application/pdf", estadoDeCuenta8Pdf()), { clave: CLAVE })).toBe(plain);
+  });
+
+  test("never logs the clave", async () => {
+    const wrong = "clave-secreta-77";
+    const spies = [spyOn(console, "error"), spyOn(console, "warn"), spyOn(console, "log")];
+    try {
+      await documentText(doc("application/pdf", estadoDeCuenta8PdfCifrado(CLAVE)), { clave: wrong });
+      for (const spy of spies) {
+        for (const call of spy.mock.calls) expect(call.map((arg) => String(arg)).join(" ")).not.toContain(wrong);
+      }
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
   });
 });
