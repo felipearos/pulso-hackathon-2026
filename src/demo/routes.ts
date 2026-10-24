@@ -10,6 +10,7 @@ import type { Canal, Simulador } from "../whatsapp/simulador";
 import type { InboundMensaje } from "../whatsapp/webhook";
 import { nochesDeLaSemana, pagosSobreElMinimo } from "./contadores";
 import { findMomento, type MomentoDelGuion } from "./guion";
+import { primerosPasos } from "./primeros-pasos";
 
 /** What the control room drives: the same flows Patricia's night runs on, no logic of its own. */
 export type DemoDeps = {
@@ -17,6 +18,10 @@ export type DemoDeps = {
   token: string | undefined;
   clock: DemoClock;
   store: Store;
+  /** The «Permitir» link shown in the first steps. */
+  permitirUrl: string;
+  /** A boolean, never the Gmail address, indicating whether the login hint is set. */
+  gmailLoginHint: boolean;
   tick(): Promise<void>;
   /**
    * Moves the clock to `at` and ticks there, in the same turn as the tick, so a reset cannot land between the two.
@@ -167,6 +172,10 @@ export function createDemoRoutes(deps: DemoDeps): (request: Request) => Promise<
       now: now.toISOString(),
       relojReal: deps.clock.isReal(),
       etapa: deps.store.getPatricia().etapa,
+      primerosPasos: primerosPasos(deps.store, {
+        permitirUrl: deps.permitirUrl,
+        gmailLoginHint: deps.gmailLoginHint,
+      }),
       simulador: deps.canal.isSimulador(),
       guion: deps.guion.map(({ id, label, at }) => ({ id, label, at: at.toISOString() })),
       citas: deps.store.citas().slice(-5),

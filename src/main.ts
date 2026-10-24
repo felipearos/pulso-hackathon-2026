@@ -9,6 +9,7 @@ const app = createApp(realPorts(), {
   simulador: process.env.WHATSAPP_SIMULADOR === "1",
   entradaPhone: process.env.WHATSAPP_ENTRADA_PHONE,
   publicBaseUrl: process.env.PUBLIC_BASE_URL,
+  gmailLoginHint: Boolean(process.env.GMAIL_LOGIN_HINT),
 });
 const port = Number(process.env.PORT ?? 3000);
 const server = Bun.serve({ hostname: process.env.HOST, port, fetch: app.handle });

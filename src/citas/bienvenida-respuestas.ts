@@ -102,7 +102,7 @@ export async function leerRespuestasBienvenida(
 }
 
 /** The motivo prefix of the decision `recibirRespuestaBienvenida` records. */
-const MOTIVO_RESPUESTA_BIENVENIDA = "guardó lo que respondió a la bienvenida";
+export const MOTIVO_RESPUESTA_BIENVENIDA = "guardó lo que respondió a la bienvenida";
 
 const CAMPOS = ["nombre", "hora", "voz"] as const satisfies readonly (keyof RespuestasBienvenida)[];
 
