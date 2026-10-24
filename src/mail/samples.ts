@@ -1,4 +1,5 @@
-import { ESTADO_DE_CUENTA_8_TEXTO } from "../figures/fixtures/estado-de-cuenta-8";
+import { estadoDeCuenta8PdfCifrado } from "../figures/fixtures/pdf";
+import { PATRICIA_RUT_FICTICIO } from "../patricia/fixtures";
 import type { IncomingMail } from "../ports";
 
 /**
@@ -6,14 +7,46 @@ import type { IncomingMail } from "../ports";
  * Every sender, link and monto is invented; domains use `.example` (RFC 2606).
  */
 
+/** The bank's rule for the PDF: «tu RUT sin guión ni dígito verificador». */
+const CLAVE_DEL_PDF = PATRICIA_RUT_FICTICIO.split("-")[0]!;
+
 export const SAMPLE_BANCO: IncomingMail = {
   id: "muestra-banco-estado",
   from: "Banco Ficticio <avisos@bancoficticio.example>",
   subject: "Tu estado de cuenta de octubre está disponible",
-  // The bank sends the estado de cuenta in the mail itself: this is the 8th.
-  text: ESTADO_DE_CUENTA_8_TEXTO,
+  // The bank sends only a notice: the figures of the 8th are in the encrypted PDF attached,
+  // which the S1 reader opens with her RUT in a later ticket.
+  // No verb such as «usa» near «contraseña»: suspiciousReason would mark the bank's own mail S7.
+  text: [
+    "Estimado(a) PATRICIA SOTO:",
+    "",
+    "Ya puedes revisar tu estado de cuenta de este mes.",
+    "",
+    "Por tu seguridad, el archivo PDF adjunto está encriptado.",
+    "",
+    "¿Cómo abrirlo?",
+    "Tu contraseña es tu RUT sin guión ni dígito verificador.",
+    "",
+    "Recuerda:",
+    "- Revisa tus movimientos y avísanos si no reconoces alguno.",
+    "- Activa las notificaciones de compra en la app de Banco Ficticio.",
+    "",
+    "Beneficio del mes: 10% de descuento en farmacias adheridas pagando con tu Tarjeta Ficticia Visa.",
+    "",
+    "Banco Ficticio nunca te pedirá tus claves por correo, teléfono ni mensaje.",
+    "",
+    "Saludos cordiales,",
+    "Banco Ficticio",
+  ].join("\n"),
   receivedAt: new Date("2026-10-23T20:00:00.000-03:00"),
-  links: ["https://bancoficticio.example/estado/octubre"],
+  links: [],
+  adjuntos: [
+    {
+      nombre: "EECC_TARJETA_0000.pdf",
+      mimeType: "application/octet-stream",
+      bytes: estadoDeCuenta8PdfCifrado(CLAVE_DEL_PDF),
+    },
+  ],
 };
 
 export const SAMPLE_TIENDA: IncomingMail = {
