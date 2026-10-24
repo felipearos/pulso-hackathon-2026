@@ -163,6 +163,9 @@ function nombreDelPerfil(perfilNombre: string | undefined): string | undefined {
   return validNombre(primera);
 }
 
+/** The motivo prefix of the decision `tomarNombreDelPerfil` records. */
+export const MOTIVO_NOMBRE_DEL_PERFIL = "tomó el nombre de su perfil de WhatsApp";
+
 /**
  * Keeps her WhatsApp profile name as her nombre while she never said how she
  * likes to be called. Returns the nombre kept, or null when nothing changed.
@@ -174,7 +177,7 @@ export function tomarNombreDelPerfil(store: Store, perfilNombre: string | undefi
   store.updatePatricia({ nombre });
   store.recordDecision({
     tipo: "mensaje",
-    motivo: `tomó el nombre de su perfil de WhatsApp: ${nombre}`,
+    motivo: `${MOTIVO_NOMBRE_DEL_PERFIL}: ${nombre}`,
     datos: { perfilNombre, nombre },
   });
   return nombre;

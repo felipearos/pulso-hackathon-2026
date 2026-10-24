@@ -356,10 +356,10 @@ only with the operator token (`DEMO_TOKEN`; without it /sala answers 404).
 It moves the demo clock to the momentos del guion, runs a tick and resets
 Patricia to the starting point. It also shows the conversation with
 Patricia (audios, texts, fotos and her answers) and switches the canal to the
-simulador, and its **primeros pasos** at the top. It has no logic of its own: every button
-calls the same flows Patricia's night runs on. The scripted week at /demo
-is a separate screen. Written "the control room"
-in English prose.
+simulador, and its **primeros pasos** at the top. It has no logic of its
+own: every button calls the same flows Patricia's night runs on. The
+scripted week at /demo is a separate screen. Written "the control room" in
+English prose.
 _Avoid:_ "dashboard", "admin panel".
 
 ## Primeros pasos

@@ -1,4 +1,4 @@
-import { MOTIVO_RESPUESTA_BIENVENIDA } from "../citas/bienvenida-respuestas";
+import { MOTIVO_NOMBRE_DEL_PERFIL, MOTIVO_RESPUESTA_BIENVENIDA } from "../citas/bienvenida-respuestas";
 import type { Store } from "../patricia/store";
 import { vozDe } from "../voice/voces";
 
@@ -38,11 +38,11 @@ export function primerosPasos(store: Store, opts: PrimerosPasosOptions): PrimerP
   );
   const nameSource = saysNameInResponse
     ? "lo dijo ella"
-    : decisions.some((decision) => decision.motivo.startsWith("tomó el nombre de su perfil de WhatsApp"))
+    : decisions.some((decision) => decision.motivo.startsWith(`${MOTIVO_NOMBRE_DEL_PERFIL}:`))
       ? "perfil de WhatsApp"
       : "sin dato";
   const patricia = store.getPatricia();
-  const permitirDecision = decisions.find((decision) => decision.tipo === "permitir-correo");
+  const permitirDecision = decisions.toReversed().find((decision) => decision.tipo === "permitir-correo");
   const rutDecision = decisions.toReversed().find((decision) => decision.tipo === "permitir-rut");
   const contextoDecision = decisions.toReversed().find((decision) => decision.tipo === "contar-contexto");
   const context = patricia.contexto ?? null;

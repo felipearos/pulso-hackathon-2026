@@ -113,11 +113,12 @@ describe("the primeros pasos app flow", () => {
     const contextoToken = tokenOf(await rutResponse.text());
     expect(contextoToken).not.toBe("");
     const afterRut = await expectHechos(app, ["saludo", "bienvenida", "respuesta", "permitir", "rut"]);
+    const rutBody = PATRICIA_RUT_FICTICIO.split("-")[0]!;
     for (const privateValue of [
       PATRICIA_RUT_FICTICIO,
       PATRICIA_RUT_FICTICIO.replace("-", ""),
-      "33457982",
-      "33.457.982",
+      rutBody,
+      rutBody.replace(/\B(?=(\d{3})+(?!\d))/g, "."),
     ]) {
       expect(afterRut.text).not.toContain(privateValue);
     }
