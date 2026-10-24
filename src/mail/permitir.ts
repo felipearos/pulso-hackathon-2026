@@ -1,6 +1,7 @@
 import { MissingEnvError } from "../missing-env";
 import type { Store } from "../patricia/store";
 import type { Clock, Mail } from "../ports";
+import { normalizeRut } from "./rut";
 
 /*
  * Patricia's one «Permitir»: `/permitir` sends her to Google's read-only
@@ -10,11 +11,18 @@ import type { Clock, Mail } from "../ports";
  * sign in at all is Google's call: the OAuth app stays in test mode with
  * Patricia's fictional Gmail as its only test user (#65), so a stranger who
  * opens the link cannot swap in their own mailbox.
+ *
+ * A connected callback then asks for her RUT, once: the banks lock the estado
+ * de cuenta PDF with a clave made from it. The form carries its own
+ * single-use token, so `/gmail/rut` only writes for someone who just finished
+ * the «Permitir». The RUT is never logged, echoed back or put in a decision.
  */
 
 /** The welcome audio (#46) links Patricia here; keep the two in step. */
 export const PERMITIR_PATH = "/permitir";
 export const CALLBACK_PATH = "/gmail/callback";
+/** Where the RUT form after a connected callback posts. */
+export const RUT_PATH = "/gmail/rut";
 /** The Tailscale Funnel URL the live app is published at. */
 export const DEFAULT_PUBLIC_BASE_URL = "https://desktop.taild8ed7e.ts.net";
 
@@ -26,6 +34,10 @@ export function permitirUrl(env: Record<string, string | undefined> = process.en
 
 /** How long she has between opening the link and coming back from Google. */
 const STATE_TTL_MS = 15 * 60 * 1000;
+/** A RUT form is a few dozen bytes; anything past this is not one. */
+const MAX_RUT_BODY_BYTES = 4 * 1024;
+
+const EXPIRED_LINK = "Este link ya no sirve. Abre de nuevo el link que te mandó Luna.";
 
 export type PermitirDeps = {
   mail: Mail;
@@ -35,17 +47,20 @@ export type PermitirDeps = {
 };
 
 export type Permitir = {
-  /** Answers the two «Permitir» routes; null for any other request. */
+  /** Answers the «Permitir» routes and the RUT form; null for any other request. */
   handle(request: Request): Promise<Response> | null;
 };
 
 export function createPermitir(deps: PermitirDeps): Permitir {
   const { mail, store, clock } = deps;
   const issued = new Map<string, number>();
+  /** Single-use tokens of the RUT forms shown, with when each was issued. */
+  const rutTokens = new Map<string, number>();
 
   const forgetExpired = () => {
     const now = clock.now().getTime();
     for (const [state, at] of issued) if (now - at > STATE_TTL_MS) issued.delete(state);
+    for (const [token, at] of rutTokens) if (now - at > STATE_TTL_MS) rutTokens.delete(token);
   };
 
   const start = async (): Promise<Response> => {
@@ -69,7 +84,7 @@ export function createPermitir(deps: PermitirDeps): Permitir {
     forgetExpired();
     const state = url.searchParams.get("state") ?? "";
     if (!issued.delete(state)) {
-      return page(400, "Este link ya no sirve. Abre de nuevo el link que te mandó Luna.");
+      return page(400, EXPIRED_LINK);
     }
     if (url.searchParams.get("error")) {
       // She said no on Google's page: nothing to store, and nothing to insist on.
@@ -90,13 +105,42 @@ export function createPermitir(deps: PermitirDeps): Permitir {
       motivo: "Patricia dio su «Permitir»: Luna lee su Gmail, solo los remitentes de la lista y sin poder escribir",
       datos: {},
     });
-    return page(200, "Listo. Desde ahora me entero sola de lo que te llega del banco y de la tienda. Puedes cerrar esta página.");
+    const token = crypto.randomUUID();
+    rutTokens.set(token, clock.now().getTime());
+    return rutForm(200, token);
+  };
+
+  const rut = async (request: Request): Promise<Response> => {
+    forgetExpired();
+    const body = await readCapped(request, MAX_RUT_BODY_BYTES);
+    if (body === null) return page(413, "Eso no lo pude leer. Abre de nuevo el link que te mandó Luna.");
+    const form = new URLSearchParams(body);
+    const token = form.get("token") ?? "";
+    if (!rutTokens.has(token)) return page(400, EXPIRED_LINK);
+    if (form.get("respuesta") !== "permitir") {
+      rutTokens.delete(token);
+      return page(200, "Está bien, no guardé nada. Tu correo sigue conectado y yo me las arreglo igual. Puedes cerrar esta página.");
+    }
+    const normalized = normalizeRut(form.get("rut") ?? "");
+    if (!normalized) {
+      // The token stays valid: she gets to fix a swapped digit without starting over.
+      return rutForm(422, token, "Ese RUT no me calza. Revísalo con calma, puede ser un número cambiado.");
+    }
+    rutTokens.delete(token);
+    store.updatePatricia({ rut: normalized });
+    store.recordDecision({
+      tipo: "permitir-rut",
+      motivo: "Patricia dio su RUT en la página del «Permitir»: Luna puede abrir sola sus estados de cuenta con clave",
+      datos: {},
+    });
+    return page(200, "Listo. Desde ahora me entero sola de lo que te llega del banco y de la tienda, y abro yo los estados de cuenta. Puedes cerrar esta página.");
   };
 
   return {
     handle(request) {
-      if (request.method !== "GET") return null;
       const url = new URL(request.url);
+      if (request.method === "POST") return url.pathname === RUT_PATH ? rut(request) : null;
+      if (request.method !== "GET") return null;
       if (url.pathname === PERMITIR_PATH) return start();
       if (url.pathname === CALLBACK_PATH) return callback(url);
       return null;
@@ -104,8 +148,57 @@ export function createPermitir(deps: PermitirDeps): Permitir {
   };
 }
 
+/** The request body as text, or null once it passes `limit` bytes; stops reading there. */
+async function readCapped(request: Request, limit: number): Promise<string | null> {
+  const declared = Number(request.headers.get("content-length") ?? "0");
+  if (declared > limit) return null;
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
 /** A small Spanish page for Patricia's phone. */
 function page(status: number, message: string): Response {
-  const html = `<!doctype html><html lang="es-CL"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Luna</title></head><body style="font-family: system-ui, sans-serif; max-width: 32rem; margin: 3rem auto; padding: 0 1rem; font-size: 1.2rem; line-height: 1.5"><p>${message}</p></body></html>`;
-  return new Response(html, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+  return html(status, `<p>${escapeHtml(message)}</p>`);
+}
+
+const FIELD_STYLE = "display: block; box-sizing: border-box; width: 100%; font-size: 1.2rem; padding: 0.75rem; margin: 0.5rem 0";
+
+/** The RUT form after a connected callback; `notice` is the kind word when the RUT did not check out. */
+function rutForm(status: number, token: string, notice?: string): Response {
+  const body = [
+    "<p>Listo, tu correo quedó conectado.</p>",
+    "<p>Los bancos mandan el estado de cuenta en un PDF con clave, y esa clave sale de tu RUT. Si me lo das, puedo abrirlos sola y contarte lo que dicen.</p>",
+    "<p>Nunca te voy a pedir tu RUT ni ninguna clave por WhatsApp. Si alguien te lo pide por chat, no soy yo.</p>",
+    notice ? `<p role="alert"><strong>${escapeHtml(notice)}</strong></p>` : "",
+    `<form method="post" action="${RUT_PATH}">`,
+    `<input type="hidden" name="token" value="${escapeHtml(token)}">`,
+    `<label for="rut">Tu RUT</label>`,
+    `<input id="rut" name="rut" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="12.345.678-5" style="${FIELD_STYLE}">`,
+    `<button type="submit" name="respuesta" value="permitir" style="${FIELD_STYLE}">Permitir abrir mis estados de cuenta</button>`,
+    `<button type="submit" name="respuesta" value="ahora-no" style="${FIELD_STYLE}; background: none">Ahora no</button>`,
+    "</form>",
+  ].join("");
+  return html(status, body);
+}
+
+function html(status: number, body: string): Response {
+  const document = `<!doctype html><html lang="es-CL"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Luna</title></head><body style="font-family: system-ui, sans-serif; max-width: 32rem; margin: 3rem auto; padding: 0 1rem; font-size: 1.2rem; line-height: 1.5">${body}</body></html>`;
+  return new Response(document, { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
 }
