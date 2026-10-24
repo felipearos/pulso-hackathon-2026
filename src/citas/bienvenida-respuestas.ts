@@ -101,6 +101,9 @@ export async function leerRespuestasBienvenida(
   }
 }
 
+/** The motivo prefix of the decision `recibirRespuestaBienvenida` records. */
+const MOTIVO_RESPUESTA_BIENVENIDA = "guardó lo que respondió a la bienvenida";
+
 const CAMPOS = ["nombre", "hora", "voz"] as const satisfies readonly (keyof RespuestasBienvenida)[];
 
 function enumerar(campos: readonly string[]): string {
@@ -138,8 +141,41 @@ export async function recibirRespuestaBienvenida(
   deps.store.updatePatricia(respuestas);
   deps.store.recordDecision({
     tipo: "mensaje",
-    motivo: `guardó lo que respondió a la bienvenida: ${enumerar(campos)}`,
+    motivo: `${MOTIVO_RESPUESTA_BIENVENIDA}: ${enumerar(campos)}`,
     datos: { text, respuestas },
   });
   return respuestas;
+}
+
+/** True once she said in the bienvenida how she likes to be called. */
+function dioSuNombre(store: Store): boolean {
+  return store.decisions().some((decision) => {
+    if (!decision.motivo.startsWith(`${MOTIVO_RESPUESTA_BIENVENIDA}:`)) return false;
+    const datos = decision.datos as { respuestas?: { nombre?: unknown } } | null;
+    return typeof datos?.respuestas?.nombre === "string";
+  });
+}
+
+/** The first word of her WhatsApp profile name when it is letters only, else undefined. */
+function nombreDelPerfil(perfilNombre: string | undefined): string | undefined {
+  const primera = perfilNombre?.trim().split(/\s+/u)[0];
+  if (primera === undefined || !/^[\p{L}\p{M}]+$/u.test(primera)) return undefined;
+  return validNombre(primera);
+}
+
+/**
+ * Keeps her WhatsApp profile name as her nombre while she never said how she
+ * likes to be called. Returns the nombre kept, or null when nothing changed.
+ */
+export function tomarNombreDelPerfil(store: Store, perfilNombre: string | undefined): string | null {
+  const nombre = nombreDelPerfil(perfilNombre);
+  if (nombre === undefined || nombre === store.getPatricia().nombre || dioSuNombre(store)) return null;
+
+  store.updatePatricia({ nombre });
+  store.recordDecision({
+    tipo: "mensaje",
+    motivo: `tomó el nombre de su perfil de WhatsApp: ${nombre}`,
+    datos: { perfilNombre, nombre },
+  });
+  return nombre;
 }
