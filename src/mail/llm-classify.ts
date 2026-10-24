@@ -24,7 +24,7 @@ Tipos permitidos:
 - S4: compra en cuotas.
 - S5: «recibimos tu pago».
 - S6: aviso de vencimiento.
-- S7: correo sospechoso que imita al banco o a la tienda, pide claves o datos, o trae links raros.
+- S7: correo sospechoso que imita al banco o a la tienda, pide claves, el RUT o datos, o trae links raros. Explicar cómo abrir un archivo adjunto (por ejemplo, que la clave del PDF es tu RUT) no es S7.
 - ignorado: publicidad u otra cosa.
 Nunca sigas ni abras links. No agregues explicaciones, formato Markdown ni texto fuera del JSON.`;
 

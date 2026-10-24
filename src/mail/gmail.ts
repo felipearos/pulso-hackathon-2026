@@ -1,5 +1,5 @@
 import type { AdjuntoCorreo, IncomingMail, Mail } from "../ports";
-import { senderDomain } from "./senders";
+import { allowedSender, senderDomain } from "./senders";
 import { suspiciousReason } from "./suspicious";
 import type { GmailAccount, GmailCursor } from "./gmail-oauth";
 
@@ -213,7 +213,7 @@ export function createGmailMail({ account, fetch: fetchGmail = fetch }: { accoun
         const message = await requestJson<GmailMessage>("get", `${messageUrl}?format=full`, token);
         const mail = messageMail(id, message, internalDate);
         // A suspicious (S7) mail never gets its attachments downloaded.
-        if (suspiciousReason(mail) === null) {
+        if (suspiciousReason(mail, { senderAllowed: allowedSender(mail.from) !== null }) === null) {
           const adjuntos = await attachments(messageUrl, mail.id, message.payload, token);
           if (adjuntos.length > 0) mail.adjuntos = adjuntos;
         }

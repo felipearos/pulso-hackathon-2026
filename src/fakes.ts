@@ -12,7 +12,7 @@ import type {
   WebDocument,
   WhatsApp,
 } from "./ports";
-import { senderDomain } from "./mail/senders";
+import { allowedSender, senderDomain } from "./mail/senders";
 import { suspiciousReason } from "./mail/suspicious";
 import { VOZ_PRINCIPAL, type Voz } from "./voice/voces";
 import { allowedLink } from "./web/link";
@@ -106,7 +106,8 @@ export class FakeMail implements Mail {
     });
     this.pending = [];
     return drained.map((m) => {
-      if (!m.adjuntos || suspiciousReason(m) === null) return m;
+      const senderAllowed = allowedSender(m.from) !== null;
+      if (!m.adjuntos || suspiciousReason(m, { senderAllowed }) === null) return m;
       const { adjuntos: _, ...rest } = m;
       return rest;
     });
