@@ -1,6 +1,7 @@
-import { estadoDeCuenta8PdfCifrado } from "../figures/fixtures/pdf";
+import { estadoDeCuenta8PdfCifrado, estadoDeCuentaTiendaPdf } from "../figures/fixtures/pdf";
 import { PATRICIA_RUT_FICTICIO } from "../patricia/fixtures";
-import type { IncomingMail } from "../ports";
+import type { IncomingMail, Web, WebDocument } from "../ports";
+import { allowedLink } from "../web/link";
 
 /**
  * One fictional mail of each kind Patricia gets, with the case's figures.
@@ -48,14 +49,16 @@ export const SAMPLE_BANCO: IncomingMail = {
   ],
 };
 
+const SAMPLE_TIENDA_LINK = "https://www.tiendaplaza.example/cuenta/octubre/estado-de-cuenta.pdf";
+
 export const SAMPLE_TIENDA: IncomingMail = {
   id: "muestra-tienda-estado",
   from: "Tienda Plaza <cuenta@tiendaplaza.example>",
   subject: "Tu estado de cuenta ya está listo",
-  // The tienda only links to it: the PDF behind the link is `estadoDeCuentaTiendaPdf()`.
+  // The tienda only links to it: `withSampleDocuments` serves `estadoDeCuentaTiendaPdf()` there.
   text: "Hola Patricia, ya puedes ver el resumen de tu Tarjeta Plaza de octubre en el link.",
   receivedAt: new Date("2026-10-23T20:00:00.000-03:00"),
-  links: ["https://www.tiendaplaza.example/cuenta/octubre/estado-de-cuenta.pdf"],
+  links: [SAMPLE_TIENDA_LINK],
 };
 
 export const SAMPLE_PEDIDO: IncomingMail = {
@@ -114,3 +117,23 @@ export const SAMPLE_MAILS = {
   publicidad: SAMPLE_PUBLICIDAD,
   falso: SAMPLE_FALSO,
 } as const satisfies Readonly<Record<SampleMailKind, IncomingMail>>;
+
+/** The documents behind the samples' links, by URL. */
+const SAMPLE_DOCUMENTS: Readonly<Record<string, () => WebDocument>> = {
+  [SAMPLE_TIENDA_LINK]: () => ({ contentType: "application/pdf", body: estadoDeCuentaTiendaPdf() }),
+};
+
+/**
+ * `web`, with the samples' links answered from their fixtures. A `.example`
+ * domain never resolves (RFC 2606), so the live app could not read the tienda
+ * sample's estado de cuenta otherwise. Any other URL goes to `web` as it was.
+ */
+export function withSampleDocuments(web: Web): Web {
+  return {
+    async fetchDocument(url, domains) {
+      const document = SAMPLE_DOCUMENTS[url];
+      if (document === undefined || allowedLink(url, domains) === null) return web.fetchDocument(url, domains);
+      return document();
+    },
+  };
+}
