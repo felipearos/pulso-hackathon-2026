@@ -7,8 +7,10 @@ export interface Deps {
   demoPage: Blob;
   /** Luna's front door, served on `/`. */
   landingPage: Blob;
-  /** Stands in for `/empezar` and `/entrar` until sign-up and sign-in exist. */
+  /** Answers `/empezar` when there is no entrada link to send it to. */
   soonPage: Blob;
+  /** The wa.me chat with Luna that `/empezar` redirects to; unset, it shows the coming-soon page. */
+  entradaLink?: string;
   /** The landing's photos by file name, served on `/img/<name>`; nothing outside this map is reachable. */
   landingImages: Record<string, Blob>;
   nightAudio: Blob;
@@ -25,8 +27,11 @@ const WEBHOOK_PATH = "/webhook/whatsapp";
 /** The header the control room sends its operator key in. */
 export const OPERATOR_KEY_HEADER = "x-demo-key";
 
-/** The routes the landing links to, answered with the coming-soon page for now. */
-const SOON_PATHS = new Set(["/empezar", "/entrar"]);
+/**
+ * Where the landing's «Empezar con Luna» goes. Luna has no account to sign up
+ * for or into: starting, and coming back, is the WhatsApp chat the entrada QR opens.
+ */
+const START_PATH = "/empezar";
 
 const IMAGE_ROUTE = /^\/img\/([a-z0-9-]+\.webp)$/;
 
@@ -59,7 +64,10 @@ export function createHandler(deps: Deps): (request: Request) => Promise<Respons
     if (request.method === "GET") {
       if (pathname === "/health") return Response.json({ status: "ok" });
       if (pathname === "/") return new Response(deps.landingPage, { headers: HTML });
-      if (SOON_PATHS.has(pathname)) return new Response(deps.soonPage, { headers: HTML });
+      if (pathname === START_PATH) {
+        if (deps.entradaLink) return Response.redirect(deps.entradaLink, 302);
+        return new Response(deps.soonPage, { headers: HTML });
+      }
       const image = IMAGE_ROUTE.exec(pathname)?.[1];
       if (image && Object.hasOwn(deps.landingImages, image)) {
         return new Response(deps.landingImages[image], {

@@ -73,6 +73,15 @@ describe("QR pages and the jurado's audio", () => {
     expect(page).toContain("Escanéalo y Luna te saluda");
   });
 
+  test("the landing's «Empezar» opens the same chat as the entrada QR, with no token", async () => {
+    const { app } = setup();
+    const response = await get(app, "/empezar");
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("https://wa.me/56900000000?text=Hola%20Luna");
+    const { app: sinNumero } = setup({ entradaPhone: undefined });
+    expect((await get(sinNumero, "/empezar")).status).toBe(200);
+  });
+
   test("the entrada page answers 503 with no number configured", async () => {
     for (const entradaPhone of [undefined, "", "sin número"]) {
       const { app } = setup({ entradaPhone });
