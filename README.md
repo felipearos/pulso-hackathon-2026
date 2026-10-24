@@ -34,3 +34,6 @@ bun run check       # tests, typecheck, lint y build: lo mismo que CI
   en el repo. Ver [CLAUDE.md](CLAUDE.md).
 - Vocabulario del dominio en [GLOSSARY.md](GLOSSARY.md).
 - Instrucciones para agentes en [AGENTS.md](AGENTS.md).
+
+
+https://claude.ai/artifact/5JycX6JWdvc7yKBvo6UxPw#slide-3dd33bdac6c2
