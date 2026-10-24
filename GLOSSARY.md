@@ -356,11 +356,21 @@ only with the operator token (`DEMO_TOKEN`; without it /sala answers 404).
 It moves the demo clock to the momentos del guion, runs a tick and resets
 Patricia to the starting point. It also shows the conversation with
 Patricia (audios, texts, fotos and her answers) and switches the canal to the
-simulador. It has no logic of its own: every button
+simulador, and its **primeros pasos** at the top. It has no logic of its own: every button
 calls the same flows Patricia's night runs on. The scripted week at /demo
 is a separate screen. Written "the control room"
 in English prose.
 _Avoid:_ "dashboard", "admin panel".
+
+## Primeros pasos
+
+Patricia's initial steps as the team sees them at the top of the sala de
+control, in order: she writes for the first time, the bienvenida goes out,
+she answers it (nombre, hora, voz), she gives the «Permitir» of Gmail, her RUT
+and her contexto. Each one is done or pending with its time, computed from what
+the base already keeps; «Permitir» counts by this run's decision, not by
+`gmailPermitido`, which the reset leaves true. The RUT step never shows the RUT.
+_Avoid:_ "onboarding", "setup".
 
 ## Canal
 
