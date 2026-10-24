@@ -3,6 +3,7 @@ import type { Clock } from "../ports";
 import { plataApartada, type PlataApartada } from "../plata/apartado";
 import { comprasEnCuotas, type CompraRegistrada } from "../plata/cuotas";
 import type {
+  ContextoDePatricia,
   Cita,
   Decision,
   EstadoDeCuenta,
@@ -99,6 +100,7 @@ type PatriciaRow = {
   hora_cita: string | null;
   gmail_permitido: number;
   rut: string | null;
+  contexto: string | null;
   etapa: string;
   bolsillo: string | null;
   en_pausa: number;
@@ -184,6 +186,22 @@ function etapaFromText(text: string): Etapa {
   return text === "graduada" ? "graduada" : (Number(text) as Etapa);
 }
 
+/** The stored contexto JSON back as a ContextoDePatricia; anything unreadable is null, so she is asked again. */
+function contextoFromText(text: string | null): ContextoDePatricia | null {
+  if (text === null) return null;
+  try {
+    const value: unknown = JSON.parse(text);
+    if (typeof value !== "object" || value === null) return null;
+    const answer = (key: string): string | null => {
+      const field = (value as Record<string, unknown>)[key];
+      return typeof field === "string" ? field : null;
+    };
+    return { deQueVive: answer("deQueVive"), queLePreocupa: answer("queLePreocupa"), queLePesa: answer("queLePesa") };
+  } catch {
+    return null;
+  }
+}
+
 function toPatricia(row: PatriciaRow): Patricia {
   return {
     nombre: row.nombre,
@@ -191,6 +209,7 @@ function toPatricia(row: PatriciaRow): Patricia {
     hora: row.hora_cita,
     gmailPermitido: row.gmail_permitido === 1,
     rut: row.rut,
+    contexto: contextoFromText(row.contexto),
     etapa: etapaFromText(row.etapa),
     bolsillo: row.bolsillo,
     enPausa: row.en_pausa === 1,
@@ -278,11 +297,11 @@ export function createStore(db: Database, clock: Clock): Store {
   const now = () => clock.now().toISOString();
 
   const selectPatricia = db.query<PatriciaRow, []>(
-    "SELECT nombre, voz, hora_cita, gmail_permitido, rut, etapa, bolsillo, en_pausa FROM patricia WHERE id = 1",
+    "SELECT nombre, voz, hora_cita, gmail_permitido, rut, contexto, etapa, bolsillo, en_pausa FROM patricia WHERE id = 1",
   );
   const updatePatriciaRow = db.query(
     `UPDATE patricia SET nombre = $nombre, voz = $voz, hora_cita = $hora, gmail_permitido = $gmailPermitido,
-       rut = $rut, bolsillo = $bolsillo, en_pausa = $enPausa WHERE id = 1`,
+       rut = $rut, contexto = $contexto, bolsillo = $bolsillo, en_pausa = $enPausa WHERE id = 1`,
   );
   const updateEtapa = db.query("UPDATE patricia SET etapa = $etapa WHERE id = 1");
   const insertEtapaCambio = db.query(
@@ -385,6 +404,7 @@ export function createStore(db: Database, clock: Clock): Store {
         hora: next.hora ?? null,
         gmailPermitido: next.gmailPermitido ? 1 : 0,
         rut: next.rut ?? null,
+        contexto: next.contexto ? JSON.stringify(next.contexto) : null,
         bolsillo: next.bolsillo,
         enPausa: next.enPausa ? 1 : 0,
       });
