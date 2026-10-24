@@ -9,6 +9,7 @@ import { createHttpWeb } from "./web/http";
 import { createWhatsAppCloud } from "./whatsapp-cloud";
 import { createGmailAccount } from "./mail/gmail-oauth";
 import { createGmailMail } from "./mail/gmail";
+import { withSampleDocuments } from "./mail/samples";
 
 type Env = Record<string, string | undefined>;
 
@@ -59,7 +60,8 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
         return createElevenLabsTranscriber({ apiKey: apiKey!, fetch: options.fetch, log: options.log }).transcribe(audio, mimeType);
       },
     },
-    web: createHttpWeb({ fetch: options.fetch }),
+    // The /sala tienda sample links to a `.example` domain, so its PDF is served from the fixture.
+    web: withSampleDocuments(createHttpWeb({ fetch: options.fetch })),
     db,
   };
 }

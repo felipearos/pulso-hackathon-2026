@@ -45,7 +45,7 @@ const REGLAS = `Responde SOLO un objeto JSON con exactamente estas claves:
 Reglas:
 - Copia cada cifra exactamente como está impresa. Nunca calcules, redondees ni deduzcas una cifra. Si no la encuentras o dudas, usa null.
 - Los montos en pesos son enteros: los puntos son separadores de miles y no hay decimales ($41.900 es 41900).
-- pagoMinimo es el monto mínimo a pagar; totalFacturado es el monto total facturado; cupo es el cupo total.
+- pagoMinimo es el monto mínimo a pagar; totalFacturado es el monto total facturado, aunque esté impreso con otro nombre como «Deuda total»; cupo es el cupo total.
 - tasaMensualPorcentaje es la tasa de interés mensual tal como está impresa, en porcentaje y con punto decimal (3,10 % es 3.1).
 - fechaVencimiento es la fecha hasta la que se puede pagar; fechaCierre es la fecha de facturación. Escríbelas como AAAA-MM-DD.
 - mora es el monto en mora en pesos; usa 0 solo si el texto dice explícitamente que no hay nada en mora (por ejemplo «Monto en mora: $0»); usa null si el texto no lo dice.
