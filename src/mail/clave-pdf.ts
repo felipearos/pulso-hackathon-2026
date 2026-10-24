@@ -63,9 +63,14 @@ const RUT_IN_TEXT = /\b\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]\b/g;
 /** The longest slice of the body Haiku reads; the instruction sits near the top. */
 const MAX_BODY_CHARS = 2000;
 
-/** The body with every RUT masked, so the RUT never reaches a prompt. */
+/** `text` with every RUT-shaped string masked as «[RUT]», so the RUT never reaches a prompt. */
+export function enmascararRut(text: string): string {
+  return text.replace(RUT_IN_TEXT, "[RUT]");
+}
+
+/** The body with every RUT masked, cut to what Haiku reads. */
 function sinRut(text: string): string {
-  return text.replace(RUT_IN_TEXT, "[RUT]").slice(0, MAX_BODY_CHARS);
+  return enmascararRut(text).slice(0, MAX_BODY_CHARS);
 }
 
 function isRegla(value: unknown): value is ReglaDeClave {

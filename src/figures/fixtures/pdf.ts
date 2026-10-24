@@ -32,7 +32,7 @@ export function estadoDeCuentaTiendaPdf(): Uint8Array {
  * A one-page A4 PDF with the lines of `texto` set from the top-left margin, 10 pt on 12 pt leading.
  * With `clave`, the content stream is encrypted and the PDF opens only with that user password.
  */
-function pdfDeTexto(texto: string, clave?: string): Uint8Array {
+export function pdfDeTexto(texto: string, clave?: string): Uint8Array {
   const lines = texto.replace(/\n$/, "").split("\n");
   const escape = (s: string) => s.replace(/[\\()]/g, (c) => `\\${c}`);
   const content = [

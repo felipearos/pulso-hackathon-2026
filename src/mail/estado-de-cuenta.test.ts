@@ -1,6 +1,6 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { ESTADO_DE_CUENTA_8_CIFRAS, ESTADO_DE_CUENTA_8_TEXTO } from "../figures/fixtures/estado-de-cuenta-8";
-import { estadoDeCuenta8Pdf, estadoDeCuenta8PdfCifrado } from "../figures/fixtures/pdf";
+import { estadoDeCuenta8Pdf, estadoDeCuenta8PdfCifrado, pdfDeTexto } from "../figures/fixtures/pdf";
 import { createApp, type App } from "../app";
 import { allowedFigures, decisionDeCita, redactarGuion } from "../citas/redactor";
 import { openDatabase } from "../db";
@@ -564,8 +564,12 @@ describe("an S1 with a PDF attachment", () => {
 
     test("the RUT and the clave never leave Patricia's row", async () => {
       // The fictional RUT was chosen so its digits are not among estado de cuenta 8's figures.
-      expect(JSON.stringify(ESTADO_DE_CUENTA_8_CIFRAS)).not.toContain("33457982");
-      const secrets = [PATRICIA_RUT_FICTICIO, CLAVE, "334579824", "33.457.982"];
+      expect(JSON.stringify(ESTADO_DE_CUENTA_8_CIFRAS)).not.toContain(CLAVE);
+      const [cuerpo, dv] = PATRICIA_RUT_FICTICIO.split("-") as [string, string];
+      const conPuntos = `${cuerpo.slice(0, -6)}.${cuerpo.slice(-6, -3)}.${cuerpo.slice(-3)}`;
+      const secrets = [PATRICIA_RUT_FICTICIO, CLAVE, `${cuerpo}${dv}`, conPuntos];
+      // The bank prints her RUT on the estado de cuenta itself, as real ones do.
+      const pdfConRut = pdfDeTexto(`TITULAR: PATRICIA RUT ${conPuntos}-${dv}\n${ESTADO_DE_CUENTA_8_TEXTO}`, CLAVE);
 
       const lines: string[] = [];
       const spies = (["log", "info", "warn", "error"] as const).map((level) =>
@@ -580,7 +584,7 @@ describe("an S1 with a PDF attachment", () => {
           { regla: "rut-con-dv", n: null },
         ]) {
           const { app, mail, llm } = createPdfApp(regla);
-          mail.inject(bankMailWithPdf(estadoDeCuenta8PdfCifrado(CLAVE)));
+          mail.inject(bankMailWithPdf(pdfConRut));
           await app.tick();
           seen.push(
             ...app.store.decisions().flatMap((d) => [d.motivo, JSON.stringify(d.datos)]),
@@ -589,7 +593,11 @@ describe("an S1 with a PDF attachment", () => {
             JSON.stringify(app.store.senales()),
             ...llm.calls.flatMap((c) => [c.prompt, c.system ?? ""]),
           );
-          if (regla.regla === "rut-sin-dv") expect(app.store.extraccionForMail("ec8-pdf")).not.toBeNull();
+          if (regla.regla === "rut-sin-dv") {
+            expect(app.store.extraccionForMail("ec8-pdf")).not.toBeNull();
+            // The PDF was read, with her RUT masked before the extractor saw it.
+            expect(extractorCalls(llm.calls)[0]?.prompt).toContain("TITULAR: PATRICIA RUT [RUT]");
+          }
           else expect(noAbre(app.store.decisions())).toHaveLength(1);
         }
       } finally {

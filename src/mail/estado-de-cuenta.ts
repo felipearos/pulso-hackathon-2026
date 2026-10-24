@@ -6,7 +6,7 @@ import type { Store } from "../patricia/store";
 import type { IncomingMail, Llm, Web } from "../ports";
 import { documentText } from "../web/documento";
 import { allowedLink } from "../web/link";
-import { claveDesdeRut, leerReglaDeClave } from "./clave-pdf";
+import { claveDesdeRut, enmascararRut, leerReglaDeClave } from "./clave-pdf";
 import { allowedSender } from "./senders";
 
 /**
@@ -142,7 +142,8 @@ async function textoDelAdjunto(
   mail: IncomingMail,
   bytes: Uint8Array,
 ): Promise<{ text: string } | { caso: CasoNoAbre }> {
-  // One retry, as for the figures: a failed call is not a mail that says nothing.
+  // One retry, as for the figures. Its null does not tell a failed call from a mail that
+  // says nothing, so both are asked twice and two nulls open the PDF without a clave.
   const regla = (await leerReglaDeClave(mail.text, llm)) ?? (await leerReglaDeClave(mail.text, llm));
   const pdf = { contentType: "application/pdf", body: bytes };
   if (regla === null || regla.regla === "sin-clave") {
@@ -206,7 +207,8 @@ export async function extractEstadoDeCuenta(
         return "cerrado" as const;
       })();
     }
-    text = leido.text;
+    // The bank prints her RUT on the estado de cuenta; it never reaches the extractor's prompt.
+    text = enmascararRut(leido.text);
   } else {
     text = origen === "banco" ? mail.text : await textoDeLaTienda(web, mail);
   }
