@@ -233,6 +233,38 @@ describe("RUT form", () => {
     expect((await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT }))).status).toBe(400);
   });
 
+  test("«Ahora no» clears a RUT given before", async () => {
+    const { app } = createTestApp();
+    const { token } = await connect(app);
+    app.store.updatePatricia({ rut: VALID_RUT });
+
+    await app.handle(submitRut({ token, respuesta: "ahora-no" }));
+
+    expect(app.store.getPatricia().rut).toBeNull();
+  });
+
+  test("an unknown respuesta writes nothing and keeps the token", async () => {
+    const { app } = createTestApp();
+    const { token } = await connect(app);
+
+    expect((await app.handle(submitRut({ token, rut: VALID_RUT }))).status).toBe(400);
+    expect(app.store.getPatricia().rut ?? null).toBeNull();
+    expect((await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT }))).status).toBe(200);
+  });
+
+  test("once she gave her RUT, a later callback does not ask again", async () => {
+    const { app } = createTestApp();
+    app.store.updatePatricia({ rut: VALID_RUT });
+
+    const { response, html, token } = await connect(app);
+
+    expect(response.status).toBe(200);
+    expect(html).toContain("Listo");
+    expect(html).not.toContain("Permitir abrir mis estados de cuenta");
+    expect(token).toBe("");
+    expect(app.store.getPatricia().rut).toBe(VALID_RUT);
+  });
+
   test("an oversized body is refused before anything is stored", async () => {
     const { app } = createTestApp();
     const { token } = await connect(app);

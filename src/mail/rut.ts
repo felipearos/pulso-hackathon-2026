@@ -1,5 +1,6 @@
 /*
- * Patricia's RUT, the clave her banks lock the estado de cuenta PDF with.
+ * Patricia's RUT, from which her banks derive the clave that locks the
+ * estado de cuenta PDF.
  * Only the shape is checked here: the cuerpo and its dígito verificador
  * (módulo 11). Nothing in this file logs or stores it.
  */

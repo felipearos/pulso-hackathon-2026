@@ -38,6 +38,7 @@ const STATE_TTL_MS = 15 * 60 * 1000;
 const MAX_RUT_BODY_BYTES = 4 * 1024;
 
 const EXPIRED_LINK = "Este link ya no sirve. Abre de nuevo el link que te mandó Luna.";
+const LISTO = "Listo. Desde ahora me entero sola de lo que te llega del banco y de la tienda. Puedes cerrar esta página.";
 
 export type PermitirDeps = {
   mail: Mail;
@@ -105,6 +106,10 @@ export function createPermitir(deps: PermitirDeps): Permitir {
       motivo: "Patricia dio su «Permitir»: Luna lee su Gmail, solo los remitentes de la lista y sin poder escribir",
       datos: {},
     });
+    if (store.getPatricia().rut) {
+      // She gave it once already: the RUT is asked a single time.
+      return page(200, LISTO);
+    }
     const token = crypto.randomUUID();
     rutTokens.set(token, clock.now().getTime());
     return rutForm(200, token);
@@ -117,10 +122,13 @@ export function createPermitir(deps: PermitirDeps): Permitir {
     const form = new URLSearchParams(body);
     const token = form.get("token") ?? "";
     if (!rutTokens.has(token)) return page(400, EXPIRED_LINK);
-    if (form.get("respuesta") !== "permitir") {
+    const respuesta = form.get("respuesta");
+    if (respuesta === "ahora-no") {
       rutTokens.delete(token);
-      return page(200, "Está bien, no guardé nada. Tu correo sigue conectado y yo me las arreglo igual. Puedes cerrar esta página.");
+      store.updatePatricia({ rut: null });
+      return page(200, "Está bien, no guardé tu RUT. Tu correo sigue conectado y yo me las arreglo igual. Puedes cerrar esta página.");
     }
+    if (respuesta !== "permitir") return page(400, EXPIRED_LINK);
     const normalized = normalizeRut(form.get("rut") ?? "");
     if (!normalized) {
       // The token stays valid: she gets to fix a swapped digit without starting over.
@@ -130,10 +138,10 @@ export function createPermitir(deps: PermitirDeps): Permitir {
     store.updatePatricia({ rut: normalized });
     store.recordDecision({
       tipo: "permitir-rut",
-      motivo: "Patricia dio su RUT en la página del «Permitir»: Luna puede abrir sola sus estados de cuenta con clave",
+      motivo: "Patricia dio su RUT en la página del «Permitir», para abrir los estados de cuenta que llegan con clave",
       datos: {},
     });
-    return page(200, "Listo. Desde ahora me entero sola de lo que te llega del banco y de la tienda, y abro yo los estados de cuenta. Puedes cerrar esta página.");
+    return page(200, LISTO);
   };
 
   return {
@@ -186,7 +194,7 @@ function rutForm(status: number, token: string, notice?: string): Response {
     `<form method="post" action="${RUT_PATH}">`,
     `<input type="hidden" name="token" value="${escapeHtml(token)}">`,
     `<label for="rut">Tu RUT</label>`,
-    `<input id="rut" name="rut" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="12.345.678-5" style="${FIELD_STYLE}">`,
+    `<input id="rut" name="rut" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="12.345.678-5" style="${FIELD_STYLE}">`,
     `<button type="submit" name="respuesta" value="permitir" style="${FIELD_STYLE}">Permitir abrir mis estados de cuenta</button>`,
     `<button type="submit" name="respuesta" value="ahora-no" style="${FIELD_STYLE}; background: none">Ahora no</button>`,
     "</form>",

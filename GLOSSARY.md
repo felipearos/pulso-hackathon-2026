@@ -212,9 +212,9 @@ _Avoid:_ "whitelist".
 
 Patricia's Chilean national id, asked once on the page `/gmail/callback`
 shows after her «Permitir», never by WhatsApp. Banks lock the estado de
-cuenta PDF with a clave made from it, so with it Luna opens them alone.
+cuenta PDF with a clave made from it, so with it Luna can open them.
 Stored normalized (`12345678-5`) in `Patricia.rut`, null until she gives
-it or after «Ahora no»; validated by módulo 11 (`src/mail/rut.ts`). It
+it, after «Ahora no» and after the reset; validated by módulo 11 (`src/mail/rut.ts`). It
 never leaves the base: not in logs, the registro de decisiones, /demo,
 /sala or any LLM prompt.
 _Avoid:_ "clave" for the RUT itself; the clave is what the bank derives from it.
