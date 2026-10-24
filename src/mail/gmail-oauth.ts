@@ -127,6 +127,8 @@ export function createGmailAccount(deps: GmailAccountDeps): GmailAccount {
         prompt: "consent",
         state,
       });
+      // Sends Google straight to the account already open on Patricia's phone.
+      if (env.GMAIL_LOGIN_HINT) params.set("login_hint", env.GMAIL_LOGIN_HINT);
       return `${AUTH_URL}?${params}`;
     },
 
