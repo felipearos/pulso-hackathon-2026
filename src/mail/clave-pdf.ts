@@ -38,8 +38,10 @@ export function claveDesdeRut(rut: string, regla: ReglaDeClave, n?: number): str
       return validN(n) && n <= cuerpo.length ? cuerpo.slice(-n) : null;
     case "sin-clave":
       return null;
-    default:
-      return null;
+    default: {
+      const unknownRegla: never = regla;
+      return unknownRegla;
+    }
   }
 }
 
@@ -54,6 +56,17 @@ La regla es una de estas:
 n: solo para "primeros-n" y "ultimos-n"; en las demás, null.
 Si el correo no dice cómo se abre el PDF, o la regla no es ninguna de la lista, responde {"regla":null,"n":null}.
 No agregues explicaciones, formato Markdown ni texto fuera del JSON.`;
+
+/** Anything shaped like a RUT, with or without dots and hyphen: banks print hers in the body. */
+const RUT_IN_TEXT = /\b\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]\b/g;
+
+/** The longest slice of the body Haiku reads; the instruction sits near the top. */
+const MAX_BODY_CHARS = 2000;
+
+/** The body with every RUT masked, so the RUT never reaches a prompt. */
+function sinRut(text: string): string {
+  return text.replace(RUT_IN_TEXT, "[RUT]").slice(0, MAX_BODY_CHARS);
+}
 
 function isRegla(value: unknown): value is ReglaDeClave {
   return typeof value === "string" && (REGLAS_DE_CLAVE as readonly string[]).includes(value);
@@ -80,8 +93,8 @@ function parseReply(reply: string): { regla: ReglaDeClave; n?: number } | null {
 
 /**
  * Reads from a bank email how its PDF opens, or null when it does not say or
- * the answer is not usable. The LLM sees only the email text, never the RUT
- * nor the clave. Never throws.
+ * the answer is not usable. The LLM sees only the email text, with any RUT
+ * masked, never the clave. Never throws.
  */
 export async function leerReglaDeClave(
   text: string,
@@ -97,7 +110,7 @@ export async function leerReglaDeClave(
       llm.complete({
         model: HAIKU_MODEL,
         system: SYSTEM_PROMPT,
-        prompt: `Texto del correo del banco:\n${JSON.stringify(text)}`,
+        prompt: `Texto del correo del banco:\n${JSON.stringify(sinRut(text))}`,
       }),
       timeout,
     ]);

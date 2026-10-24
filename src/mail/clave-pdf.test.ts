@@ -148,4 +148,17 @@ describe("leerReglaDeClave", () => {
     expect(sent).not.toContain("12345678");
     expect(sent).not.toContain(clave!);
   });
+
+  test.each(["12.345.678-5", "12345678-5", "123456785", "11.111.112-k"])(
+    "masks a RUT %p printed in the body before it reaches Haiku",
+    async (rut) => {
+      const body = `Estimada clienta RUT ${rut}: usa como contraseña tu RUT sin guión ni dígito verificador.`;
+      const llm = new FakeLlm([["contraseña", '{"regla":"rut-sin-dv","n":null}']]);
+      expect(await leerReglaDeClave(body, llm)).toEqual({ regla: "rut-sin-dv" });
+      const request = llm.calls[0]!;
+      expect(request.prompt).toContain("RUT [RUT]:");
+      expect(request.prompt).not.toContain(rut);
+      expect(request.prompt).not.toMatch(/\d{6}/);
+    },
+  );
 });
