@@ -71,7 +71,8 @@ correr `deploy/install.sh` de nuevo; el timer no los copia.
 
 Una vez, después de que Google Cloud y Doppler estén listos (#65, con
 `GMAIL_REDIRECT_URI` = `https://desktop.taild8ed7e.ts.net/gmail/callback`
-registrada en Google), se abre en el teléfono con el Gmail ficticio de
+registrada en Google, y `GMAIL_LOGIN_HINT` con ese Gmail para que Google se
+salte el selector de cuentas), se abre en el teléfono con el Gmail ficticio de
 Patricia:
 
 ```
