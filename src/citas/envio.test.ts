@@ -289,7 +289,7 @@ describe("bienvenida", () => {
     return t;
   }
 
-  test("speaks the fixed guion, then sends the «Permitir» link, without the LLM", async () => {
+  test("speaks the fixed guion, then sends the «Permitir» button, without the LLM", async () => {
     const t = setupBienvenida();
     const llmCalls = t.llm.calls.length;
     await tickAt(t, "2026-10-19T22:30");
@@ -297,7 +297,8 @@ describe("bienvenida", () => {
     expect(t.llm.calls).toHaveLength(llmCalls);
     expect(t.whatsapp.outbox.map((m) => m.kind)).toEqual(["audio", "text"]);
     const link = t.whatsapp.outbox[1] as Extract<OutgoingWhatsApp, { kind: "text" }>;
-    expect(link.text).toContain(PERMITIR);
+    expect(link.button).toEqual({ label: "Permitir", url: PERMITIR });
+    expect(link.text).not.toContain(PERMITIR);
 
     const [audio, text] = t.app.store.mensajesSalientes();
     expect(audio!.kind).toBe("audio");
@@ -308,7 +309,7 @@ describe("bienvenida", () => {
     expect(audio!.text).toContain("diez y media");
     expect(audio!.text).toContain("otra voz");
     expect(t.app.store.citaOn("2026-10-19")?.mensajeSalienteId).toBe(audio!.id);
-    expect(text).toMatchObject({ kind: "text", text: link.text, durationSeconds: null, whatsappId: "wamid-2" });
+    expect(text).toMatchObject({ kind: "text", text: `${link.text} ${PERMITIR}`, durationSeconds: null, whatsappId: "wamid-2" });
     expect(t.app.store.decisions().some((d) => d.motivo.startsWith("salió el enlace «Permitir»"))).toBe(true);
 
     await tickAt(t, "2026-10-19T22:31");
