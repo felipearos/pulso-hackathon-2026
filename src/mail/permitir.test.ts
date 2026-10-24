@@ -1,7 +1,8 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { MissingEnvError } from "../missing-env";
 import { createTestApp } from "../testing";
-import { permitirUrl } from "./permitir";
+import { checkText } from "../validator/validator";
+import { avisoPermitir, permitirUrl } from "./permitir";
 
 const START_URL = "http://localhost/permitir";
 const CALLBACK_URL = "http://localhost/gmail/callback";
@@ -563,6 +564,110 @@ describe("contexto form", () => {
       expect(recorded).not.toContain(text);
     }
     expect(app.store.getPatricia().contexto).toEqual(answers);
+  });
+});
+
+describe("closing the «Permitir» in the chat", () => {
+  /** Fictional, like every number in the fixtures. */
+  const ENTRADA_PHONE = "+56 9 0000 0000";
+  const ENTRADA_LINK = "https://wa.me/56900000000?text=Hola%20Luna";
+
+  const texts = (outbox: { kind: string; text?: string }[]) =>
+    outbox.filter((m) => m.kind === "text").map((m) => m.text ?? "");
+
+  /** With the contexto already told, the RUT step is the last one. */
+  const closingApp = (options: { entradaPhone?: string } = { entradaPhone: ENTRADA_PHONE }) => {
+    const testApp = createTestApp(options);
+    testApp.app.store.updatePatricia({ contexto: STORED_CONTEXTO });
+    return testApp;
+  };
+
+  test("after the RUT, Luna writes in the chat and the page sends her back to it", async () => {
+    const { app, whatsapp } = closingApp();
+    const nombre = app.store.getPatricia().nombre;
+    const { token } = await connect(app);
+    expect(texts(whatsapp.outbox)).toEqual([]);
+
+    const response = await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT }));
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(texts(whatsapp.outbox)).toEqual([avisoPermitir(nombre)]);
+    expect(app.store.mensajesSalientes().at(-1)?.text).toBe(avisoPermitir(nombre));
+    expect(app.store.decisions().at(-1)).toMatchObject({ tipo: "mensaje", motivo: "salió el aviso de que su correo quedó conectado" });
+    expect(html).toContain("Te escribí en WhatsApp.");
+    expect(html).toContain(`href="${ENTRADA_LINK}"`);
+    expect(html).not.toContain("Puedes cerrar esta página");
+  });
+
+  test("«Ahora no» and a later callback with the RUT already given close the same way", async () => {
+    const declined = closingApp();
+    const { token } = await connect(declined.app);
+    const ahoraNo = await (await declined.app.handle(submitRut({ token, respuesta: "ahora-no" }))).text();
+    expect(ahoraNo).toContain("Volver a WhatsApp");
+    expect(texts(declined.whatsapp.outbox)).toHaveLength(1);
+
+    const again = closingApp();
+    again.app.store.updatePatricia({ rut: VALID_RUT });
+    const { html } = await connect(again.app);
+    expect(html).toContain("Volver a WhatsApp");
+    expect(texts(again.whatsapp.outbox)).toHaveLength(1);
+  });
+
+  test("the RUT form, a declined consent and an invalid RUT send nothing yet", async () => {
+    const { app, whatsapp } = closingApp();
+    const { token } = await connect(app);
+    await app.handle(submitRut({ token, respuesta: "permitir", rut: "1-1" }));
+    const { state } = await start(app);
+    await app.handle(callback(state, { error: "access_denied" }));
+
+    expect(texts(whatsapp.outbox)).toEqual([]);
+  });
+
+  for (const respuesta of ["guardar", "ahora-no"]) {
+    test(`while the contexto is untold, Luna writes only once its form ends with «${respuesta}»`, async () => {
+      const { app, whatsapp } = createTestApp({ entradaPhone: ENTRADA_PHONE });
+      const { token } = await connect(app);
+      const form = await (await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT }))).text();
+      expect(form).toContain('action="/gmail/contexto"');
+      expect(texts(whatsapp.outbox)).toEqual([]);
+
+      const html = await (await app.handle(submitContexto({ token: tokenOf(form), respuesta }))).text();
+
+      expect(html).toContain(LISTO_TEXT);
+      expect(html).toContain("Te escribí en WhatsApp.");
+      expect(html).toContain(`href="${ENTRADA_LINK}"`);
+      expect(texts(whatsapp.outbox)).toEqual([avisoPermitir(app.store.getPatricia().nombre)]);
+    });
+  }
+
+  test("a failed send still closes the page, without claiming Luna wrote", async () => {
+    const { app, whatsapp } = closingApp();
+    const { token } = await connect(app);
+    whatsapp.failNextTexts = 1;
+
+    const response = await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT }));
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(html).toContain("Volver a WhatsApp");
+    expect(html).not.toContain("Te escribí en WhatsApp.");
+    expect(app.store.decisions().at(-1)).toMatchObject({ tipo: "mensaje", motivo: "no salió el aviso de que su correo quedó conectado" });
+  });
+
+  test("the aviso has no figure and passes the validador's code checks", () => {
+    expect(checkText(avisoPermitir("Patricia"), [])).toEqual([]);
+  });
+
+  test("without an entrada number the page just says it can be closed", async () => {
+    const { app, whatsapp } = closingApp({ entradaPhone: undefined });
+    const { token } = await connect(app);
+
+    const html = await (await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT }))).text();
+
+    expect(html).toContain("Puedes cerrar esta página.");
+    expect(html).not.toContain("Volver a WhatsApp");
+    expect(texts(whatsapp.outbox)).toHaveLength(1);
   });
 });
 
