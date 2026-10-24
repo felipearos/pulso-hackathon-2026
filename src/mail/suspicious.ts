@@ -19,9 +19,9 @@ const SECRET_PATTERNS = [
 // is dropped before the secret check only when the mail names the file and nothing left in the
 // whole mail asks for something or sends her somewhere to log in.
 const FILE = /\b(?:pdf|archivo|adjunto|documento)\b/;
-// The same verbs with a pronoun attached («respóndenos», «envíala»), plus ways to hand it over by phone.
+// The same verbs with a pronoun attached («respóndenos», «envíala»), plus other ways to hand it over.
 const REQUEST = new RegExp(
-  String.raw`\b(?:${ASK_VERBS}|llama|dicta|manda)(?:nos|me|la|lo|las|los|le|sela|selo)?\b`,
+  String.raw`\b(?:${ASK_VERBS}|llama|llame|dicta|dicte|manda|mande|contesta|conteste|reenvia|reenvie)(?:nos|me|la|lo|las|los|le|sela|selo|nosla|noslo|mela|melo)?\b`,
 );
 const ELSEWHERE = /\b(?:entra|entrar|ingresar|accede|acceder|sucursal|sitio|pagina|web|app|aplicacion|portal|enlace|link)\b/;
 const FILE_PASSWORD_PATTERNS = [

@@ -109,6 +109,8 @@ describe("suspiciousReason", () => {
     "Ingresa al sitio\nusa como clave tu RUT del PDF adjunto.",
     "El PDF adjunto está protegido. Usa como clave tu RUT. Respóndenos este correo con ella.",
     "PDF adjunto\nUsa como clave tu RUT\nEnvíala por WhatsApp a tu ejecutivo",
+    `${PDF_PASSWORD} Llame al 600 000 0000 y díctela al ejecutivo.`,
+    `${PDF_PASSWORD} Mándenosla hoy para evitar el bloqueo.`,
   ])("still flags a data request from an allowed sender: %p", (text) => {
     expect(suspiciousReason({ subject: "Tu estado de cuenta", text, links: [] }, allowed)).toBe(DATA_REQUEST);
   });
