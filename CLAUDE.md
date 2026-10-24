@@ -148,6 +148,7 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `GMAIL_REDIRECT_URI` | dev, prd | mail port: the OAuth callback registered in Google, `<public URL>/gmail/callback` (prd: `https://desktop.taild8ed7e.ts.net/gmail/callback`, dev: `http://localhost:3000/gmail/callback`) |
 | `GMAIL_LOGIN_HINT` | dev, prd | mail port: Patricia's fictional Gmail address, sent as `login_hint` so the «Permitir» goes straight to that account; unset, Google shows its account chooser |
 | `GMAIL_SMOKE` | none (command line) | set it for one run to let the Gmail smoke test read the real inbox of the base's connected account |
+| `DEMO_SENDERS` | prd | mail port: real addresses that stand in for a sender in the live demo, `ana@example.com=banco,juan@example.com=tienda`; matched by the whole address, never their domain; unset, only the fictional senders are read |
 | `WHATSAPP_ACCESS_TOKEN` | dev, prd | whatsapp port: Meta WhatsApp Cloud token |
 | `WHATSAPP_PHONE_NUMBER_ID` | dev, prd | whatsapp port: sending number in Meta |
 | `WHATSAPP_RECIPIENT_PHONE` | dev, prd | whatsapp port: Patricia's number, international form |
