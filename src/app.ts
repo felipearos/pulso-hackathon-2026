@@ -6,7 +6,7 @@ import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
 import { GUION } from "./demo/guion";
 import { nightAudioSender } from "./demo/night-audio";
-import { createQrRoutes } from "./demo/qr";
+import { createQrRoutes, entradaLink } from "./demo/qr";
 import { createDemoRoutes } from "./demo/routes";
 import controlPage from "./demo/control.html" with { type: "text" };
 import { pauseIfSilent } from "./escalera/pausa";
@@ -246,6 +246,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     demoPage,
     landingPage,
     soonPage,
+    entradaLink: entradaLink(options.entradaPhone) ?? undefined,
     landingImages,
     nightAudio,
     sendNightAudio: nightAudioSender(canal, nightAudio),

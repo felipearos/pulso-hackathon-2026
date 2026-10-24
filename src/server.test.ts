@@ -36,12 +36,14 @@ function app(
   result: NightAudioResult = { sent: true, messageId: "wamid.test" },
   operatorKey: string | null = KEY,
   webhook: Webhook = stubWebhook().webhook,
+  entradaLink?: string,
 ) {
   let sends = 0;
   const handle = createHandler({
     demoPage: new Blob(["<h1>Luna · sala de control</h1>"]),
     landingPage: new Blob(["<h1>Mira tus cuentas sin angustia.</h1>"]),
     soonPage: new Blob(["<h1>Esto está por llegar.</h1>"]),
+    entradaLink,
     landingImages: { "taza-te.webp": new Blob(["webp"]) },
     nightAudio: new Blob(["ogg"]),
     sendNightAudio: async () => {
@@ -81,14 +83,23 @@ describe("handle", () => {
     expect(await page.text()).toContain("Mira tus cuentas sin angustia.");
   });
 
-  test("serves the coming-soon page where starting and signing in will live", async () => {
-    const { get } = app();
-    for (const path of ["/empezar", "/entrar"]) {
-      const page = await get(path);
-      expect(page.status).toBe(200);
-      expect(page.headers.get("Content-Type")).toContain("text/html");
-      expect(await page.text()).toContain("Esto está por llegar.");
-    }
+  test("sends «Empezar» to the WhatsApp chat with Luna", async () => {
+    const link = "https://wa.me/56900000000?text=Hola%20Luna";
+    const { get } = app(undefined, KEY, stubWebhook().webhook, link);
+    const response = await get("/empezar");
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe(link);
+  });
+
+  test("serves the coming-soon page for «Empezar» without an entrada number", async () => {
+    const page = await app().get("/empezar");
+    expect(page.status).toBe(200);
+    expect(page.headers.get("Content-Type")).toContain("text/html");
+    expect(await page.text()).toContain("Esto está por llegar.");
+  });
+
+  test("has no sign-in: Luna has no accounts", async () => {
+    expect((await app().get("/entrar")).status).toBe(404);
   });
 
   test("serves the landing's photos as webp and nothing else under /img", async () => {
