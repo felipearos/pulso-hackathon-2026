@@ -50,6 +50,13 @@ describe("Patricia's story", () => {
     expect(eighth.receivedAt.getTime()).toBeLessThan(PATRICIA_START.getTime());
   });
 
+  test("reset clears the RUT she gave", () => {
+    const { app } = createTestApp();
+    app.store.updatePatricia({ rut: "12345678-5" });
+    app.reset();
+    expect(app.store.getPatricia().rut).toBeNull();
+  });
+
   test("every pago mínimo comes from its cifras and nothing is overdue", () => {
     const { app } = resetApp();
     for (const estado of app.store.estadosDeCuenta()) {

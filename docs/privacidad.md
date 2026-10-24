@@ -7,6 +7,7 @@ Luna es un prototipo construido durante la Hackatón Señales de Makana, el 23 y
 - **Solo datos sintéticos.** La persona de la demo, Patricia, es ficticia, y sus correos y estados de cuenta son inventados.
 - **Los mensajes que llegan al número de WhatsApp de prueba**, para poder responderlos.
 - **Con el permiso de Gmail de solo lectura**, solo los correos de los remitentes que la persona confirma: su banco y su tienda.
+- **Su RUT, si lo da**, una sola vez y en la página del permiso de correo. Sirve para una sola cosa: abrir los estados de cuenta que el banco manda en PDF con una clave que sale del RUT. Se guarda en la base del servidor y nunca sale de ahí: no se manda a Meta, a Anthropic ni a ElevenLabs, no aparece en los registros ni en las pantallas de la demo. Si dice «Ahora no», Luna sigue funcionando sin abrir esos PDF.
 
 ## Con quién se comparten
 
@@ -22,7 +23,7 @@ En la base de datos del servidor del equipo, solo durante la hackatón. Al termi
 
 ## Lo que Luna no hace
 
-Luna nunca pide claves, códigos ni transferencias, y no mueve dinero.
+Luna nunca pide claves, códigos ni transferencias, y no mueve dinero. Tampoco pide el RUT por WhatsApp: el único lugar donde se pide es la página del permiso de correo. Si alguien te lo pide por chat, no es Luna.
 
 ## Cómo pedir que se borren tus datos
 

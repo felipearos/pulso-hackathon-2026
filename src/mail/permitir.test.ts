@@ -5,7 +5,12 @@ import { permitirUrl } from "./permitir";
 
 const START_URL = "http://localhost/permitir";
 const CALLBACK_URL = "http://localhost/gmail/callback";
+const RUT_URL = "http://localhost/gmail/rut";
 const STATE_TTL_MS = 15 * 60 * 1000;
+/** Fictional: 12.345.678 with its módulo-11 dígito verificador. */
+const VALID_RUT = "12345678-5";
+/** Fictional: 10.000.013, whose dígito verificador is K. */
+const VALID_RUT_K = "10000013-K";
 
 async function start(app: ReturnType<typeof createTestApp>["app"]): Promise<{ response: Response; state: string }> {
   const response = await app.handle(new Request(START_URL));
@@ -19,6 +24,25 @@ function callback(state: string, values: Record<string, string>): Request {
   url.searchParams.set("state", state);
   for (const [key, value] of Object.entries(values)) url.searchParams.set(key, value);
   return new Request(url.toString());
+}
+
+type TestApp = ReturnType<typeof createTestApp>["app"];
+
+/** Runs a full «Permitir» and returns the RUT form's page and its hidden token. */
+async function connect(app: TestApp): Promise<{ response: Response; html: string; token: string }> {
+  const { state } = await start(app);
+  const response = await app.handle(callback(state, { code: "abc" }));
+  const html = await response.text();
+  const token = /name="token" value="([^"]+)"/.exec(html)?.[1] ?? "";
+  return { response, html, token };
+}
+
+function submitRut(fields: Record<string, string>): Request {
+  return new Request(RUT_URL, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(fields).toString(),
+  });
 }
 
 describe("Permitir routes", () => {
@@ -115,8 +139,164 @@ describe("Permitir routes", () => {
 
     expect((await app.handle(new Request(START_URL, { method: "POST" }))).status).toBe(404);
     expect((await app.handle(new Request(CALLBACK_URL, { method: "POST" }))).status).toBe(404);
+    expect((await app.handle(new Request(RUT_URL))).status).toBe(404);
     expect((await app.handle(new Request("http://localhost/other"))).status).toBe(404);
     expect((await app.handle(new Request("http://localhost/health"))).status).toBe(200);
+  });
+});
+
+describe("RUT form", () => {
+  test("a successful callback shows the RUT form with both buttons and a hidden token", async () => {
+    const { app } = createTestApp();
+
+    const { response, html, token } = await connect(app);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(html).toContain("Permitir abrir mis estados de cuenta");
+    expect(html).toContain("Ahora no");
+    expect(html).toContain("por WhatsApp");
+    expect(html).toContain('action="/gmail/rut"');
+    expect(token).not.toBe("");
+  });
+
+  test("a valid RUT with dots and a lowercase k is stored normalized and recorded without it", async () => {
+    const { app } = createTestApp();
+    const { token } = await connect(app);
+
+    const response = await app.handle(submitRut({ token, respuesta: "permitir", rut: "10.000.013-k" }));
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("Listo");
+    expect(app.store.getPatricia().rut).toBe(VALID_RUT_K);
+    const decision = app.store.decisions().find((entry) => entry.tipo === "permitir-rut");
+    expect(decision?.datos).toEqual({});
+    const recorded = JSON.stringify(app.store.decisions());
+    expect(recorded).not.toContain("10000013");
+    expect(recorded).not.toContain("10.000.013");
+  });
+
+  test("an invalid RUT shows the form again, stores nothing and keeps the token", async () => {
+    const { app } = createTestApp();
+    const { token } = await connect(app);
+
+    const response = await app.handle(submitRut({ token, respuesta: "permitir", rut: "12.345.678-4" }));
+    const html = await response.text();
+
+    expect(response.status).toBe(422);
+    expect(html).toContain("Ese RUT no me calza");
+    expect(html).toContain(`value="${token}"`);
+    expect(html).not.toContain("12.345.678-4");
+    expect(app.store.getPatricia().rut ?? null).toBeNull();
+    expect(app.store.decisions().map((entry) => entry.tipo)).not.toContain("permitir-rut");
+
+    const retry = await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT }));
+    expect(retry.status).toBe(200);
+    expect(app.store.getPatricia().rut).toBe(VALID_RUT);
+  });
+
+  test("a token works once, and a forged or missing token writes nothing", async () => {
+    const { app } = createTestApp();
+    const { token } = await connect(app);
+
+    expect((await app.handle(submitRut({ token: "forged", respuesta: "permitir", rut: VALID_RUT }))).status).toBe(400);
+    expect((await app.handle(submitRut({ respuesta: "permitir", rut: VALID_RUT }))).status).toBe(400);
+    expect(app.store.getPatricia().rut ?? null).toBeNull();
+
+    expect((await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT }))).status).toBe(200);
+    expect((await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT_K }))).status).toBe(400);
+    expect(app.store.getPatricia().rut).toBe(VALID_RUT);
+  });
+
+  test("a token expires with the same TTL as the state", async () => {
+    const { app, clock } = createTestApp();
+    const { token } = await connect(app);
+    clock.advance(STATE_TTL_MS + 1);
+
+    const response = await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT }));
+
+    expect(response.status).toBe(400);
+    expect(app.store.getPatricia().rut ?? null).toBeNull();
+  });
+
+  test("«Ahora no» leaves the RUT empty and the correo connected", async () => {
+    const { app } = createTestApp();
+    const { token } = await connect(app);
+
+    const response = await app.handle(submitRut({ token, respuesta: "ahora-no", rut: VALID_RUT }));
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("Está bien");
+    expect(app.store.getPatricia().rut ?? null).toBeNull();
+    expect(app.store.getPatricia().gmailPermitido).toBe(true);
+    expect((await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT }))).status).toBe(400);
+  });
+
+  test("«Ahora no» clears a RUT given before", async () => {
+    const { app } = createTestApp();
+    const { token } = await connect(app);
+    app.store.updatePatricia({ rut: VALID_RUT });
+
+    await app.handle(submitRut({ token, respuesta: "ahora-no" }));
+
+    expect(app.store.getPatricia().rut).toBeNull();
+  });
+
+  test("an unknown respuesta writes nothing and keeps the token", async () => {
+    const { app } = createTestApp();
+    const { token } = await connect(app);
+
+    expect((await app.handle(submitRut({ token, rut: VALID_RUT }))).status).toBe(400);
+    expect(app.store.getPatricia().rut ?? null).toBeNull();
+    expect((await app.handle(submitRut({ token, respuesta: "permitir", rut: VALID_RUT }))).status).toBe(200);
+  });
+
+  test("once she gave her RUT, a later callback does not ask again", async () => {
+    const { app } = createTestApp();
+    app.store.updatePatricia({ rut: VALID_RUT });
+
+    const { response, html, token } = await connect(app);
+
+    expect(response.status).toBe(200);
+    expect(html).toContain("Listo");
+    expect(html).not.toContain("Permitir abrir mis estados de cuenta");
+    expect(token).toBe("");
+    expect(app.store.getPatricia().rut).toBe(VALID_RUT);
+  });
+
+  test("an oversized body is refused before anything is stored", async () => {
+    const { app } = createTestApp();
+    const { token } = await connect(app);
+
+    const response = await app.handle(
+      submitRut({ token, respuesta: "permitir", rut: VALID_RUT, relleno: "x".repeat(5000) }),
+    );
+
+    expect(response.status).toBe(413);
+    expect(app.store.getPatricia().rut ?? null).toBeNull();
+  });
+
+  test("a valid submit logs nothing that contains the RUT", async () => {
+    const { app } = createTestApp();
+    const { token } = await connect(app);
+    const logged: unknown[] = [];
+    const spies = (["log", "error", "warn", "info"] as const).map((level) =>
+      spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        logged.push(...args);
+      }),
+    );
+
+    try {
+      const response = await app.handle(submitRut({ token, respuesta: "permitir", rut: "12.345.678-5" }));
+      expect(response.status).toBe(200);
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
+
+    const output = logged.map((entry) => String(entry)).join("\n");
+    expect(output).not.toContain("12345678");
+    expect(output).not.toContain("12.345.678");
   });
 });
 
