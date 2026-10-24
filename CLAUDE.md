@@ -162,7 +162,7 @@ Add one row per variable when the app first needs it. `HOST`, `PORT` and
 | `WHATSAPP_SIMULADOR` | none (optional) | set to 1 to boot with the /sala simulador as the channel instead of Meta; it can also be switched from /sala |
 | `DEMO_OPERATOR_KEY` | dev, prd | control room: the key that lets `/demo` move the clock and send the test audio; the operator opens `/demo?clave=<key>` once. Unset, `/demo` is view-only |
 | `CLAUDE_BIN` | none (optional) | llm port: path of the `claude` binary; Claude only runs through the Claude Code CLI logged in on the machine (`claude -p`), never an API key; defaults to `claude` on `PATH` |
-| `REPLAY_CACHE` | none (optional) | Claude and ElevenLabs answers are cached on disk in `replay/` next to the SQLite file, keyed by the exact request, so a rehearsed happy path replays at once in the pitch; set to `0` to always call live |
+| `REPLAY_CACHE` | none (optional) | Claude and ElevenLabs answers are cached on disk in `replay/` next to the SQLite file, keyed by the exact request, so a rehearsed happy path replays in the pitch, each saved answer after a 1 s pause; set to `0` to always call live |
 | `CLAUDE_CLI_SMOKE` | none (command line) | set it for one run to let the claude CLI smoke tests (adapter, mail and escalera classifiers, figures extractor) spend the logged-in account |
 | `ELEVENLABS_API_KEY` | dev, prd | voice port: ElevenLabs API |
 | `ELEVENLABS_VOICE_ID` | dev, prd | voice port: the voice Patricia hears |

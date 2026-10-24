@@ -44,16 +44,16 @@ describe("the replay cache", () => {
   test("answers the same llm request from disk, a different one live", async () => {
     const dir = tempDir();
     const llm = countingLlm(["primera", "segunda"]);
-    const cached = createReplayCache(dir, quiet).llm(llm);
+    const cached = createReplayCache(dir, quiet, 0).llm(llm);
     expect(await cached.complete({ system: "s", prompt: "hola" })).toBe("primera");
-    expect(await createReplayCache(dir, quiet).llm(llm).complete({ system: "s", prompt: "hola" })).toBe("primera");
+    expect(await createReplayCache(dir, quiet, 0).llm(llm).complete({ system: "s", prompt: "hola" })).toBe("primera");
     expect(await cached.complete({ system: "s", prompt: "otra" })).toBe("segunda");
     expect(llm.calls.map(({ prompt }) => prompt)).toEqual(["hola", "otra"]);
   });
 
   test("keys images by their bytes", async () => {
     const llm = countingLlm(["uno", "dos"]);
-    const cached = createReplayCache(tempDir(), quiet).llm(llm);
+    const cached = createReplayCache(tempDir(), quiet, 0).llm(llm);
     const image = (byte: number) => ({ bytes: new Uint8Array([byte]), mimeType: "image/png" });
     expect(await cached.complete({ prompt: "foto", images: [image(1)] })).toBe("uno");
     expect(await cached.complete({ prompt: "foto", images: [image(2)] })).toBe("dos");
@@ -62,7 +62,7 @@ describe("the replay cache", () => {
 
   test("never stores a failed call", async () => {
     const dir = tempDir();
-    const cached = createReplayCache(dir, quiet).llm(countingLlm([]));
+    const cached = createReplayCache(dir, quiet, 0).llm(countingLlm([]));
     await expect(cached.complete({ prompt: "hola" })).rejects.toThrow("llm down");
     expect(readdirSync(dir)).toEqual([]);
   });
@@ -70,7 +70,7 @@ describe("the replay cache", () => {
   test("replays an audio by its text and voz", async () => {
     const dir = tempDir();
     const voice = countingVoice();
-    const cached = createReplayCache(dir, quiet).voice(voice);
+    const cached = createReplayCache(dir, quiet, 0).voice(voice);
     const first = await cached.synthesize("Hola Patricia");
     expect(await cached.synthesize("Hola Patricia")).toEqual(first);
     await cached.synthesize("Hola Patricia", "otra");
@@ -79,7 +79,7 @@ describe("the replay cache", () => {
 
   test("logs each hit and miss, so a rehearsal shows what the pitch will replay", async () => {
     const lines: string[] = [];
-    const cached = createReplayCache(tempDir(), (line) => lines.push(line)).llm(countingLlm(["uno"]));
+    const cached = createReplayCache(tempDir(), (line) => lines.push(line), 0).llm(countingLlm(["uno"]));
     await cached.complete({ prompt: "Mensaje de Patricia: hola" });
     await cached.complete({ prompt: "Mensaje de Patricia: hola" });
     expect(lines).toEqual([
@@ -88,10 +88,21 @@ describe("the replay cache", () => {
     ]);
   });
 
+  test("waits the delay before a saved answer, not before a live one", async () => {
+    const dir = tempDir();
+    const llm = countingLlm(["uno"]);
+    let start = performance.now();
+    await createReplayCache(dir, quiet, 50).llm(llm).complete({ prompt: "hola" });
+    expect(performance.now() - start).toBeLessThan(50);
+    start = performance.now();
+    await createReplayCache(dir, quiet, 50).llm(llm).complete({ prompt: "hola" });
+    expect(performance.now() - start).toBeGreaterThanOrEqual(45);
+  });
+
   test("reads a broken entry as a miss", async () => {
     const dir = tempDir();
     const voice = countingVoice();
-    const cached = createReplayCache(dir, quiet).voice(voice);
+    const cached = createReplayCache(dir, quiet, 0).voice(voice);
     await cached.synthesize("Hola");
     for (const name of readdirSync(dir).filter((file) => file.endsWith(".json"))) writeFileSync(join(dir, name), "{");
     await cached.synthesize("Hola");

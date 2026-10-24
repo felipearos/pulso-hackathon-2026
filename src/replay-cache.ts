@@ -20,7 +20,15 @@ function digest(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-export function createReplayCache(dir: string, log: (line: string) => void = console.log): ReplayCache {
+/** How long a saved answer waits before it returns, so Luna answers fast but not inhumanly fast. */
+export const REPLAY_DELAY_MS = 1000;
+
+export function createReplayCache(
+  dir: string,
+  log: (line: string) => void = console.log,
+  delayMs: number = REPLAY_DELAY_MS,
+): ReplayCache {
+  const pause = () => (delayMs > 0 ? Bun.sleep(delayMs) : Promise.resolve());
   const read = (path: string): Buffer | null => {
     try {
       return readFileSync(path);
@@ -48,6 +56,7 @@ export function createReplayCache(dir: string, log: (line: string) => void = con
         const what = request.prompt.slice(0, 60).replace(/\s+/g, " ");
         if (hit !== null) {
           log(`replay-cache: hit llm «${what}»`);
+          await pause();
           return hit.toString("utf8");
         }
         log(`replay-cache: miss llm «${what}»`);
@@ -69,6 +78,7 @@ export function createReplayCache(dir: string, log: (line: string) => void = con
           try {
             const { mimeType, durationSeconds } = JSON.parse(meta.toString("utf8")) as Omit<SpokenAudio, "audio">;
             log(`replay-cache: hit voz «${what}»`);
+            await pause();
             return { audio: new Uint8Array(audio), mimeType, durationSeconds };
           } catch {
             // A broken entry is a miss: synthesized again below.
