@@ -617,15 +617,23 @@ describe("/sala state: etapa, decisiones, origen de la cifra, próxima cita", ()
     expect((await salaState(app)).proximaCita).toEqual({ fecha: "2026-10-25", tipo: "domingo", hora: "21:30" });
   });
 
-  test("after a reset to Patricia's fixture the four keys are there", async () => {
+  test("after a reset to Patricia's fixture the first steps are there", async () => {
     const { app } = createTestApp({ demoToken: TOKEN });
     expect((await post(app, "/sala/reset")).status).toBe(200);
     const response = await get(app, "/sala/state", { "x-demo-token": TOKEN });
     expect(response.status).toBe(200);
     const body = (await response.json()) as Record<string, unknown>;
-    for (const key of ["etapaHistorial", "decisiones", "cifraDelUltimoAudio", "proximaCita"]) {
+    for (const key of ["etapaHistorial", "decisiones", "cifraDelUltimoAudio", "proximaCita", "primerosPasos"]) {
       expect(Object.hasOwn(body, key)).toBe(true);
     }
+    expect(body.primerosPasos).toMatchObject([
+      { id: "saludo" },
+      { id: "bienvenida" },
+      { id: "respuesta" },
+      { id: "permitir" },
+      { id: "rut" },
+      { id: "contexto" },
+    ]);
     const { cifraDelUltimoAudio, proximaCita: proxima } = body as unknown as SalaState;
     expect(cifraDelUltimoAudio).toBeNull();
     expect(proxima).not.toBeNull();
