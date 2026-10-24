@@ -1,13 +1,16 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { ESTADO_DE_CUENTA_8_CIFRAS, ESTADO_DE_CUENTA_8_TEXTO } from "../figures/fixtures/estado-de-cuenta-8";
 import { estadoDeCuenta8Pdf, estadoDeCuenta8PdfCifrado } from "../figures/fixtures/pdf";
-import { createApp } from "../app";
+import { createApp, type App } from "../app";
+import { allowedFigures, decisionDeCita, redactarGuion } from "../citas/redactor";
 import { openDatabase } from "../db";
-import { FakeClock, FakeMail, FakeVoice, FakeWeb, FakeWhatsApp } from "../fakes";
+import { FakeClock, FakeLlm, FakeMail, FakeVoice, FakeWeb, FakeWhatsApp } from "../fakes";
+import type { Cita } from "../patricia/entities";
 import { PATRICIA_RUT_FICTICIO } from "../patricia/fixtures";
 import type { Llm } from "../ports";
 import { createTestApp } from "../testing";
 import { BANCO_FICTICIO_MINIMUM_RULE, TIENDA_PLAZA_MINIMUM_RULE, linkDelEstadoDeCuenta } from "./estado-de-cuenta";
+import { SAMPLE_BANCO } from "./samples";
 
 const receivedAt = new Date("2026-10-19T08:00:00-03:00");
 const bank = "Banco Ficticio <avisos@bancoficticio.example>";
@@ -522,6 +525,135 @@ describe("an S1 with a PDF attachment", () => {
       expect((await inject()).ok).toBe(true);
       expect(llm.calls).toHaveLength(calls);
       expect(noAbre(app.store.decisions())).toHaveLength(1);
+    });
+  });
+
+  describe("after its PDF did not open", () => {
+    test("the night's cita still goes out, without that figure", async () => {
+      const { app, mail } = createPdfApp({ regla: "rut-sin-dv", n: null }, null);
+      mail.inject(bankMailWithPdf(estadoDeCuenta8PdfCifrado(CLAVE)));
+      await app.tick();
+      expect(noAbre(app.store.decisions())).toHaveLength(1);
+
+      // The estado de cuenta the cita sender picks (src/citas/envio.ts): the bank's latest with figures.
+      const estadoDeCuenta =
+        app.store.estadosDeCuenta().findLast((e) => e.origen === "banco" && e.cifras !== null) ?? null;
+      expect(estadoDeCuenta).toBeNull();
+      const cita: Cita = {
+        id: 1,
+        fecha: "2026-10-19",
+        tipo: "lunes",
+        estado: "programada",
+        etapa: 1,
+        motivo: "cita del lunes, etapa 1",
+        pendientes: [],
+        programadaAt: new Date("2026-10-19T23:00:00Z"),
+        mensajeSalienteId: null,
+      };
+      const decision = decisionDeCita({ cita, estadoDeCuenta });
+      expect(decision.cifra).toBeNull();
+      expect(allowedFigures(decision.cifra).allowedFigures).toEqual([]);
+
+      const llm = new FakeLlm([
+        ["Escribe el guion", "Hola, Patricia. Estás al día, no estás en DICOM."],
+        ["Respóndeme", "OK"],
+      ]);
+      const { guion } = await redactarGuion({ llm, decision, nombre: "Patricia", recordDecision: () => {} });
+      expect(guion.endsWith(decision.pregunta)).toBe(true);
+    });
+
+    test("the RUT and the clave never leave Patricia's row", async () => {
+      // The fictional RUT was chosen so its digits are not among estado de cuenta 8's figures.
+      expect(JSON.stringify(ESTADO_DE_CUENTA_8_CIFRAS)).not.toContain("33457982");
+      const secrets = [PATRICIA_RUT_FICTICIO, CLAVE, "334579824", "33.457.982"];
+
+      const lines: string[] = [];
+      const spies = (["log", "info", "warn", "error"] as const).map((level) =>
+        spyOn(console, level).mockImplementation((...args: unknown[]) => {
+          lines.push(args.map(String).join(" "));
+        }),
+      );
+      const seen: string[] = [];
+      try {
+        for (const regla of [
+          { regla: "rut-sin-dv", n: null },
+          { regla: "rut-con-dv", n: null },
+        ]) {
+          const { app, mail, llm } = createPdfApp(regla);
+          mail.inject(bankMailWithPdf(estadoDeCuenta8PdfCifrado(CLAVE)));
+          await app.tick();
+          seen.push(
+            ...app.store.decisions().flatMap((d) => [d.motivo, JSON.stringify(d.datos)]),
+            JSON.stringify(app.store.extraccionForMail("ec8-pdf")),
+            JSON.stringify(app.store.estadosDeCuenta()),
+            JSON.stringify(app.store.senales()),
+            ...llm.calls.flatMap((c) => [c.prompt, c.system ?? ""]),
+          );
+          if (regla.regla === "rut-sin-dv") expect(app.store.extraccionForMail("ec8-pdf")).not.toBeNull();
+          else expect(noAbre(app.store.decisions())).toHaveLength(1);
+        }
+      } finally {
+        for (const spy of spies) spy.mockRestore();
+      }
+      // The closed mail's line was caught, so the spies saw the console.
+      expect(lines.some((line) => line.includes("ec8-pdf"))).toBe(true);
+      seen.push(...lines);
+
+      for (const text of seen) for (const secret of secrets) expect(text).not.toContain(secret);
+    });
+  });
+
+  describe("the real sample from /sala", () => {
+    const token = "token-de-sala";
+    const injectBanco = async (app: App) =>
+      app.handle(new Request("http://localhost/sala/correos/banco", { method: "POST", headers: { "x-demo-token": token } }));
+    const pdfLength = estadoDeCuenta8PdfCifrado(CLAVE).byteLength;
+
+    test("with the RUT stored, its PDF is read and the extraction has every figure", async () => {
+      const { app, llm } = createPdfApp({ regla: "rut-sin-dv", n: null }, PATRICIA_RUT_FICTICIO, token);
+      expect((await injectBanco(app)).ok).toBe(true);
+
+      expect(app.store.extraccionForMail(SAMPLE_BANCO.id)?.cifras).toEqual(ESTADO_DE_CUENTA_8_CIFRAS);
+      expect(extractorCalls(llm.calls)[0]?.prompt).toContain("MONTO MÍNIMO A PAGAR");
+    });
+
+    test("without a RUT, it is closed with one sin-rut decision and nothing stored", async () => {
+      const { app } = createPdfApp({ regla: "rut-sin-dv", n: null }, null, token);
+      expect((await injectBanco(app)).ok).toBe(true);
+
+      const decisions = noAbre(app.store.decisions());
+      expect(decisions).toHaveLength(1);
+      expect(decisions[0]!.datos).toEqual({ mailId: SAMPLE_BANCO.id, caso: "sin-rut" });
+      expect(app.store.extraccionForMail(SAMPLE_BANCO.id)).toBeNull();
+      expect(app.store.estadosDeCuenta()).toEqual([]);
+    });
+
+    test("injected twice, the shared sample keeps its PDF's bytes", async () => {
+      const first = createPdfApp({ regla: "rut-sin-dv", n: null }, PATRICIA_RUT_FICTICIO, token);
+      expect((await injectBanco(first.app)).ok).toBe(true);
+      expect((await injectBanco(first.app)).ok).toBe(true);
+      expect(SAMPLE_BANCO.adjuntos![0]!.bytes.byteLength).toBe(pdfLength);
+
+      // A second app opens the same bytes again: pdf.js did not detach them.
+      const second = createPdfApp({ regla: "rut-sin-dv", n: null }, PATRICIA_RUT_FICTICIO, token);
+      expect((await injectBanco(second.app)).ok).toBe(true);
+      expect(second.app.store.extraccionForMail(SAMPLE_BANCO.id)?.cifras).toEqual(ESTADO_DE_CUENTA_8_CIFRAS);
+      expect(SAMPLE_BANCO.adjuntos![0]!.bytes.byteLength).toBe(pdfLength);
+    });
+
+    test("closed with no RUT, it is read after a reset and the RUT stored", async () => {
+      const { app } = createPdfApp({ regla: "rut-sin-dv", n: null }, null, token);
+      expect((await injectBanco(app)).ok).toBe(true);
+      expect(noAbre(app.store.decisions())).toHaveLength(1);
+
+      await app.reset();
+      // The reset leaves the «Permitir» given and no RUT: she gives it again.
+      expect(app.store.getPatricia()).toMatchObject({ gmailPermitido: true, rut: null });
+      app.store.updatePatricia({ rut: PATRICIA_RUT_FICTICIO });
+      expect((await injectBanco(app)).ok).toBe(true);
+
+      expect(app.store.extraccionForMail(SAMPLE_BANCO.id)?.cifras).toEqual(ESTADO_DE_CUENTA_8_CIFRAS);
+      expect(noAbre(app.store.decisions())).toEqual([]);
     });
   });
 });
