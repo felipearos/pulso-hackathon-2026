@@ -45,7 +45,12 @@ export function createReplayCache(dir: string, log: (line: string) => void = con
         const images = request.images?.map((image) => ({ mimeType: image.mimeType, bytes: digest(image.bytes) }));
         const path = join(dir, `llm-${keyOf({ ...request, images })}.txt`);
         const hit = read(path);
-        if (hit !== null) return hit.toString("utf8");
+        const what = request.prompt.slice(0, 60).replace(/\s+/g, " ");
+        if (hit !== null) {
+          log(`replay-cache: hit llm «${what}»`);
+          return hit.toString("utf8");
+        }
+        log(`replay-cache: miss llm «${what}»`);
         const answer = await llm.complete(request);
         write(path, answer);
         return answer;
@@ -59,14 +64,17 @@ export function createReplayCache(dir: string, log: (line: string) => void = con
         const metaPath = join(dir, `voz-${key}.json`);
         const audio = read(audioPath);
         const meta = read(metaPath);
+        const what = text.slice(0, 60);
         if (audio !== null && meta !== null) {
           try {
             const { mimeType, durationSeconds } = JSON.parse(meta.toString("utf8")) as Omit<SpokenAudio, "audio">;
+            log(`replay-cache: hit voz «${what}»`);
             return { audio: new Uint8Array(audio), mimeType, durationSeconds };
           } catch {
             // A broken entry is a miss: synthesized again below.
           }
         }
+        log(`replay-cache: miss voz «${what}»`);
         const spoken = await voice.synthesize(text, voz);
         write(audioPath, spoken.audio);
         write(metaPath, JSON.stringify({ mimeType: spoken.mimeType, durationSeconds: spoken.durationSeconds }));
