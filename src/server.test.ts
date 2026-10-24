@@ -41,7 +41,7 @@ function app(
   let sends = 0;
   const handle = createHandler({
     demoPage: new Blob(["<h1>Luna · sala de control</h1>"]),
-    landingPage: new Blob(["<h1>Mira tus cuentas sin angustia.</h1>"]),
+    landingPage: new Blob(['<h1>Mira tus cuentas sin angustia.</h1><a href="/empezar">Empezar con Luna</a>']),
     pitchDeck: new Blob(["<title>Luna · Mac mini winners</title>"]),
     soonPage: new Blob(["<h1>Esto está por llegar.</h1>"]),
     entradaLink,
@@ -82,6 +82,14 @@ describe("handle", () => {
     expect(page.status).toBe(200);
     expect(page.headers.get("Content-Type")).toContain("text/html");
     expect(await page.text()).toContain("Mira tus cuentas sin angustia.");
+  });
+
+  test("links the landing's «Empezar» straight to the chat, so the phone opens WhatsApp on the first tap", async () => {
+    const link = "https://wa.me/56900000000?text=Hola%20Luna";
+    const page = await app(undefined, KEY, stubWebhook().webhook, link).get("/").then((r) => r.text());
+    expect(page).toContain(`<a href="${link}">Empezar con Luna</a>`);
+    expect(page).not.toContain('href="/empezar"');
+    expect(await app().get("/").then((r) => r.text())).toContain('href="/empezar"');
   });
 
   test("serves the pitch deck at /presentacion", async () => {
