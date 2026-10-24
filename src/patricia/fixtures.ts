@@ -15,6 +15,13 @@ import { createStore, type EstadoDeCuentaInput, type SenalInput } from "./store"
 /** Monday 19 October 2026, 09:00 in Santiago: where the demo starts. */
 export const PATRICIA_START = new Date("2026-10-19T09:00:00-03:00");
 
+/**
+ * Patricia's fictional RUT, the one the operator types in the «Permitir»
+ * during the demo. Invented, in a range not assigned to people, and its
+ * digits never appear in the estados de cuenta's figures.
+ */
+export const PATRICIA_RUT_FICTICIO = "33457982-4";
+
 /** Patricia at the starting point: etapa 1, Gmail allowed, nothing named yet. */
 export const PATRICIA_AT_START: Patricia = {
   nombre: "Patricia",
