@@ -1,4 +1,5 @@
 import { MissingEnvError } from "../missing-env";
+import type { ContextoDePatricia } from "../patricia/entities";
 import type { Store } from "../patricia/store";
 import type { Clock, Mail } from "../ports";
 import { ARENA, LUNA, logoIcon, MARCA_HEAD, NOCHE, PAPEL, TINTA } from "../web/marca";
@@ -17,6 +18,11 @@ import { normalizeRut } from "./rut";
  * de cuenta PDF with a clave made from it. The form carries its own
  * single-use token, so `/gmail/rut` only writes for someone who just finished
  * the «Permitir». The RUT is never logged, echoed back or put in a decision.
+ *
+ * Until she has answered it once, the page then offers three optional
+ * questions about her life and her cuentas (`/gmail/contexto`, its own
+ * single-use token) before its last message. Her answers are stored as her
+ * contexto and, like the RUT, never logged or put in a decision.
  */
 
 /** The welcome audio (#46) links Patricia here; keep the two in step. */
@@ -24,6 +30,8 @@ export const PERMITIR_PATH = "/permitir";
 export const CALLBACK_PATH = "/gmail/callback";
 /** Where the RUT form after a connected callback posts. */
 export const RUT_PATH = "/gmail/rut";
+/** Where the contexto form before the page's last message posts. */
+export const CONTEXTO_PATH = "/gmail/contexto";
 /** The Tailscale Funnel URL the live app is published at. */
 export const DEFAULT_PUBLIC_BASE_URL = "https://desktop.taild8ed7e.ts.net";
 
@@ -37,8 +45,12 @@ export function permitirUrl(env: Record<string, string | undefined> = process.en
 const STATE_TTL_MS = 15 * 60 * 1000;
 /** A RUT form is a few dozen bytes; anything past this is not one. */
 const MAX_RUT_BODY_BYTES = 4 * 1024;
+/** The contexto form carries three answers of up to `MAX_ANSWER_LENGTH` each. */
+const MAX_CONTEXTO_BODY_BYTES = MAX_RUT_BODY_BYTES * 2;
+const MAX_ANSWER_LENGTH = 280;
 
 const EXPIRED_LINK = "Este link ya no sirve. Abre de nuevo el link que te mandó Luna.";
+const UNREADABLE = "Eso no lo pude leer. Abre de nuevo el link que te mandó Luna.";
 const LISTO = "Listo. Desde ahora me entero sola de lo que te llega del banco y de la tienda. Puedes cerrar esta página.";
 
 export type PermitirDeps = {
@@ -58,11 +70,22 @@ export function createPermitir(deps: PermitirDeps): Permitir {
   const issued = new Map<string, number>();
   /** Single-use tokens of the RUT forms shown, with when each was issued. */
   const rutTokens = new Map<string, number>();
+  /** Single-use tokens of the contexto forms shown: when each was issued and the message the page ends with. */
+  const contextoTokens = new Map<string, { at: number; message: string }>();
 
   const forgetExpired = () => {
     const now = clock.now().getTime();
     for (const [state, at] of issued) if (now - at > STATE_TTL_MS) issued.delete(state);
     for (const [token, at] of rutTokens) if (now - at > STATE_TTL_MS) rutTokens.delete(token);
+    for (const [token, { at }] of contextoTokens) if (now - at > STATE_TTL_MS) contextoTokens.delete(token);
+  };
+
+  /** The page's last message, or first the contexto form while she has not answered it. */
+  const finish = (message: string): Response => {
+    if (store.getPatricia().contexto) return page(200, message);
+    const token = crypto.randomUUID();
+    contextoTokens.set(token, { at: clock.now().getTime(), message });
+    return contextoForm(200, token, EMPTY_CONTEXTO);
   };
 
   const start = async (): Promise<Response> => {
@@ -109,7 +132,7 @@ export function createPermitir(deps: PermitirDeps): Permitir {
     });
     if (store.getPatricia().rut) {
       // She gave it once already: the RUT is asked a single time.
-      return page(200, LISTO);
+      return finish(LISTO);
     }
     const token = crypto.randomUUID();
     rutTokens.set(token, clock.now().getTime());
@@ -119,7 +142,7 @@ export function createPermitir(deps: PermitirDeps): Permitir {
   const rut = async (request: Request): Promise<Response> => {
     forgetExpired();
     const body = await readCapped(request, MAX_RUT_BODY_BYTES);
-    if (body === null) return page(413, "Eso no lo pude leer. Abre de nuevo el link que te mandó Luna.");
+    if (body === null) return page(413, UNREADABLE);
     const form = new URLSearchParams(body);
     const token = form.get("token") ?? "";
     if (!rutTokens.has(token)) return page(400, EXPIRED_LINK);
@@ -127,7 +150,7 @@ export function createPermitir(deps: PermitirDeps): Permitir {
     if (respuesta === "ahora-no") {
       rutTokens.delete(token);
       store.updatePatricia({ rut: null });
-      return page(200, "Está bien, no guardé tu RUT. Tu correo sigue conectado y yo me las arreglo igual. Puedes cerrar esta página.");
+      return finish("Está bien, no guardé tu RUT. Tu correo sigue conectado y yo me las arreglo igual. Puedes cerrar esta página.");
     }
     if (respuesta !== "permitir") return page(400, EXPIRED_LINK);
     const normalized = normalizeRut(form.get("rut") ?? "");
@@ -142,13 +165,53 @@ export function createPermitir(deps: PermitirDeps): Permitir {
       motivo: "Patricia dio su RUT en la página del «Permitir», para abrir los estados de cuenta que llegan con clave",
       datos: {},
     });
-    return page(200, LISTO);
+    return finish(LISTO);
+  };
+
+  const contexto = async (request: Request): Promise<Response> => {
+    forgetExpired();
+    const body = await readCapped(request, MAX_CONTEXTO_BODY_BYTES);
+    if (body === null) return page(413, UNREADABLE);
+    const form = new URLSearchParams(body);
+    const token = form.get("token") ?? "";
+    const issuedForm = contextoTokens.get(token);
+    if (!issuedForm) return page(400, EXPIRED_LINK);
+    const respuesta = form.get("respuesta");
+    if (respuesta === "ahora-no") {
+      contextoTokens.delete(token);
+      store.updatePatricia({ contexto: EMPTY_CONTEXTO });
+      store.recordDecision({ tipo: "contar-contexto", motivo: "Patricia prefirió no contar su contexto", datos: {} });
+      return page(200, issuedForm.message);
+    }
+    if (respuesta !== "guardar") return page(400, EXPIRED_LINK);
+    const submitted: ContextoDePatricia = {
+      deQueVive: answer(form.get("deQueVive")),
+      queLePreocupa: answer(form.get("queLePreocupa")),
+      queLePesa: answer(form.get("queLePesa")),
+    };
+    if (Object.values(submitted).some((value) => value !== null && value.length > MAX_ANSWER_LENGTH)) {
+      // The token stays valid and her words come back: she only has to shorten one.
+      return contextoForm(422, token, submitted, "Una respuesta quedó muy larga. Acórtala un poco, con 280 letras alcanza.");
+    }
+    contextoTokens.delete(token);
+    store.updatePatricia({ contexto: submitted });
+    const answered = Object.values(submitted).filter((value) => value !== null).length;
+    store.recordDecision({
+      tipo: "contar-contexto",
+      motivo: `Patricia contó su contexto: ${answered} de 3 preguntas`,
+      datos: {},
+    });
+    return page(200, issuedForm.message);
   };
 
   return {
     handle(request) {
       const url = new URL(request.url);
-      if (request.method === "POST") return url.pathname === RUT_PATH ? rut(request) : null;
+      if (request.method === "POST") {
+        if (url.pathname === RUT_PATH) return rut(request);
+        if (url.pathname === CONTEXTO_PATH) return contexto(request);
+        return null;
+      }
       if (request.method !== "GET") return null;
       if (url.pathname === PERMITIR_PATH) return start();
       if (url.pathname === CALLBACK_PATH) return callback(url);
@@ -203,6 +266,39 @@ function rutForm(status: number, token: string, notice?: string): Response {
   return html(status, body);
 }
 
+const EMPTY_CONTEXTO: ContextoDePatricia = { deQueVive: null, queLePreocupa: null, queLePesa: null };
+
+/** One answer of the contexto form: trimmed, and null when she left it blank. */
+function answer(value: string | null): string | null {
+  const trimmed = (value ?? "").trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+const CONTEXTO_PREGUNTAS: [keyof ContextoDePatricia, string][] = [
+  ["deQueVive", "¿De qué vives hoy? Por ejemplo: ventas por catálogo, una pensión, ayuda de tu familia."],
+  ["queLePreocupa", "¿Qué tarjetas o deudas son las que más te preocupan?"],
+  ["queLePesa", "¿Qué es lo que más te pesa cuando piensas en tus cuentas?"],
+];
+
+/** The three optional questions before the page's last message; `values` refills them after a notice. */
+function contextoForm(status: number, token: string, values: ContextoDePatricia, notice?: string): Response {
+  const body = [
+    "<p>Esto me ayuda a entenderte. Puedes dejar cualquiera en blanco.</p>",
+    notice ? `<p role="alert"><strong>${escapeHtml(notice)}</strong></p>` : "",
+    `<form method="post" action="${CONTEXTO_PATH}">`,
+    `<input type="hidden" name="token" value="${escapeHtml(token)}">`,
+    ...CONTEXTO_PREGUNTAS.map(
+      ([name, pregunta]) =>
+        `<label for="${name}">${escapeHtml(pregunta)}</label>` +
+        `<textarea id="${name}" name="${name}" rows="3" maxlength="${MAX_ANSWER_LENGTH}" style="${FIELD_STYLE}">${escapeHtml(values[name] ?? "")}</textarea>`,
+    ),
+    `<button type="submit" name="respuesta" value="guardar" style="${FIELD_STYLE}">Guardar</button>`,
+    `<button type="submit" name="respuesta" value="ahora-no" style="${FIELD_STYLE}; background: none">Ahora no</button>`,
+    "</form>",
+  ].join("");
+  return html(status, body);
+}
+
 /** Luna's look on Patricia's phone: the message in a white card on Papel, under the logo. */
 const PAGE_STYLE = [
   "* { box-sizing: border-box; }",
@@ -214,8 +310,8 @@ const PAGE_STYLE = [
   "p { margin: 0 0 16px; }",
   "p:last-child { margin-bottom: 0; }",
   "label { display: block; font-weight: 600; margin-top: 8px; }",
-  `input { border: 2px solid #DDD5C4; border-radius: 14px; background: #FFFFFF; color: ${TINTA}; font-family: inherit; }`,
-  `input:focus { outline: 3px solid ${NOCHE}; outline-offset: 2px; border-color: ${NOCHE}; }`,
+  `input, textarea { border: 2px solid #DDD5C4; border-radius: 14px; background: #FFFFFF; color: ${TINTA}; font-family: inherit; }`,
+  `input:focus, textarea:focus { outline: 3px solid ${NOCHE}; outline-offset: 2px; border-color: ${NOCHE}; }`,
   `button { font-family: inherit; font-weight: 600; min-height: 56px; border: 0; border-radius: 999px; background: ${NOCHE}; color: ${PAPEL}; cursor: pointer; }`,
   `button[value="ahora-no"] { color: ${NOCHE}; border: 2px solid #DDD5C4; }`,
   `button:focus-visible { outline: 3px solid ${LUNA}; outline-offset: 2px; }`,
