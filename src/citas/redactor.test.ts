@@ -10,6 +10,7 @@ import {
   allowedFigures,
   cifraEscrita,
   decisionDeCita,
+  guionBienvenida,
   redactarGuion,
 } from "./redactor";
 
@@ -338,5 +339,21 @@ describe("redactarGuion", () => {
     expect(source).toBe("draft");
     expect(guion).toBe(`Estás al día. El pago mínimo es $41.900. ${decision.pregunta}`);
     expect(llm.calls).toHaveLength(2);
+  });
+});
+
+describe("guionBienvenida", () => {
+  test("greets her by the nombre Luna has and confirms it instead of asking", () => {
+    const guion = guionBienvenida("Pati");
+    expect(guion).toContain("Hola Pati");
+    expect(guion).toContain("Te voy a decir Pati; si prefieres otro nombre, escríbemelo");
+    expect(guion).not.toContain("¿Cómo te gusta que te llamen?");
+  });
+
+  test("has no digits for any reasonable nombre", () => {
+    for (const nombre of ["Patricia", "Pati", "María José", "Patricia Soto"]) {
+      expect(findFigures(guionBienvenida(nombre))).toEqual([]);
+      expect(guionBienvenida(nombre)).not.toMatch(/\d/);
+    }
   });
 });
