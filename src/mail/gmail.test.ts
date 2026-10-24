@@ -166,7 +166,7 @@ describe("createGmailMail", () => {
 
   test("drops messages from a sender outside the requested domains", async () => {
     const state = makeAccount();
-    const { fetch } = recordedFetch((url) =>
+    const { fetch, requests } = recordedFetch((url) =>
       url.searchParams.has("format")
         ? json(fullMessage("outside", 1_001_000, "avisos@lookalike-bancoficticio.example", []))
         : json({ messages: [{ id: "outside" }] }),
@@ -174,6 +174,7 @@ describe("createGmailMail", () => {
 
     expect(await createGmailMail({ account: state.account, fetch }).fetchNew([SENDER])).toEqual([]);
     expect(state.cursor()).toEqual({ ms: START_MS, ids: [] });
+    expect(requests.map((request) => request.url.searchParams.get("format"))).toEqual([null, "metadata"]);
   });
 
   test("does not make a request for an empty sender list", async () => {
