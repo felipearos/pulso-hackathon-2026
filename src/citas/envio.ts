@@ -204,7 +204,13 @@ export function createCitaSender({
     const voz = vozDe(store.getPatricia().voz);
     let { guion, source }: { guion: string; source: ValidatedText["source"] | "guion-fijo" } = bienvenida
       ? { guion: guionBienvenida(store.getPatricia().nombre), source: "guion-fijo" }
-      : await redactarGuion({ llm, decision, nombre: store.getPatricia().nombre, recordDecision });
+      : await redactarGuion({
+          llm,
+          decision,
+          nombre: store.getPatricia().nombre,
+          contexto: store.getPatricia().contexto ?? null,
+          recordDecision,
+        });
     let acortado = false;
     let audio: SpokenAudio;
     let id: string;
@@ -216,6 +222,7 @@ export function createCitaSender({
           llm,
           decision,
           nombre: store.getPatricia().nombre,
+          contexto: store.getPatricia().contexto ?? null,
           recordDecision,
           acortar: { guion, durationSeconds: audio.durationSeconds },
         }));
