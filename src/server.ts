@@ -53,6 +53,15 @@ export function createHandler(deps: Deps): (request: Request) => Promise<Respons
   // restart (every deploy) sends the control room back to Monday 09:00.
   let moment: MomentId | "start" = "start";
 
+  // The landing's buttons link straight to the chat: behind our redirect the
+  // phone lands on WhatsApp's «Continuar al chat» page instead of the app.
+  let landing: Promise<string> | undefined;
+  const landingHtml = () =>
+    (landing ??= deps.landingPage.text().then((page) => {
+      const link = deps.entradaLink;
+      return link ? page.replaceAll(`href="${START_PATH}"`, `href="${Bun.escapeHTML(link)}"`) : page;
+    }));
+
   return async (request) => {
     const url = new URL(request.url);
     const { pathname } = url;
@@ -65,7 +74,7 @@ export function createHandler(deps: Deps): (request: Request) => Promise<Respons
 
     if (request.method === "GET") {
       if (pathname === "/health") return Response.json({ status: "ok" });
-      if (pathname === "/") return new Response(deps.landingPage, { headers: HTML });
+      if (pathname === "/") return new Response(await landingHtml(), { headers: HTML });
       if (pathname === "/presentacion" && deps.pitchDeck) return new Response(deps.pitchDeck, { headers: HTML });
       if (pathname === START_PATH) {
         if (deps.entradaLink) return Response.redirect(deps.entradaLink, 302);
