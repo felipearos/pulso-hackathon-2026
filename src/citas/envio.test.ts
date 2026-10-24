@@ -109,6 +109,21 @@ describe("cita sender", () => {
     expect(t.voice.calls).toHaveLength(1);
   });
 
+  test("with her contexto the lunes cita reaches the redactor's system and keeps the same cifra", async () => {
+    const t = setup();
+    t.app.store.updatePatricia({
+      contexto: { deQueVive: "Cuido niños, 250 mil al mes", queLePreocupa: null, queLePesa: "La tarjeta" },
+    });
+    await tickAt(t, "2026-10-19T22:30");
+
+    expect(audios(t)).toHaveLength(1);
+    expect(findFigures(t.app.store.mensajesSalientes()[0]!.text!)).toEqual([41_900]);
+    const draftCall = t.llm.calls.find((c) => c.prompt.startsWith("Escribe el guion"));
+    expect(draftCall?.system).toContain(`«de qué vive: ${JSON.stringify("Cuido niños, al mes")}»`);
+    expect(draftCall?.system).toContain(`«qué le pesa: ${JSON.stringify("La tarjeta")}»`);
+    expect(draftCall?.system).not.toContain("250");
+  });
+
   test("a later tienda estado de cuenta does not replace the bank's in the cita", async () => {
     const t = setup();
     t.app.store.addEstadoDeCuenta({

@@ -239,7 +239,10 @@ once on the «Permitir» page, after the RUT and before its last message
 and «Ahora no» stores all three as null so she is not asked again. Stored as
 `Patricia.contexto` (`ContextoDePatricia`), null until she is asked and after
 the reset. Her answers never go into logs or the registro de decisiones: the
-`contar-contexto` decision only counts how many she answered.
+`contar-contexto` decision only counts how many she answered. The one LLM
+prompt they reach is the redactor's system prompt for the audio de la noche,
+as quoted data without digits, to choose tone and examples; Luna never quotes
+them back to her.
 _Avoid:_ "perfil", "onboarding".
 
 ## Registro de decisiones
