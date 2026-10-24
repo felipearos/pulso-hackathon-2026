@@ -12,7 +12,10 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 type RecordedRequest = { url: URL; init: RequestInit | undefined };
 type FetchHandler = (url: URL, init: RequestInit | undefined) => Response | Promise<Response>;
 
-function makeAccount(handler: FetchHandler = () => Response.json({ access_token: "access" })) {
+function makeAccount(
+  handler: FetchHandler = () => Response.json({ access_token: "access" }),
+  extraEnv: Record<string, string | undefined> = {},
+) {
   const db = openDatabase(":memory:");
   migrate(db);
   let current = new Date(NOW);
@@ -24,7 +27,7 @@ function makeAccount(handler: FetchHandler = () => Response.json({ access_token:
   };
   const account = createGmailAccount({
     db,
-    env: { GMAIL_CLIENT_ID: CLIENT_ID, GMAIL_CLIENT_SECRET: CLIENT_SECRET, GMAIL_REDIRECT_URI: REDIRECT_URI },
+    env: { GMAIL_CLIENT_ID: CLIENT_ID, GMAIL_CLIENT_SECRET: CLIENT_SECRET, GMAIL_REDIRECT_URI: REDIRECT_URI, ...extraEnv },
     clock: { now: () => new Date(current) },
     fetch: fakeFetch as unknown as typeof globalThis.fetch,
   });
@@ -55,6 +58,25 @@ describe("createGmailAccount", () => {
     expect(url.searchParams.get("state")).toBe("state-123");
     expect(url.searchParams.get("redirect_uri")).toBe(REDIRECT_URI);
     expect(url.searchParams.get("client_id")).toBe(CLIENT_ID);
+  });
+
+  test("adds the configured login hint to the consent URL", () => {
+    const { account } = makeAccount(undefined, { GMAIL_LOGIN_HINT: "patricia.demo@example.com" });
+
+    const url = new URL(account.consentUrl("state-123"));
+
+    expect(url.searchParams.get("login_hint")).toBe("patricia.demo@example.com");
+    expect(url.searchParams.get("prompt")).toBe("consent");
+  });
+
+  test("leaves the login hint out when it is unset or empty", () => {
+    for (const extraEnv of [{}, { GMAIL_LOGIN_HINT: "" }]) {
+      const { account } = makeAccount(undefined, extraEnv);
+
+      const url = new URL(account.consentUrl("state-123"));
+
+      expect(url.searchParams.has("login_hint")).toBe(false);
+    }
   });
 
   test("reports every missing OAuth environment variable", () => {

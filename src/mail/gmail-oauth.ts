@@ -127,6 +127,8 @@ export function createGmailAccount(deps: GmailAccountDeps): GmailAccount {
         prompt: "consent",
         state,
       });
+      // Pre-selects Patricia's account so Google skips its account chooser.
+      if (env.GMAIL_LOGIN_HINT) params.set("login_hint", env.GMAIL_LOGIN_HINT);
       return `${AUTH_URL}?${params}`;
     },
 
