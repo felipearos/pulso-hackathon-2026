@@ -1,4 +1,4 @@
-import { HAIKU_MODEL } from "../anthropic";
+import { HAIKU_MODEL } from "../claude-cli";
 import type { Store } from "../patricia/store";
 import type { Llm } from "../ports";
 import { VOZ_OTRA, type Voz } from "../voice/voces";

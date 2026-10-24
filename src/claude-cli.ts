@@ -1,6 +1,24 @@
 import { tmpdir } from "node:os";
-import { HAIKU_MODEL, userContent } from "./anthropic";
-import type { Llm, LlmRequest } from "./ports";
+import type { Llm, LlmImage, LlmRequest } from "./ports";
+
+export const HAIKU_MODEL = "claude-haiku-5-5";
+
+/** The user message content: the plain prompt, or each image before the prompt. */
+function userContent(prompt: string, images: readonly LlmImage[] | undefined) {
+  if (!images || images.length === 0) return prompt;
+  return [
+    ...images.map((image) => ({
+      type: "image",
+      source: {
+        type: "base64",
+        // Claude takes the bare type: `image/jpeg; charset=…` is refused.
+        media_type: (image.mimeType.split(";")[0] ?? "").trim().toLowerCase(),
+        data: Buffer.from(image.bytes).toString("base64"),
+      },
+    })),
+    { type: "text", text: prompt },
+  ];
+}
 
 export type CliResult = { stdout: string; stderr: string; exitCode: number; timedOut?: boolean };
 
@@ -45,8 +63,8 @@ function parseEvent(line: string): CliEvent | undefined {
 }
 
 /**
- * Claude through the Claude Code CLI logged in on this machine, in place of an
- * API key. Plain completion: no tools, settings, MCP servers, skills or
+ * Claude through the Claude Code CLI logged in on this machine: the only way the
+ * app reaches Claude, so it spends that account and needs no API key. Plain completion: no tools, settings, MCP servers, skills or
  * saved session. `maxTokens` has no CLI flag and is ignored.
  */
 export function claudeCliLlm(options: { command?: string; run?: RunCli; timeoutMs?: number } = {}): Llm {

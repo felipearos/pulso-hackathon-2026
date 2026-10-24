@@ -2,7 +2,6 @@ import { databasePath } from "./config";
 import { openDatabase } from "./db";
 import { MissingEnvError } from "./missing-env";
 import type { Clock, Ports } from "./ports";
-import { anthropicLlm } from "./anthropic";
 import { claudeCliLlm } from "./claude-cli";
 import { createElevenLabsTranscriber, createElevenLabsVoice, type Fetch } from "./voice/elevenlabs";
 import { voiceIdFor, VOZ_PRINCIPAL } from "./voice/voces";
@@ -46,13 +45,8 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
     mail,
     // The whatsapp, llm and voice ports are also real clients.
     whatsapp: createWhatsAppCloud({ env, clock: systemClock }),
-    llm: {
-      complete: (request) => {
-        // With no API key, Claude runs through the Claude Code CLI logged in on this machine.
-        if (!env.ANTHROPIC_API_KEY) return claudeCliLlm({ command: env.CLAUDE_BIN }).complete(request);
-        return anthropicLlm({ apiKey: env.ANTHROPIC_API_KEY, fetch: options.fetch as typeof fetch | undefined }).complete(request);
-      },
-    },
+    // Claude runs through the Claude Code CLI logged in on this machine, never an API key.
+    llm: claudeCliLlm({ command: env.CLAUDE_BIN }),
     voice: {
       synthesize: async (text, voz) => {
         // Requiring the principal id is what makes the fallback in voiceIdFor always a string.

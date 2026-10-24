@@ -1,15 +1,14 @@
 import { expect, test } from "bun:test";
-import { anthropicLlm } from "../anthropic";
+import { claudeCliLlm } from "../claude-cli";
 import { classifyIntencion } from "./classify";
 
-// Calls the real Claude API, so the gate runs it only on request: LLM_SMOKE=1 with a key.
-const apiKey = process.env.LLM_SMOKE === "1" ? process.env.ANTHROPIC_API_KEY : undefined;
+// Spends the logged-in claude account, so the gate runs it only on request: CLAUDE_CLI_SMOKE=1.
+const enabled = process.env.CLAUDE_CLI_SMOKE === "1";
 
-test.skipIf(!apiKey)(
+test.skipIf(!enabled)(
   "classifies clear messages with Claude Haiku",
   async () => {
-    if (!apiKey) return;
-    const llm = anthropicLlm({ apiKey });
+    const llm = claudeCliLlm({ command: process.env.CLAUDE_BIN });
 
     expect(await classifyIntencion("Me compré un televisor en 12 cuotas", llm)).toEqual({
       kind: "installmentPurchase",

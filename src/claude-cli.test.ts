@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { HAIKU_MODEL } from "./anthropic";
-import { claudeCliLlm, type RunCli } from "./claude-cli";
+import { claudeCliLlm, HAIKU_MODEL, type RunCli } from "./claude-cli";
 
 type Run = { args: string[]; stdin: string; timeoutMs: number };
 
