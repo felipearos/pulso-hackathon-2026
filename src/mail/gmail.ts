@@ -147,15 +147,16 @@ export function createGmailMail({ account, fetch: fetchGmail = fetch }: { accoun
 
       const mails: IncomingMail[] = [];
       for (const id of ids) {
-        const url = `${GMAIL_MESSAGES_URL}/${encodeURIComponent(id)}?format=full`;
-        const message = await requestJson<GmailMessage>("get", url, token);
-        const internalDate = Number(message.internalDate);
+        // Headers first: a body is downloaded only once the sender's exact domain is allowed.
+        const messageUrl = `${GMAIL_MESSAGES_URL}/${encodeURIComponent(id)}`;
+        const meta = await requestJson<GmailMessage>("get", `${messageUrl}?format=metadata&metadataHeaders=From`, token);
+        const internalDate = Number(meta.internalDate);
         if (!Number.isFinite(internalDate) || internalDate < cursor.ms) continue;
-        const mailId = message.id ?? id;
+        const mailId = meta.id ?? id;
         if (internalDate === cursor.ms && cursor.ids.includes(mailId)) continue;
-        const from = header(message.payload, "From");
-        const domain = senderDomain(from);
+        const domain = senderDomain(header(meta.payload, "From"));
         if (!domain || !allowed.has(domain)) continue;
+        const message = await requestJson<GmailMessage>("get", `${messageUrl}?format=full`, token);
         mails.push(messageMail(id, message, internalDate));
       }
 
