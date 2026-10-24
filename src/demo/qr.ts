@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import QRCode from "qrcode";
 import type { Voice } from "../ports";
 import type { Simulador } from "../whatsapp/simulador";
+import { LUNA, logoAvatar, logoIcon, MARCA_HEAD, NOCHE, PAPEL, TINTA, TINTA_2 } from "../web/marca";
 import { guionNoche1 } from "./moments";
 import { givenToken, tokenMatches } from "./routes";
 
@@ -51,16 +52,21 @@ function projectorPage(title: string, line: string, svg: string, link: string): 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Luna · ${escapeHtml(title)}</title>
+${MARCA_HEAD}
 <style>
 html { font-size: max(18px, 1.4vw); }
-body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; background: #FFFFFF; color: #000000; font-family: "Helvetica Neue", Arial, sans-serif; text-align: center; }
-h1 { font-size: 3.2rem; margin: 0 1rem; letter-spacing: -0.01em; }
-.qr { width: min(70vh, 80vw); }
+body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2rem; padding: 1.2rem 0; box-sizing: border-box; background: ${PAPEL}; color: ${TINTA}; font-family: "Instrument Sans", "Helvetica Neue", Arial, sans-serif; text-align: center; }
+.marca { display: flex; align-items: center; gap: .7rem; }
+.marca svg { width: 3.2rem; height: 3.2rem; }
+.marca span { font-family: Archivo, "Helvetica Neue", Arial, sans-serif; font-weight: 800; font-size: 2.4rem; letter-spacing: -0.02em; color: ${NOCHE}; }
+h1 { font-family: Archivo, "Helvetica Neue", Arial, sans-serif; font-weight: 800; font-size: 2.6rem; line-height: 1.1; margin: 0 1rem; letter-spacing: -0.015em; }
+.qr { width: min(48vh, 80vw); box-sizing: border-box; padding: 1.1rem; background: #FFFFFF; border-radius: 1.6rem; box-shadow: 0 1px 2px rgba(20, 29, 74, .05), 0 12px 32px rgba(20, 29, 74, .1); }
 .qr svg { width: 100%; height: auto; display: block; }
-p { font-size: 1.2rem; margin: 0 1rem; word-break: break-all; color: #16171B; }
+p { font-size: 1.2rem; margin: 0 1rem; word-break: break-all; color: ${TINTA_2}; }
 </style>
 </head>
 <body>
+<header class="marca">${logoIcon()}<span>luna</span></header>
 <h1>${escapeHtml(line)}</h1>
 <div class="qr">${svg}</div>
 <p>${escapeHtml(link)}</p>
@@ -77,25 +83,30 @@ function juradoPage(pase: string): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Luna</title>
+${MARCA_HEAD}
 <style>
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: #EFEAE2; color: #16171B; font-family: "Helvetica Neue", Arial, sans-serif; font-size: 17px; line-height: 1.4; }
-.bar { display: flex; align-items: center; gap: .6rem; padding: .7rem 1rem; background: #F7F5F1; border-bottom: 1px solid #DAD8D0; }
-.avatar { width: 2.3rem; height: 2.3rem; border-radius: 50%; background: #283A8E; color: #fff; display: grid; place-items: center; font-weight: 800; }
-.bar small { display: block; color: #6B6D75; font-size: .8rem; }
+body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: #EFEAE2; color: ${TINTA}; font-family: "Instrument Sans", "Helvetica Neue", Arial, sans-serif; font-size: 18px; line-height: 1.4; }
+.bar { display: flex; align-items: center; gap: .7rem; padding: .7rem 1rem; background: #FFFFFF; border-bottom: 1px solid #DAD8D0; }
+.avatar { width: 2.6rem; height: 2.6rem; border-radius: 50%; overflow: hidden; background: ${NOCHE}; flex: none; }
+.avatar svg { width: 100%; height: 100%; display: block; }
+.bar b { font-family: Archivo, "Helvetica Neue", Arial, sans-serif; font-weight: 700; }
+.bar small { display: block; color: ${TINTA_2}; font-size: .8rem; }
 .chat { flex: 1; overflow: auto; padding: .9rem; display: flex; flex-direction: column; gap: .5rem; }
 .msg { max-width: 88%; border-radius: 12px; padding: .55rem .75rem; background: #fff; align-self: flex-start; box-shadow: 0 1px 0 rgba(0,0,0,.06); }
 .msg.yo { background: #D9FDD3; align-self: flex-end; }
 .msg audio { width: 16rem; max-width: 100%; display: block; margin-bottom: .4rem; }
 .msg.error { background: #FCE8E6; }
 form { display: flex; gap: .5rem; padding: .7rem; background: #F7F5F1; border-top: 1px solid #DAD8D0; }
-input { flex: 1; min-width: 0; font: inherit; padding: .6rem .8rem; border: 1px solid #DAD8D0; border-radius: 20px; }
-button { font: inherit; font-weight: 700; padding: .6rem 1rem; border: 0; border-radius: 20px; background: #283A8E; color: #fff; }
+input { flex: 1; min-width: 0; font: inherit; padding: .65rem .9rem; border: 1px solid #DAD8D0; border-radius: 22px; background: #FFFFFF; }
+input:focus { outline: 2px solid ${NOCHE}; outline-offset: 1px; }
+button { font: inherit; font-weight: 600; padding: .65rem 1.1rem; border: 0; border-radius: 22px; background: ${NOCHE}; color: ${PAPEL}; }
+button:focus-visible { outline: 3px solid ${LUNA}; outline-offset: 2px; }
 button:disabled { opacity: .5; }
 </style>
 </head>
 <body>
-<div class="bar"><div class="avatar">L</div><div><b>Luna</b><small>en línea</small></div></div>
+<div class="bar"><div class="avatar">${logoAvatar()}</div><div><b>Luna</b><small>en línea</small></div></div>
 <div class="chat" id="chat">
 <div class="msg">Hola, soy Luna. ¿Cómo te llamas?</div>
 </div>
