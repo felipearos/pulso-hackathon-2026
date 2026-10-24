@@ -1,9 +1,12 @@
-import type { IncomingMail, Mail } from "../ports";
+import type { AdjuntoCorreo, IncomingMail, Mail } from "../ports";
 import { senderDomain } from "./senders";
+import { suspiciousReason } from "./suspicious";
 import type { GmailAccount, GmailCursor } from "./gmail-oauth";
 
 const GMAIL_MESSAGES_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages";
 const MAX_PAGES = 5;
+/** Largest attachment kept; a bigger one is never downloaded, or dropped once its bytes show it. */
+export const MAX_ADJUNTO_BYTES = 5 * 1024 * 1024;
 
 type GmailMessageList = {
   messages?: Array<{ id?: string }>;
@@ -11,8 +14,9 @@ type GmailMessageList = {
 };
 
 type GmailPart = {
+  filename?: string;
   mimeType?: string;
-  body?: { data?: string };
+  body?: { attachmentId?: string; size?: number; data?: string };
   headers?: Array<{ name?: string; value?: string }>;
   parts?: GmailPart[];
 };
@@ -22,6 +26,8 @@ type GmailMessage = {
   internalDate?: string;
   payload?: GmailPart;
 };
+
+type GmailAttachment = { data?: string; size?: number };
 
 type TextPart = { mimeType: string; text: string };
 
@@ -34,6 +40,22 @@ function textParts(payload: GmailPart | undefined): TextPart[] {
     parts.push({ mimeType, text: Buffer.from(data, "base64url").toString("utf8") });
   }
   for (const part of payload.parts ?? []) parts.push(...textParts(part));
+  return parts;
+}
+
+// Chilean banks send their PDFs as application/octet-stream with a .pdf filename.
+function pdfParts(payload: GmailPart | undefined): GmailPart[] {
+  if (!payload) return [];
+  const parts: GmailPart[] = [];
+  const filename = payload.filename ?? "";
+  const mimeType = payload.mimeType?.toLowerCase();
+  if (
+    filename.length > 0 &&
+    (mimeType === "application/pdf" || (mimeType === "application/octet-stream" && filename.toLowerCase().endsWith(".pdf")))
+  ) {
+    parts.push(payload);
+  }
+  for (const part of payload.parts ?? []) parts.push(...pdfParts(part));
   return parts;
 }
 
@@ -97,7 +119,7 @@ function nextCursor(cursor: GmailCursor, mails: IncomingMail[]): GmailCursor {
 
 /** Gmail REST API adapter for Patricia's read-only inbox. */
 export function createGmailMail({ account, fetch: fetchGmail = fetch }: { account: GmailAccount; fetch?: typeof fetch }): Mail {
-  async function requestJson<T>(kind: "list" | "get", url: string, token: string): Promise<T> {
+  async function requestJson<T>(kind: "list" | "get" | "attachment", url: string, token: string): Promise<T> {
     let response: Response;
     try {
       response = await fetchGmail(url, { method: "GET", headers: { Authorization: `Bearer ${token}` } });
@@ -110,6 +132,38 @@ export function createGmailMail({ account, fetch: fetchGmail = fetch }: { accoun
     } catch {
       throw new Error(`gmail: ${kind} failed`);
     }
+  }
+
+  async function attachments(messageUrl: string, mailId: string, payload: GmailPart | undefined, token: string) {
+    const kept: AdjuntoCorreo[] = [];
+    for (const part of pdfParts(payload)) {
+      const nombre = part.filename!;
+      const declared = part.body?.size;
+      if (typeof declared === "number" && declared > MAX_ADJUNTO_BYTES) {
+        console.warn(`gmail: attachment dropped, over the size cap (mail ${mailId}, ${declared} bytes)`);
+        continue;
+      }
+      let data = part.body?.data;
+      const attachmentId = part.body?.attachmentId;
+      if (typeof data !== "string" && typeof attachmentId === "string") {
+        const url = `${messageUrl}/attachments/${encodeURIComponent(attachmentId)}`;
+        try {
+          data = (await requestJson<GmailAttachment>("attachment", url, token)).data;
+        } catch (error) {
+          // An attachment is extra: its failure must not hold back the mail and the ones after it.
+          console.warn(`gmail: attachment dropped, ${error instanceof Error ? error.message : String(error)} (mail ${mailId})`);
+          continue;
+        }
+      }
+      if (typeof data !== "string") continue;
+      const bytes = new Uint8Array(Buffer.from(data, "base64url"));
+      if (bytes.byteLength > MAX_ADJUNTO_BYTES) {
+        console.warn(`gmail: attachment dropped, over the size cap (mail ${mailId}, ${bytes.byteLength} bytes)`);
+        continue;
+      }
+      kept.push({ nombre, mimeType: part.mimeType!.toLowerCase(), bytes });
+    }
+    return kept;
   }
 
   return {
@@ -157,7 +211,13 @@ export function createGmailMail({ account, fetch: fetchGmail = fetch }: { accoun
         const domain = senderDomain(header(meta.payload, "From"));
         if (!domain || !allowed.has(domain)) continue;
         const message = await requestJson<GmailMessage>("get", `${messageUrl}?format=full`, token);
-        mails.push(messageMail(id, message, internalDate));
+        const mail = messageMail(id, message, internalDate);
+        // A suspicious (S7) mail never gets its attachments downloaded.
+        if (suspiciousReason(mail) === null) {
+          const adjuntos = await attachments(messageUrl, mail.id, message.payload, token);
+          if (adjuntos.length > 0) mail.adjuntos = adjuntos;
+        }
+        mails.push(mail);
       }
 
       mails.sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime());

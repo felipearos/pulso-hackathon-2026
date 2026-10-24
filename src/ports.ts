@@ -16,13 +16,19 @@ export type IncomingMail = {
   text: string;
   receivedAt: Date;
   links: string[];
+  /** PDF attachments, set only when at least one was kept. */
+  adjuntos?: AdjuntoCorreo[];
 };
+
+/** A PDF attached to a mail, as downloaded from the inbox. */
+export type AdjuntoCorreo = { nombre: string; mimeType: string; bytes: Uint8Array };
 
 /**
  * Gmail: the inbox the bank's mails arrive in. `fetchNew` returns only mails
  * not returned before, and only from `senders` (allowed sender domains): the
  * rest are never downloaded. `consentUrl` and `connect` are Patricia's one
  * «Permitir»: the Google page she is sent to, and the code it hands back.
+ * Only PDF attachments of non-suspicious mails come along, each under a size cap.
  */
 export type Mail = {
   fetchNew(senders: readonly string[]): Promise<IncomingMail[]>;

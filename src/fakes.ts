@@ -13,6 +13,7 @@ import type {
   WhatsApp,
 } from "./ports";
 import { senderDomain } from "./mail/senders";
+import { suspiciousReason } from "./mail/suspicious";
 import { VOZ_PRINCIPAL, type Voz } from "./voice/voces";
 import { allowedLink } from "./web/link";
 
@@ -63,7 +64,7 @@ export class FakeClock implements Clock {
 }
 
 export type InjectedMail = Pick<IncomingMail, "from" | "subject" | "receivedAt"> &
-  Partial<Pick<IncomingMail, "id" | "text" | "links">>;
+  Partial<Pick<IncomingMail, "id" | "text" | "links" | "adjuntos">>;
 
 export class FakeMail implements Mail {
   private pending: IncomingMail[] = [];
@@ -87,12 +88,16 @@ export class FakeMail implements Mail {
       text: mail.text ?? "",
       receivedAt: mail.receivedAt,
       links: mail.links ?? [],
+      ...(mail.adjuntos ? { adjuntos: mail.adjuntos } : {}),
     };
     this.pending.push(full);
     return full;
   }
 
-  /** Drains the queue; mails from other senders are dropped, as if Gmail never handed them over. */
+  /**
+   * Drains the queue; mails from other senders are dropped, as if Gmail never handed them over,
+   * and a suspicious mail comes without its attachments, as the real adapter never downloads them.
+   */
   async fetchNew(senders: readonly string[]): Promise<IncomingMail[]> {
     const allowed = new Set(senders.map((s) => s.toLowerCase()));
     const drained = this.pending.filter((m) => {
@@ -100,7 +105,11 @@ export class FakeMail implements Mail {
       return domain !== null && allowed.has(domain);
     });
     this.pending = [];
-    return drained;
+    return drained.map((m) => {
+      if (!m.adjuntos || suspiciousReason(m) === null) return m;
+      const { adjuntos: _, ...rest } = m;
+      return rest;
+    });
   }
 }
 
