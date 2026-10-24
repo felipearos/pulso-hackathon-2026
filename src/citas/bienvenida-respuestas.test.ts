@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { parseSantiago } from "../clock/santiago";
 import { FakeLlm } from "../fakes";
 import { createTestApp, type TestApp } from "../testing";
-import { leerRespuestasBienvenida, tomarNombreDelPerfil } from "./bienvenida-respuestas";
+import { confirmacionBienvenida, leerRespuestasBienvenida, tomarNombreDelPerfil } from "./bienvenida-respuestas";
 
 const ANSWER = "Respuesta de Patricia a la bienvenida";
 const MOTIVO = "guardó lo que respondió a la bienvenida: nombre, hora y voz";
@@ -191,5 +191,20 @@ describe("app.receiveMensaje and the bienvenida", () => {
     tomarNombreDelPerfil(t.app.store, "Pati");
     expect(tomarNombreDelPerfil(t.app.store, "Pati Soto")).toBeNull();
     expect(fromPerfil(t)).toHaveLength(1);
+  });
+});
+
+describe("confirmacionBienvenida", () => {
+  test("names her and the next cita's day and hour", () => {
+    expect(confirmacionBienvenida("Patricia", { fecha: "2026-10-22", tipo: "jueves", hora: "22:30" })).toBe(
+      "Anotado, Patricia. Nos hablamos el jueves a las 22:30.",
+    );
+  });
+
+  test("names no day when there is no next cita to name", () => {
+    expect(confirmacionBienvenida("Patricia", null)).toBe("Anotado, Patricia. Gracias por contarme.");
+    expect(confirmacionBienvenida("Patricia", { fecha: "2026-11-02", tipo: "graduada", hora: "22:30" })).toBe(
+      "Anotado, Patricia. Gracias por contarme.",
+    );
   });
 });

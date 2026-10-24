@@ -1,7 +1,12 @@
 import { readdirSync } from "node:fs";
-import { recibirRespuestaBienvenida, tomarNombreDelPerfil } from "./citas/bienvenida-respuestas";
+import {
+  confirmacionBienvenida,
+  recibirRespuestaBienvenida,
+  type RespuestasBienvenida,
+  tomarNombreDelPerfil,
+} from "./citas/bienvenida-respuestas";
 import { createCitaSender } from "./citas/envio";
-import { createScheduler } from "./citas/scheduler";
+import { createScheduler, proximaCita } from "./citas/scheduler";
 import { createDemoClock, type DemoClock } from "./clock/demo-clock";
 import { migrate } from "./db";
 import { GUION } from "./demo/guion";
@@ -169,13 +174,28 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   // The entrante and its line in the registro land together too.
   const inTransaction = <T,>(write: () => T): T => ports.db.transaction(write)();
   const mensaje = async (input: MensajeInput) => {
+    let respuestas: RespuestasBienvenida | null = null;
     try {
-      await recibirRespuestaBienvenida({ store, llm: ports.llm }, input.text);
+      respuestas = await recibirRespuestaBienvenida({ store, llm: ports.llm }, input.text);
     } catch (error) {
       // A failed bienvenida answer must not cost the escalera its step.
       console.error(`bienvenida: answer failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-    return receiveMensaje({ store, llm: ports.llm, whatsapp: canal, voice: ports.voice, db: ports.db }, input);
+    const move = await receiveMensaje({ store, llm: ports.llm, whatsapp: canal, voice: ports.voice, db: ports.db }, input);
+    // Something of her answer was kept: Luna says so, instead of going quiet.
+    if (respuestas !== null && Object.keys(respuestas).length > 0) await confirmarBienvenida();
+    return move;
+  };
+  const confirmarBienvenida = async () => {
+    const patricia = store.getPatricia();
+    const proxima = proximaCita(clock.now(), patricia, (fecha) => store.citaOn(fecha));
+    const text = confirmacionBienvenida(patricia.nombre, proxima);
+    try {
+      const { id } = await canal.send({ kind: "text", text });
+      store.recordDecision({ tipo: "mensaje", motivo: "confirmó lo que respondió a la bienvenida", datos: { text, whatsappId: id } });
+    } catch (error) {
+      console.error(`bienvenida: confirmación send failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
   const pollMail = async () => {
     // Gmail is read only while Patricia's «Permitir» stands; /demo injection is not gated.

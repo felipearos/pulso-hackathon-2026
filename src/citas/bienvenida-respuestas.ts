@@ -2,6 +2,7 @@ import { HAIKU_MODEL } from "../claude-cli";
 import type { Store } from "../patricia/store";
 import type { Llm } from "../ports";
 import { VOZ_OTRA, type Voz } from "../voice/voces";
+import type { ProximaCita } from "./scheduler";
 
 /** What Patricia answered to the bienvenida; a field is present only when she said it. */
 export type RespuestasBienvenida = { nombre?: string; hora?: string; voz?: Voz };
@@ -145,6 +146,19 @@ export async function recibirRespuestaBienvenida(
     datos: { text, respuestas },
   });
   return respuestas;
+}
+
+/** The cita days Luna names in the confirmación; any other tipo falls back to no day. */
+const DIAS: Partial<Record<ProximaCita["tipo"], string>> = { lunes: "lunes", jueves: "jueves", domingo: "domingo" };
+
+/**
+ * What Luna writes back once she kept Patricia's answer to the bienvenida, so
+ * the answer is not met with silence: her nombre and when Luna speaks next.
+ */
+export function confirmacionBienvenida(nombre: string, proxima: ProximaCita | null): string {
+  const dia = proxima ? DIAS[proxima.tipo] : undefined;
+  if (proxima === null || dia === undefined) return `Anotado, ${nombre}. Gracias por contarme.`;
+  return `Anotado, ${nombre}. Nos hablamos el ${dia} a las ${proxima.hora}.`;
 }
 
 /** True once she said in the bienvenida how she likes to be called. */
