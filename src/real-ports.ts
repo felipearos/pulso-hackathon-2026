@@ -10,6 +10,8 @@ import { createWhatsAppCloud } from "./whatsapp-cloud";
 import { createGmailAccount } from "./mail/gmail-oauth";
 import { createGmailMail } from "./mail/gmail";
 import { withSampleDocuments } from "./mail/samples";
+import { dirname, join } from "node:path";
+import { createReplayCache } from "./replay-cache";
 
 type Env = Record<string, string | undefined>;
 
@@ -41,7 +43,12 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
   const db = openDatabase(databasePath(env));
   const account = createGmailAccount({ db, env, clock: systemClock, fetch: options.fetch as typeof fetch | undefined });
   const mail = createGmailMail({ account, fetch: options.fetch as typeof fetch | undefined });
-  return {
+  // Next to Patricia's base, so a deploy keeps what a rehearsal stored. Off for
+  // an in-memory base, which has no folder, and with REPLAY_CACHE=0.
+  const path = databasePath(env);
+  const replay =
+    env.REPLAY_CACHE === "0" || path === ":memory:" ? null : createReplayCache(join(dirname(path), "replay"), options.log);
+  const ports: Ports = {
     clock: systemClock,
     mail,
     // The whatsapp, llm and voice ports are also real clients.
@@ -64,4 +71,6 @@ export function realPorts(env: Env = process.env, options: { fetch?: Fetch; log?
     web: withSampleDocuments(createHttpWeb({ fetch: options.fetch })),
     db,
   };
+  if (replay === null) return ports;
+  return { ...ports, llm: replay.llm(ports.llm), voice: replay.voice(ports.voice) };
 }

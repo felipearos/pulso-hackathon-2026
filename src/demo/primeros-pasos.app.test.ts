@@ -88,6 +88,8 @@ describe("the primeros pasos app flow", () => {
     await app.drain();
     expect(llm.calls.some(({ prompt }) => prompt.includes("Respuesta de Patricia a la bienvenida"))).toBe(true);
     await expectHechos(app, ["saludo", "bienvenida", "respuesta"]);
+    const decisions = (await readState(app)).text;
+    expect(decisions).toContain("confirmó lo que respondió a la bienvenida");
 
     const start = await app.handle(new Request("http://localhost/permitir"));
     expect(start.status).toBe(302);
