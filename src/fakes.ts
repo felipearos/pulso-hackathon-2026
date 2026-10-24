@@ -106,7 +106,8 @@ export class FakeMail implements Mail {
     });
     this.pending = [];
     return drained.map((m) => {
-      if (!m.adjuntos || suspiciousReason(m, { senderAllowed: allowedSender(m.from) !== null }) === null) return m;
+      const senderAllowed = allowedSender(m.from) !== null;
+      if (!m.adjuntos || suspiciousReason(m, { senderAllowed }) === null) return m;
       const { adjuntos: _, ...rest } = m;
       return rest;
     });

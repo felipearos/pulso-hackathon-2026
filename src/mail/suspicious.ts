@@ -14,9 +14,12 @@ const SECRET_PATTERNS = [
 ];
 
 // An allowed sender explaining how to open an attached file defines its password as her RUT
-// («usa como contraseña tu RUT», «la clave son los primeros 4 dígitos de tu RUT»). Those phrases
-// are dropped before the secret check; a request verb inside them keeps them in.
+// («usa como contraseña tu RUT», «la clave son los primeros 4 dígitos de tu RUT»). Such a phrase
+// is dropped before the secret check only when its sentence or the one before names the file,
+// and nothing left in its sentence asks for something or sends her to log in elsewhere.
 const FILE = /\b(?:pdf|archivo|adjunto|documento)\b/;
+const ASKS = new RegExp(ASK);
+const ELSEWHERE = /\b(?:entra|entrar|ingresar|accede|acceder|sucursal|sitio|pagina|web|app|aplicacion|portal|enlace|link)\b/;
 const FILE_PASSWORD_PATTERNS = [
   /\b(?:usa|use|utiliza|utilice)\s+como\s+(?:clave|contrasena)\s+(?:tu|su)\s+(?:numero\s+de\s+)?rut\b/g,
   new RegExp(
@@ -26,8 +29,14 @@ const FILE_PASSWORD_PATTERNS = [
 ];
 
 function withoutFilePassword(content: string): string {
-  if (!FILE.test(content)) return content;
-  return FILE_PASSWORD_PATTERNS.reduce((text, pattern) => text.replace(pattern, " "), content);
+  const sentences = content.split(/(?<=[.!?\n])/);
+  return sentences
+    .map((sentence, index) => {
+      if (!FILE.test(sentence) && !FILE.test(sentences[index - 1] ?? "")) return sentence;
+      const stripped = FILE_PASSWORD_PATTERNS.reduce((text, pattern) => text.replace(pattern, " "), sentence);
+      return ASKS.test(stripped) || ELSEWHERE.test(stripped) ? sentence : stripped;
+    })
+    .join("");
 }
 
 function normalize(text: string): string {

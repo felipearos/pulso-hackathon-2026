@@ -102,6 +102,9 @@ describe("suspiciousReason", () => {
     "Verifica tu cuenta",
     "Usa tu clave de internet para entrar a la sucursal",
     `${PDF_PASSWORD} Ingresa tu RUT aquí para continuar.`,
+    "Ingresa a bancoficticio.example/acceso y usa como clave tu RUT. Te enviamos el PDF adjunto.",
+    "Digita en el sitio: la clave son los 4 dígitos de tu RUT. Documento adjunto.",
+    "Entra a la sucursal virtual y usa como clave tu RUT, el PDF adjunto lo explica.",
   ])("still flags a data request from an allowed sender: %p", (text) => {
     expect(suspiciousReason({ subject: "Tu estado de cuenta", text, links: [] }, allowed)).toBe(DATA_REQUEST);
   });
