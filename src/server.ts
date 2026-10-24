@@ -7,6 +7,8 @@ export interface Deps {
   demoPage: Blob;
   /** Luna's front door, served on `/`. */
   landingPage: Blob;
+  /** The pitch deck, served on `/presentacion`. */
+  pitchDeck?: Blob;
   /** Answers `/empezar` when there is no entrada link to send it to. */
   soonPage: Blob;
   /** The wa.me chat with Luna that `/empezar` redirects to; unset, it shows the coming-soon page. */
@@ -64,6 +66,7 @@ export function createHandler(deps: Deps): (request: Request) => Promise<Respons
     if (request.method === "GET") {
       if (pathname === "/health") return Response.json({ status: "ok" });
       if (pathname === "/") return new Response(deps.landingPage, { headers: HTML });
+      if (pathname === "/presentacion" && deps.pitchDeck) return new Response(deps.pitchDeck, { headers: HTML });
       if (pathname === START_PATH) {
         if (deps.entradaLink) return Response.redirect(deps.entradaLink, 302);
         return new Response(deps.soonPage, { headers: HTML });

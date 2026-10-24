@@ -42,6 +42,7 @@ function app(
   const handle = createHandler({
     demoPage: new Blob(["<h1>Luna · sala de control</h1>"]),
     landingPage: new Blob(["<h1>Mira tus cuentas sin angustia.</h1>"]),
+    pitchDeck: new Blob(["<title>Luna · Mac mini winners</title>"]),
     soonPage: new Blob(["<h1>Esto está por llegar.</h1>"]),
     entradaLink,
     landingImages: { "taza-te.webp": new Blob(["webp"]) },
@@ -81,6 +82,13 @@ describe("handle", () => {
     expect(page.status).toBe(200);
     expect(page.headers.get("Content-Type")).toContain("text/html");
     expect(await page.text()).toContain("Mira tus cuentas sin angustia.");
+  });
+
+  test("serves the pitch deck at /presentacion", async () => {
+    const page = await app().get("/presentacion");
+    expect(page.status).toBe(200);
+    expect(page.headers.get("Content-Type")).toContain("text/html");
+    expect(await page.text()).toContain("Luna · Mac mini winners");
   });
 
   test("sends «Empezar» to the WhatsApp chat with Luna", async () => {
