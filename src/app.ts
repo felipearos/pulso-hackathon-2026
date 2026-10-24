@@ -114,7 +114,23 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
   const receive = (mail: IncomingMail) =>
     receiveMail(store, ports.llm, mail, (fn) => ports.db.transaction(fn)());
   const web = ports.web ?? noWeb;
-  const extract = (mail: IncomingMail) => extractEstadoDeCuenta({ store, llm: ports.llm, db: ports.db, web }, mail);
+  // A mail whose PDF did not open is closed for good, and two calls on one mail share one run.
+  const cerrados = new Set<string>();
+  const enCurso = new Map<string, Promise<Extraccion | null>>();
+  const extract = (mail: IncomingMail): Promise<Extraccion | null> => {
+    if (cerrados.has(mail.id)) return Promise.resolve(null);
+    const inFlight = enCurso.get(mail.id);
+    if (inFlight !== undefined) return inFlight;
+    const run = extractEstadoDeCuenta({ store, llm: ports.llm, db: ports.db, web }, mail)
+      .then((result) => {
+        if (result !== "cerrado") return result;
+        cerrados.add(mail.id);
+        return null;
+      })
+      .finally(() => enCurso.delete(mail.id));
+    enCurso.set(mail.id, run);
+    return run;
+  };
   // fetchNew hands each mail over once, so an S1 Claude could not read, or an
   // S2 whose link could not be read, is kept here and read again on the next
   // tick instead of being lost. An S2 with no allowed link never will be, and
@@ -131,7 +147,7 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     return intentos < MAX_INTENTOS_S2;
   };
   const extractOrKeep = async (mail: IncomingMail) => {
-    if ((await extract(mail)) === null && retryable(mail)) porLeer.set(mail.id, mail);
+    if ((await extract(mail)) === null && !cerrados.has(mail.id) && retryable(mail)) porLeer.set(mail.id, mail);
     else {
       porLeer.delete(mail.id);
       intentosS2.delete(mail.id);
@@ -280,7 +296,12 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
       clock.set(at);
       return tickNow();
     });
-  const reset = () => inTurn(() => resetPatricia(ports.db, clock));
+  // Back at the starting point, a mail closed before the reset can be read again.
+  const reset = () =>
+    inTurn(() => {
+      cerrados.clear();
+      return resetPatricia(ports.db, clock);
+    });
   // A text import hands over the file's contents; Bun's types only know the HTML-bundle import.
   const controlPageText = controlPage as unknown as string;
   const demo = createDemoRoutes({

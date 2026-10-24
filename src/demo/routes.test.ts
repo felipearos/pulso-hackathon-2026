@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { proximaCita } from "../citas/scheduler";
 import { santiagoParts } from "../clock/santiago";
-import { PATRICIA_START } from "../patricia/fixtures";
+import { PATRICIA_RUT_FICTICIO, PATRICIA_START } from "../patricia/fixtures";
 import type { App } from "../app";
 import type { TipoSenal } from "../patricia/entities";
 import { createTestApp, type TestApp } from "../testing";
@@ -225,7 +225,16 @@ describe("/sala sample mails", () => {
   });
 
   test("the bank sample's estado de cuenta is read as tick reads it", async () => {
-    const { app, llm } = createMailApp();
+    const testApp = createTestApp({
+      demoToken: TOKEN,
+      llm: [
+        ["Texto del correo del banco:", JSON.stringify({ regla: "rut-sin-dv", n: null })],
+        ["Estado de cuenta:", JSON.stringify(BANCO_REPLY)],
+      ],
+    });
+    const { app, llm } = testApp;
+    // Its PDF opens with the clave the bank's mail names, made from her RUT.
+    app.store.updatePatricia({ rut: PATRICIA_RUT_FICTICIO });
     await post(app, "/sala/correos/banco");
     expect(llm.calls.some((call) => call.prompt.includes("Estado de cuenta:"))).toBe(true);
     expect(app.store.extraccionForMail("muestra-banco-estado")).not.toBeNull();

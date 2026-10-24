@@ -33,6 +33,17 @@ The decision (`callar-cifra`) Luna records for each figure the extracción
 did not find: she keeps it to herself instead of guessing it.
 _Avoid:_ "missing value", "default".
 
+## Clave del estado de cuenta
+
+The password the bank locks its estado de cuenta PDF with. Luna reads the
+rule from the bank's own mail (`leerReglaDeClave`: RUT sin dígito
+verificador, con él, primeros o últimos n dígitos, or sin clave) and makes
+the one clave it names from Patricia's RUT (`claveDesdeRut`). She never
+tries another and never stores it. When the PDF does not open she records
+one `no-abre-estado-de-cuenta` decision saying why, closes that mail, and
+the cita goes out without its cifras, as when she calla una cifra.
+_Avoid:_ "contraseña" in code, "password guessing".
+
 ## Pago mínimo
 
 The minimum payment the statement asks for. Paying exactly it is how she
