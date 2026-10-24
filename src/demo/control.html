@@ -93,6 +93,7 @@
   #metricas li:not(.vacio) { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
   #metricas li > .meta { text-align: left; }
   #decisiones li, #correos li, #citas li, #etapas li { font-size: 13px; }
+  .primeros-pasos { padding: 4px 16px 16px; border-bottom: 1px solid var(--borde); }
   #correos li.sospechoso {
     padding: 6px 8px;
     border: 1px solid var(--rojo);
@@ -130,6 +131,11 @@
   <a id="simulador-aviso" href="/sala/old" hidden>Simulador activo: Luna no le escribe al teléfono. Apágalo en /sala/old</a>
   <div id="estado" role="status"></div>
 </header>
+
+<section class="primeros-pasos">
+  <h2>Primeros pasos</h2>
+  <ul id="primeros-pasos"></ul>
+</section>
 
 <main>
   <section class="columna">
@@ -210,6 +216,68 @@
     list.append(...rows);
   }
 
+  function renderPrimerosPasos(steps) {
+    const rows = (Array.isArray(steps) ? steps : []).map((step) => {
+      const li = document.createElement("li");
+      const status = document.createElement("span");
+      status.className = "meta";
+      status.textContent = step.hecho ? "✓" : "○";
+      const title = document.createElement("span");
+      title.className = "meta";
+      title.textContent = step.titulo;
+      li.append(status, title);
+
+      if (step.at !== null) {
+        const time = document.createElement("span");
+        time.className = "meta";
+        time.textContent = shortTime.format(new Date(step.at));
+        li.append(time);
+      }
+
+      if (step.id === "permitir" && step.detalle !== null) {
+        const separator = step.detalle.indexOf(" · ");
+        if (separator !== -1) {
+          const link = document.createElement("a");
+          link.href = step.detalle.slice(0, separator);
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = step.detalle.slice(0, separator);
+          const rest = document.createElement("span");
+          rest.textContent = ` · ${step.detalle.slice(separator + 3)}`;
+          li.append(document.createTextNode(" · "), link, rest);
+        } else {
+          const detail = document.createElement("span");
+          detail.textContent = ` · ${step.detalle}`;
+          li.append(detail);
+        }
+      } else if (step.detalle !== null) {
+        const detail = document.createElement("span");
+        detail.textContent = ` · ${step.detalle}`;
+        li.append(detail);
+      }
+
+      if (step.id === "saludo" && !step.hecho) {
+        const link = document.createElement("a");
+        link.href = $("qr-entrada").href;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = "Abrir QR de entrada";
+        li.append(document.createTextNode(" · "), link);
+      }
+      if (step.id === "bienvenida" && !step.hecho) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = "Enviar bienvenida";
+        button.disabled = busy;
+        button.addEventListener("click", () =>
+          call("POST", "/sala/momentos/lun-2230", "Enviar bienvenida"));
+        li.append(document.createTextNode(" · "), button);
+      }
+      return li;
+    });
+    $("primeros-pasos").replaceChildren(...rows);
+  }
+
   function cifraText(cifra) {
     if (cifra.kind === "pago-minimo") return `pago mínimo ${peso(cifra.monto)}`;
     if (cifra.kind === "salida") return `salida en ${cifra.meses} meses, cuota ${peso(cifra.cuota)}`;
@@ -241,6 +309,7 @@
     $("reloj").textContent = fullTime.format(new Date(state.now));
     $("reloj-tipo").textContent = state.relojReal ? "Reloj real" : "Reloj de la demo";
     $("etapa").textContent = state.etapa === "graduada" ? "Etapa: graduada" : `Etapa ${state.etapa}`;
+    renderPrimerosPasos(state.primerosPasos);
 
     // Rebuild the momento buttons only when the guion changes.
     const guionKey = JSON.stringify(state.guion);

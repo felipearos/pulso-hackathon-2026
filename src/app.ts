@@ -15,7 +15,7 @@ import type { EtapaMove } from "./escalera/policy";
 import { receiveMensaje, type MensajeInput } from "./escalera/respuesta";
 import { extractEstadoDeCuenta, linkDelEstadoDeCuenta } from "./mail/estado-de-cuenta";
 import { receiveMail } from "./mail/ingest";
-import { createPermitir, DEFAULT_PUBLIC_BASE_URL } from "./mail/permitir";
+import { createPermitir, DEFAULT_PUBLIC_BASE_URL, permitirUrl } from "./mail/permitir";
 import { allowedSenderDomains } from "./mail/senders";
 import type { Extraccion, Senal } from "./patricia/entities";
 import { resetPatricia } from "./patricia/fixtures";
@@ -98,6 +98,8 @@ export type AppOptions = {
   entradaPhone?: string;
   /** The public base the jurado QR points at (`PUBLIC_BASE_URL`); defaults to the Funnel URL. */
   publicBaseUrl?: string;
+  /** Whether `GMAIL_LOGIN_HINT` is set; the sala only learns whether, never the address. */
+  gmailLoginHint?: boolean;
 };
 
 /**
@@ -311,6 +313,8 @@ export function createApp(ports: Ports, options: AppOptions = {}): App {
     token: options.demoToken,
     clock,
     store,
+    permitirUrl: permitirUrl({ PUBLIC_BASE_URL: options.publicBaseUrl }),
+    gmailLoginHint: options.gmailLoginHint ?? false,
     tick,
     tickAt,
     reset,
