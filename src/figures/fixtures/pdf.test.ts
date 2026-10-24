@@ -3,6 +3,8 @@ import { extractText, getDocumentProxy } from "unpdf";
 import { normalizeRut } from "../../mail/rut";
 import { PATRICIA_RUT_FICTICIO } from "../../patricia/fixtures";
 import { ESTADO_DE_CUENTA_8_TEXTO } from "./estado-de-cuenta-8";
+import { ESTADO_DE_CUENTA_9_TEXTO } from "./estado-de-cuenta-9";
+import { ESTADO_DE_CUENTA_TIENDA_TEXTO } from "./estado-de-cuenta-tienda";
 import { estadoDeCuenta8PdfCifrado } from "./pdf";
 
 /** The bank's rule: «tu RUT sin guión ni dígito verificador». */
@@ -13,8 +15,10 @@ describe("Patricia's fictional RUT", () => {
     expect(normalizeRut(PATRICIA_RUT_FICTICIO)).toBe(PATRICIA_RUT_FICTICIO);
   });
 
-  test("never appears among the estado de cuenta 8's digits", () => {
-    expect(ESTADO_DE_CUENTA_8_TEXTO.replace(/\D/g, "")).not.toContain(CLAVE);
+  test("never appears among the estados de cuenta's digits", () => {
+    for (const texto of [ESTADO_DE_CUENTA_8_TEXTO, ESTADO_DE_CUENTA_9_TEXTO, ESTADO_DE_CUENTA_TIENDA_TEXTO]) {
+      expect(texto.replace(/\D/g, "")).not.toContain(CLAVE);
+    }
   });
 });
 

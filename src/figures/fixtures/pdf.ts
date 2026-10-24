@@ -49,7 +49,7 @@ function pdfDeTexto(texto: string, clave?: string): Uint8Array {
   const objects: Uint8Array[][] = [
     [latin1("<< /Type /Catalog /Pages 2 0 R >>")],
     [latin1("<< /Type /Pages /Kids [3 0 R] /Count 1 >>")],
-    [latin1("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>")],
+    [latin1(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents ${contentObject} 0 R /Resources << /Font << /F1 5 0 R >> >> >>`)],
     [latin1(`<< /Length ${stream.length} >>\nstream\n`), stream, latin1("\nendstream")],
     [latin1("<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>")],
   ];

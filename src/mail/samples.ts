@@ -14,8 +14,7 @@ export const SAMPLE_BANCO: IncomingMail = {
   id: "muestra-banco-estado",
   from: "Banco Ficticio <avisos@bancoficticio.example>",
   subject: "Tu estado de cuenta de octubre está disponible",
-  // The bank sends only a notice: the figures of the 8th are in the encrypted PDF attached,
-  // which the S1 reader opens with her RUT in a later ticket.
+  // The bank sends only a notice: the figures of the 8th are in the encrypted PDF attached.
   // No verb such as «usa» near «contraseña»: suspiciousReason would mark the bank's own mail S7.
   text: [
     "Estimado(a) PATRICIA SOTO:",
