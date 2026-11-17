@@ -33,7 +33,8 @@
   "coderFragment": ".ralph/coder.md",
   "plan": ".ralph/plan.md",
   "journal": {
-    "dir": "journal/pulso-hackathon-2026"
+    "dir": "journal/pulso-hackathon-2026",
+    "branch": "ralph-journal"
   },
   "ciDoctor": {
     "fixScope": [
