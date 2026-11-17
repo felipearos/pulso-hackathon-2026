@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { allowedSenderDomains, allowedSender, type SenderKind } from "./senders";
+import { allowedSenderDomains, allowedSender, demoSenders, type SenderKind } from "./senders";
 
 describe("allowedSender", () => {
   test.each<[string, SenderKind]>([
@@ -42,4 +42,14 @@ test("allowedSenderDomains lists the three allowed domains", () => {
     "tiendaplaza.example",
     "catalogoejemplo.example",
   ]);
+});
+
+describe("demo senders", () => {
+  test("allow a whole address from DEMO_SENDERS as its kind, never its whole domain", () => {
+    const env = { DEMO_SENDERS: "Ana@Example.com=banco, juan@example.com=tienda, malo@example.com=otro" };
+    expect(demoSenders(env)).toEqual([
+      { domain: "example.com", kind: "banco", address: "ana@example.com" },
+      { domain: "example.com", kind: "tienda", address: "juan@example.com" },
+    ]);
+  });
 });
